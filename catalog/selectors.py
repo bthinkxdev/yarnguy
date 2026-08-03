@@ -29,6 +29,7 @@ PLP_CARD_FIELDS: tuple[str, ...] = (
     "slug",
     "sku",
     "base_price",
+    "mrp",
     "color",
     "is_featured",
     "is_bestseller",
@@ -574,10 +575,13 @@ def get_variant_price(
     elif hasattr(product, 'stock_quantity'):
         is_in_stock = product.stock_quantity > 0
 
+    mrp = product.mrp
+
     if variant_id:
         variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
         if variant:
             retail_price = variant.base_price
+            mrp = variant.mrp
             resolved_variant_id = variant.pk
             is_in_stock = variant.stock_quantity > 0
 
@@ -594,6 +598,8 @@ def get_variant_price(
         "is_flash_sale": str(sale["is_flash_sale"]).lower(),
         "is_in_stock": is_in_stock,
         "stock_quantity": getattr(variant, 'stock_quantity', getattr(product, 'stock_quantity', 0)) if variant_id else getattr(product, 'stock_quantity', 0),
+        "mrp": str(mrp) if mrp else "",
+        "has_mrp_discount": "true" if mrp and mrp > retail_price else "false",
     }
     if sale["is_flash_sale"]:
         result["original_price"] = str(sale["original_price"])

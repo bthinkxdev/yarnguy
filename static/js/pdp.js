@@ -28,6 +28,16 @@
               elPriceValue.textContent = symbol + ' ' + parseFloat(data.price).toFixed(2).replace(/\.00$/, '');
             }
 
+            var elMrp = document.getElementById('pdp-price-mrp');
+            if (elMrp) {
+              if (data.is_flash_sale !== 'true' && data.has_mrp_discount === 'true' && data.mrp) {
+                elMrp.textContent = symbol + ' ' + parseFloat(data.mrp).toFixed(2).replace(/\.00$/, '');
+                elMrp.style.display = 'inline';
+              } else {
+                elMrp.style.display = 'none';
+              }
+            }
+
             if (retailContainer) {
               if (data.is_tier_active === 'true') {
                 retailContainer.classList.remove("d-none");

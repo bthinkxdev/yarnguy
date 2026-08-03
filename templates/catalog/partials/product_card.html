@@ -115,6 +115,11 @@
       <p class="product-price mb-0">
         {% money_label product.display_price|default:product.base_price display_currency %}
       </p>
+      {% if product.mrp and product.mrp > product.base_price %}
+      <p class="jm-product-card__was mb-0">
+        <span class="text-decoration-line-through text-muted">{% money_label product.mrp display_currency %}</span>
+      </p>
+      {% endif %}
       {% endif %}
     </div>
 

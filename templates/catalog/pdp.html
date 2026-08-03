@@ -31,6 +31,10 @@
         <p class="pdp-price jm-pdp-buybox__price" id="pdp-price">
           {% if price_data.is_flash_sale == "true" %}
           <span class="was" id="pdp-price-original">{% money_label price_data.original_price display_currency %}</span>
+          {% elif price_data.has_mrp_discount == "true" %}
+          <span class="was" id="pdp-price-mrp" style="text-decoration: line-through; margin-right: 8px;">{% money_label price_data.mrp display_currency %}</span>
+          {% else %}
+          <span class="was" id="pdp-price-mrp" style="text-decoration: line-through; margin-right: 8px; display: none;"></span>
           {% endif %}
           <span id="pdp-price-value">{% money_label price_data.price display_currency %}</span>
         </p>
