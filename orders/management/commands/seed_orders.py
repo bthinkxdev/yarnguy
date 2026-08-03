@@ -21,7 +21,6 @@ from cart.services import add_to_cart, apply_coupon
 from catalog.models import Product, ProductVariant, VariantType
 from checkout.services import create_checkout_session, place_order, update_checkout_session
 from core.selectors import get_default_currency
-from delivery.models import City
 from marketing.models import Coupon, CouponDiscountType
 from orders.exceptions import InvalidOrderStatusTransitionError
 from orders.models import Order, OrderStatus, OrderStatusHistory, ProofOfDelivery
@@ -78,8 +77,7 @@ class Command(BaseCommand):
 
         self.stdout.write("Setting up prerequisites (stock, slots, customers)...")
         self._ensure_stock(products)
-        city = self._ensure_city()
-        customers = self._ensure_customers(city)
+        customers = self._ensure_customers()
         self._ensure_coupons()
 
         self.stdout.write("Placing orders...")
@@ -144,21 +142,6 @@ class Command(BaseCommand):
     def _ensure_stock(self, products: list[Product]) -> None:
         Product.objects.filter(is_active=True).update(stock_quantity=250, low_stock_threshold=5)
 
-    def _ensure_city(self) -> City:
-        city = City.objects.filter(is_active=True).first()
-        if city is None:
-            from delivery.models import Country
-
-            country = Country.objects.first()
-            city = City.objects.create(
-                country=country,
-                name="Doha",
-                slug="doha",
-                delivery_charge_base=Decimal("25.00"),
-                same_day_cutoff_hour=14,
-            )
-        return city
-
     def _ensure_variant(self, product: Product) -> ProductVariant:
         variant, _ = ProductVariant.objects.get_or_create(
             product=product,
@@ -175,7 +158,7 @@ class Command(BaseCommand):
             variant.save(update_fields=["stock_quantity", "updated_at"])
         return variant
 
-    def _ensure_customers(self, city: City) -> list[CustomerProfile]:
+    def _ensure_customers(self) -> list[CustomerProfile]:
         specs = [
             ("aisha", "Aisha Rahman", "+97455500001"),
             ("omar", "Omar Khalid", "+97455500002"),
@@ -200,7 +183,7 @@ class Command(BaseCommand):
                 defaults={
                     "line1": f"{self.rng.randint(1, 99)} Pearl Street",
                     "line2": "Villa 12",
-                    "city": city,
+                    "city": "Doha",
                     "is_default": True,
                 },
             )

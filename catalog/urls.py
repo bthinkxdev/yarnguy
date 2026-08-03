@@ -18,11 +18,7 @@ urlpatterns = [
         views.variant_price_view,
         name="variant-price",
     ),
-    path(
-        "products/<int:product_id>/delivery-estimate/",
-        views.delivery_estimate_view,
-        name="delivery-estimate",
-    ),
+
     path("category/<slug:category_slug>/", views.plp_view, name="plp-category"),
     path("", views.plp_view, name="plp"),
 ]

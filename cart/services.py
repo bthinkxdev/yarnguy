@@ -200,19 +200,6 @@ def remove_coupon(*, cart: Cart) -> Cart:
     cart.save(update_fields=["coupon_code", "coupon_discount", "updated_at"])
     return cart
 
-@transaction.atomic
-def recalculate_delivery_charge(*, cart: Cart, destination_city: City) -> Cart:
-    """Persist delivery charge for a destination city via delivery selector."""
-    summary = get_cart_summary(cart=cart)
-    charge = get_delivery_charge(
-        item_count=summary.item_count,
-        destination_city=destination_city,
-    )
-    cart.destination_city = destination_city
-    cart.delivery_charge = charge
-    cart.save(update_fields=["destination_city", "delivery_charge", "updated_at"])
-    return cart
-
 
 def toggle_wishlist(*, request: HttpRequest, product_id: int) -> bool:
     """

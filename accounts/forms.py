@@ -214,9 +214,4 @@ class CustomerProfileEditForm(forms.Form):
     
     address_line1 = forms.CharField(max_length=255, label="Address Line 1", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     address_line2 = forms.CharField(max_length=255, label="Address Line 2", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
-    city_id = forms.ChoiceField(label="City", required=False, widget=forms.Select(attrs={"class": "form-select"}))
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        from delivery.models import City
-        self.fields["city_id"].choices = [("", "Select City")] + [(c.pk, c.name) for c in City.objects.filter(is_active=True)]
+    city = forms.CharField(label="City", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))

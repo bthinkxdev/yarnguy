@@ -33,14 +33,14 @@ def get_cart_for_request(*, request: HttpRequest) -> Optional[Cart]:
     if request.user.is_authenticated and hasattr(request.user, "customer_profile"):
         cart = (
             Cart.objects.filter(customer_profile=request.user.customer_profile)
-            .select_related("currency", "destination_city")
+            .select_related("currency")
             .first()
         )
 
     if cart is None:
         cart = (
             Cart.objects.filter(session_key=session_key)
-            .select_related("currency", "destination_city")
+            .select_related("currency")
             .first()
         )
 
@@ -81,7 +81,7 @@ def get_cart_by_id(*, cart_id: int) -> Optional[Cart]:
 
     Query guarantee: exactly 1 SELECT on cart_cart.
     """
-    return Cart.objects.filter(pk=cart_id).select_related("currency", "destination_city").first()
+    return Cart.objects.filter(pk=cart_id).select_related("currency").first()
 
 
 def get_cart_item_count(*, cart: Cart | None) -> int:
@@ -196,11 +196,6 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
             has_stock_issues = True
 
     delivery_charge = cart.delivery_charge
-    if cart.destination_city_id and delivery_charge == Decimal("0.00"):
-        delivery_charge = get_delivery_charge(
-            item_count=item_count,
-            destination_city=cart.destination_city,
-        )
 
     coupon_code = cart.coupon_code
     coupon_discount = Decimal("0.00")

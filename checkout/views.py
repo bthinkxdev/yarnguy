@@ -131,7 +131,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             guest_phone = request.POST.get("guest_phone", "").strip()
             guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
             guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
-            guest_city_id = request.POST.get("guest_city_id", "").strip()
+            guest_city = request.POST.get("guest_city", "").strip()
 
             errors = {}
             if not guest_name: 
@@ -154,7 +154,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                     errors["guest_phone"] = ["Enter a valid phone number."]
 
             if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
-            if not guest_city_id: errors["guest_city_id"] = ["City is required."]
+            if not guest_city: errors["guest_city"] = ["City is required."]
 
             if errors:
                 return render(
@@ -176,14 +176,14 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                 customer_profile=profile,
                 line1=guest_address_line1,
                 line2=guest_address_line2,
-                city_id=int(guest_city_id),
+                city=guest_city,
             ).first()
             if not address:
                 address = Address.objects.create(
                     customer_profile=profile,
                     line1=guest_address_line1,
                     line2=guest_address_line2,
-                    city_id=int(guest_city_id),
+                    city=guest_city,
                     label="Delivery Address"
                 )
                 
@@ -199,11 +199,11 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
         else:
             guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
             guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
-            guest_city_id = request.POST.get("guest_city_id", "").strip()
+            guest_city = request.POST.get("guest_city", "").strip()
 
             errors = {}
             if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
-            if not guest_city_id: errors["guest_city_id"] = ["City is required."]
+            if not guest_city: errors["guest_city"] = ["City is required."]
 
             if errors:
                 return render(
@@ -218,14 +218,14 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                 customer_profile=profile,
                 line1=guest_address_line1,
                 line2=guest_address_line2,
-                city_id=int(guest_city_id),
+                city=guest_city,
             ).first()
             if not address:
                 address = Address.objects.create(
                     customer_profile=profile,
                     line1=guest_address_line1,
                     line2=guest_address_line2,
-                    city_id=int(guest_city_id),
+                    city=guest_city,
                     label="Delivery Address"
                 )
             

@@ -100,8 +100,7 @@ def _serialize_address(address) -> dict[str, Any]:
         "label": address.label,
         "line1": address.line1,
         "line2": address.line2,
-        "city": address.city.name,
-        "city_id": address.city_id,
+        "city": address.city,
         "is_default": address.is_default,
     }
 
@@ -454,7 +453,7 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
         initial.update({
             "address_line1": address.line1,
             "address_line2": address.line2,
-            "city_id": address.city_id,
+            "city": address.city,
         })
         
     if request.method == "POST":
@@ -472,15 +471,15 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
             
             line1 = form.cleaned_data["address_line1"]
             if line1:
-                city_id = form.cleaned_data.get("city_id")
+                city = form.cleaned_data.get("city")
                 line2 = form.cleaned_data.get("address_line2", "")
                 
                 if address:
                     address.line1 = line1
                     address.line2 = line2
-                    if city_id:
-                        address.city_id = int(city_id)
-                    address.save(update_fields=["line1", "line2", "city_id", "updated_at"])
+                    if city:
+                        address.city = city
+                    address.save(update_fields=["line1", "line2", "city", "updated_at"])
                 else:
                     from accounts.models import Address
                     from accounts.services import set_default_address
@@ -488,7 +487,7 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
                         customer_profile=profile,
                         line1=line1,
                         line2=line2,
-                        city_id=int(city_id) if city_id else None,
+                        city=city if city else "",
                         label="Default Address"
                     )
                     set_default_address(customer_profile=profile, address_id=new_addr.pk)
@@ -529,7 +528,7 @@ def address_list_create_view(request: HttpRequest) -> HttpResponse:
         label=form.cleaned_data["label"],
         line1=form.cleaned_data["line1"],
         line2=form.cleaned_data.get("line2", ""),
-        city_id=form.cleaned_data["city"].pk,
+        city=form.cleaned_data.get("city", ""),
         is_default=form.cleaned_data.get("is_default", False),
     )
     return _success_response({"address": _serialize_address(address)}, status=201)
@@ -554,7 +553,7 @@ def address_detail_view(request: HttpRequest, address_id: int) -> HttpResponse:
         label=form.cleaned_data["label"],
         line1=form.cleaned_data["line1"],
         line2=form.cleaned_data.get("line2", ""),
-        city_id=form.cleaned_data["city"].pk,
+        city=form.cleaned_data.get("city", ""),
         is_default=form.cleaned_data.get("is_default", False),
     )
     address = get_address_by_id(address_id=address.pk, customer_profile=profile)

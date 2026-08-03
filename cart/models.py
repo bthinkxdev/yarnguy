@@ -49,14 +49,6 @@ class Cart(TimeStampedModel):
         default=0,
         verbose_name="Delivery charge",
     )
-    destination_city = models.ForeignKey(
-        "delivery.City",
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="carts",
-        verbose_name="Destination city",
-    )
 
     class Meta:
         verbose_name = "Cart"

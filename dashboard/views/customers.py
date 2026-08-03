@@ -46,7 +46,7 @@ def customer_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "nav_section": "customers",
         "page_title": str(profile),
         "profile": profile,
-        "addresses": profile.addresses.select_related("city").all(),
+        "addresses": profile.addresses.all(),
         "orders": profile.orders.order_by("-created_at")[:10],
     }
     return render(request, "dashboard/customers/detail.html", context)

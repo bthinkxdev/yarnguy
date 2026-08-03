@@ -26,11 +26,6 @@ from catalog.selectors import (
     record_product_view,
 )
 from core.seo import build_plp_canonical_url, build_product_json_ld, resolve_meta_title, seo_context
-from delivery.selectors import (
-    get_active_cities,
-    get_city_by_slug,
-    get_earliest_delivery_estimate,
-)
 
 
 def _parse_plp_filters(request: HttpRequest) -> dict:
@@ -150,18 +145,6 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     viewer_key = str(request.session.session_key or request.user.pk or "anon")
     record_product_view(viewer_key=viewer_key, product_id=product.pk)
 
-    city_slug = request.GET.get("city", "ernakulam")
-    destination_city = get_city_by_slug(slug=city_slug)
-    if not destination_city:
-        active_cities = get_active_cities()
-        destination_city = active_cities[0] if active_cities else None
-    delivery_estimate = None
-    if destination_city:
-        delivery_estimate = get_earliest_delivery_estimate(
-            product=product,
-            destination_city=destination_city,
-        )
-
 
     from core.services import get_site_settings
 
@@ -213,8 +196,7 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
         {
             "product": product,
             "price_data": price_data,
-            "delivery_estimate": delivery_estimate,
-            "cities": get_active_cities(),
+
             "whatsapp_number": site_settings.whatsapp_number,
             "is_in_cart": is_in_cart,
             "cart_item": cart_item,
@@ -297,23 +279,6 @@ def variant_price_view(request: HttpRequest, product_id: int) -> JsonResponse:
 
 
 @require_GET
-def delivery_estimate_view(request: HttpRequest, product_id: int) -> JsonResponse:
-    """JSON endpoint for delivery estimate widget on PDP."""
-    from catalog.selectors import get_products_by_ids
-
-    products = get_products_by_ids(product_ids=[product_id])
-    if not products:
-        raise Http404("Product not found")
-    product = products[0]
-    city_slug = request.GET.get("city", "ernakulam")
-    city = get_city_by_slug(slug=city_slug)
-    if city is None:
-        active_cities = get_active_cities()
-        city = active_cities[0] if active_cities else None
-    if city is None:
-        raise Http404("City not found")
-    estimate = get_earliest_delivery_estimate(product=product, destination_city=city)
-    return JsonResponse(estimate)
 
 
 @require_GET

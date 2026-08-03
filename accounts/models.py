@@ -129,10 +129,8 @@ class Address(TimeStampedModel):
         verbose_name="Address line 2",
         help_text="Apartment, floor, or additional directions.",
     )
-    city = models.ForeignKey(
-        "delivery.City",
-        on_delete=models.PROTECT,
-        related_name="addresses",
+    city = models.CharField(
+        max_length=120,
         verbose_name="City",
         help_text="Deliverable city for this address.",
     )

@@ -32,7 +32,7 @@ class AddressAdmin(admin.ModelAdmin):
     list_display = ("label", "customer_profile", "city", "is_default", "updated_at")
     list_filter = ("is_default", "city")
     search_fields = ("label", "line1", "customer_profile__user__email")
-    raw_id_fields = ("customer_profile", "city")
+    raw_id_fields = ("customer_profile",)
 
 
 @admin.register(SavedPaymentMethod)

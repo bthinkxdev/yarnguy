@@ -61,10 +61,10 @@
             </div>
             
             <div class="mb-4">
-              <label for="{{ form.city_id.id_for_label }}" class="form-label small fw-semibold">{% trans "City" %}</label>
-              {{ form.city_id }}
-              {% if form.city_id.errors %}
-              <div class="text-danger small mt-1">{{ form.city_id.errors.0 }}</div>
+              <label for="{{ form.city.id_for_label }}" class="form-label small fw-semibold">{% trans "City" %}</label>
+              {{ form.city }}
+              {% if form.city.errors %}
+              <div class="text-danger small mt-1">{{ form.city.errors.0 }}</div>
               {% endif %}
             </div>
 

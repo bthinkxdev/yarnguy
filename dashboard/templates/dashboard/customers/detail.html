@@ -25,7 +25,7 @@
         {% for addr in addresses %}
         <li class="list-group-item small">
           <strong>{{ addr.label }}</strong>{% if addr.is_default %} <span class="badge bg-primary-subtle text-primary">default</span>{% endif %}
-          <div class="text-muted">{{ addr.line1 }}{% if addr.line2 %}, {{ addr.line2 }}{% endif %}, {{ addr.city.name }}</div>
+          <div class="text-muted">{{ addr.line1 }}{% if addr.line2 %}, {{ addr.line2 }}{% endif %}, {{ addr.city }}</div>
         </li>
         {% empty %}<li class="list-group-item text-center text-secondary py-4">No saved addresses.</li>{% endfor %}
       </ul>

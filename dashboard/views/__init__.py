@@ -5,7 +5,6 @@ from dashboard.views import (  # noqa: F401
     catalog,
     cms,
     customers,
-    delivery,
     home,
     marketing,
     misc,

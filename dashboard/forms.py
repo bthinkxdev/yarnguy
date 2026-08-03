@@ -18,7 +18,7 @@ from catalog.models import (
 )
 from cms.models import BlogPost, FAQItem, HeroSlide, HomepageSection, Page, PolicyDocument
 from core.models import SiteSettings, Currency
-from delivery.models import City
+
 from marketing.models import Coupon, FlashSale, NewsletterSubscriber
 
 _DATE = forms.DateInput(attrs={"type": "date"})
@@ -397,21 +397,7 @@ class PolicyDocumentForm(SlugAutoMixin):
         self.fields["slug"].required = False
 
 
-class CityForm(SlugAutoMixin):
-    class Meta:
-        model = City
-        fields = [
-            "country",
-            "name",
-            "slug",
-            "delivery_charge_base",
-            "same_day_cutoff_hour",
-            "is_active",
-        ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["slug"].required = False
 
 
 

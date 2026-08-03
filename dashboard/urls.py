@@ -9,7 +9,6 @@ from dashboard.views import (
     catalog,
     cms,
     customers,
-    delivery,
     home,
     marketing,
     misc,
@@ -140,11 +139,5 @@ urlpatterns += _crud(
     cms.PolicyDocumentUpdateView,
     cms.PolicyDocumentDeleteView,
 )
-urlpatterns += _crud(
-    "city",
-    delivery.CityListView,
-    delivery.CityCreateView,
-    delivery.CityUpdateView,
-    delivery.CityDeleteView,
-)
+
 
