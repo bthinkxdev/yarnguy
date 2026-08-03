@@ -479,16 +479,8 @@
         </div>
       </div>
 
-      <div class="card mb-3">
-        <div class="card-header panel-header">
-          <h3 class="panel-title">Search engine listing</h3>
-        </div>
-        <div class="card-body">
-          {% include "dashboard/partials/_field.html" with field=form.meta_title %}
-          {% include "dashboard/partials/_field.html" with field=form.meta_description %}
-          {% include "dashboard/partials/_field.html" with field=form.og_image %}
-        </div>
-      </div>
+
+
     </div>
 
     <div class="col-12 col-xl-4">
@@ -509,6 +501,17 @@
             {% include "dashboard/partials/_field.html" with field=form.is_bestseller %}
             {% include "dashboard/partials/_field.html" with field=form.is_new_arrival %}
             {% include "dashboard/partials/_field.html" with field=form.is_featured %}
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header panel-header">
+            <h3 class="panel-title">Search engine listing</h3>
+          </div>
+          <div class="card-body">
+            {% include "dashboard/partials/_field.html" with field=form.meta_title %}
+            {% include "dashboard/partials/_field.html" with field=form.meta_description %}
+            {% include "dashboard/partials/_field.html" with field=form.og_image %}
           </div>
         </div>
 
