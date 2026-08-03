@@ -1,0 +1,432 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}{% if form_mode == "edit" %}Edit{% else %}Add{% endif %} Product{% endblock %}
+{% block page_title %}{% if form_mode == "edit" %}Edit Product{% else %}Add Product{% endif %}{% endblock %}
+{% block breadcrumbs %}<p class="mb-0 text-secondary">{% if form_mode == "edit" %}Update product details, variants and
+  images{% else %}Create a new product for your catalog{% endif %}</p>{% endblock %}
+
+{% block content %}
+<form method="post" enctype="multipart/form-data" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+
+  <div class="row g-3">
+    <div class="col-12 col-xl-8">
+      <div class="card mb-3">
+        <div class="card-header panel-header">
+          <h3 class="panel-title">Product details</h3>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-12">{% include "dashboard/partials/_field.html" with field=form.name %}</div>
+            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.sku %}</div>
+            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.slug %}</div>
+            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.category %}</div>
+            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.brand %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.base_price %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.mrp %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.purchase_price %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.color %}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3" data-formset="variants">
+        <div class="card-header panel-header">
+          <div>
+            <h3 class="panel-title">Variants</h3>
+            <p class="panel-sub">Size or packaging options with their own price &amp; stock</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
+              class="ti ti-plus me-1"></i>Add variant</button>
+        </div>
+        <div class="card-body p-0">
+          {{ variants.management_form }}
+          {% if variants.non_form_errors %}
+          <div class="alert alert-danger mx-3 mt-3 mb-0">{{ variants.non_form_errors|join:", " }}</div>
+          {% endif %}
+          <datalist id="variant-type-list">
+            {% for vtype in existing_variant_types %}
+            <option value="{{ vtype }}">{{ vtype }}</option>
+            {% endfor %}
+          </datalist>
+          <div class="table-responsive">
+            <table class="table repeater align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="d-none"></th>
+                  <th>Type</th>
+                  <th>Name</th>
+                  <th>Price delta</th>
+                  <th>SKU suffix</th>
+                  <th>Stock</th>
+                  <th class="text-center">Remove</th>
+                </tr>
+              </thead>
+              <tbody data-formset-body>
+                {% for vform in variants %}
+                <tr>
+                  <td class="d-none">{{ vform.id }}</td>
+                  <td>
+                    {{ vform.variant_type }}
+                    {% if vform.variant_type.errors %}<div class="text-danger small mt-1">{{ vform.variant_type.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.name }}
+                    {% if vform.name.errors %}<div class="text-danger small mt-1">{{ vform.name.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.price_delta }}
+                    {% if vform.price_delta.errors %}<div class="text-danger small mt-1">{{ vform.price_delta.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.sku_suffix }}
+                    {% if vform.sku_suffix.errors %}<div class="text-danger small mt-1">{{ vform.sku_suffix.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.stock_quantity }}
+                    {% if vform.stock_quantity.errors %}<div class="text-danger small mt-1">{{ vform.stock_quantity.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if vform.instance.pk %}
+                    <label class="form-check d-inline-flex m-0" title="Delete on save">{{ vform.DELETE }}</label>
+                    {% else %}
+                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove><i
+                        class="ti ti-trash"></i></button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <template data-formset-empty>
+            <tr>
+              <td class="d-none">{{ variants.empty_form.id }}</td>
+              <td>{{ variants.empty_form.variant_type }}</td>
+              <td>{{ variants.empty_form.name }}</td>
+              <td>{{ variants.empty_form.price_delta }}</td>
+              <td>{{ variants.empty_form.sku_suffix }}</td>
+              <td>{{ variants.empty_form.stock_quantity }}</td>
+              <td class="text-center"><button type="button" class="btn btn-icon btn-sm btn-light text-danger"
+                  data-row-remove><i class="ti ti-trash"></i></button></td>
+            </tr>
+          </template>
+        </div>
+      </div>
+
+      <div class="card mb-3" data-formset="images">
+        <div class="card-header panel-header">
+          <div>
+            <h3 class="panel-title">Images</h3>
+            <p class="panel-sub">Mark one image as primary for cards and rails</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
+              class="ti ti-plus me-1"></i>Add image</button>
+        </div>
+        <div class="card-body p-0">
+          {{ images.management_form }}
+          {% if images.non_form_errors %}
+          <div class="alert alert-danger mx-3 mt-3 mb-0">{{ images.non_form_errors|join:", " }}</div>
+          {% endif %}
+          <div class="table-responsive">
+            <table class="table repeater align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="d-none"></th>
+                  <th style="width:80px">Preview</th>
+                  <th>Image file</th>
+                  <th>Alt text</th>
+                  <th>Order</th>
+                  <th class="text-center">Primary</th>
+                  <th class="text-center">Remove</th>
+                </tr>
+              </thead>
+              <tbody data-formset-body>
+                {% for iform in images %}
+                <tr>
+                  <td class="d-none">{{ iform.id }}</td>
+                  <td>
+                    {% if iform.instance.pk and iform.instance.image %}<img src="{{ iform.instance.image.url }}"
+                      class="thumb" data-img-preview alt="">
+                    {% else %}<img src="" class="thumb d-none" data-img-preview alt="">{% endif %}
+                  </td>
+                  <td>
+                    {{ iform.image }}
+                    {% if iform.image.errors %}<div class="text-danger small mt-1">{{ iform.image.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ iform.alt_text }}
+                    {% if iform.alt_text.errors %}<div class="text-danger small mt-1">{{ iform.alt_text.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ iform.display_order }}
+                    {% if iform.display_order.errors %}<div class="text-danger small mt-1">{{ iform.display_order.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td class="text-center">
+                    {{ iform.is_primary }}
+                    {% if iform.is_primary.errors %}<div class="text-danger small mt-1">{{ iform.is_primary.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td class="text-center">
+                    {% if iform.instance.pk %}
+                    <label class="form-check d-inline-flex m-0" title="Delete on save">{{ iform.DELETE }}</label>
+                    {% else %}
+                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove><i
+                        class="ti ti-trash"></i></button>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <template data-formset-empty>
+            <tr>
+              <td class="d-none">{{ images.empty_form.id }}</td>
+              <td><img src="" class="thumb d-none" data-img-preview alt=""></td>
+              <td>{{ images.empty_form.image }}</td>
+              <td>{{ images.empty_form.alt_text }}</td>
+              <td>{{ images.empty_form.display_order }}</td>
+              <td class="text-center">{{ images.empty_form.is_primary }}</td>
+              <td class="text-center"><button type="button" class="btn btn-icon btn-sm btn-light text-danger"
+                  data-row-remove><i class="ti ti-trash"></i></button></td>
+            </tr>
+          </template>
+        </div>
+      </div>
+
+      <div class="card mb-3" data-formset="specifications">
+        <div class="card-header panel-header">
+          <div>
+            <h3 class="panel-title">Specifications</h3>
+            <p class="panel-sub">Technical details and attributes of the product (e.g. Dimensions, Weight)</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
+              class="ti ti-plus me-1"></i>Add specification</button>
+        </div>
+        <div class="card-body p-0">
+          {{ specifications.management_form }}
+          <div class="table-responsive">
+            <table class="table repeater align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="d-none"></th>
+                  <th>Specification Name</th>
+                  <th>Value</th>
+                  <th>Display Order</th>
+                  <th class="text-center">Remove</th>
+                </tr>
+              </thead>
+              <tbody data-formset-body>
+                {% for sform in specifications %}
+                <tr>
+                  <td class="d-none">
+                    {{ sform.id }}
+                    {% if sform.instance.pk %}{{ sform.DELETE }}{% endif %}
+                  </td>
+                  <td>
+                    {{ sform.name }}
+                    {% if sform.name.errors %}
+                    <div class="text-danger small mt-1">{{ sform.name.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {{ sform.value }}
+                    {% if sform.value.errors %}
+                    <div class="text-danger small mt-1">{{ sform.value.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {{ sform.display_order }}
+                    {% if sform.display_order.errors %}
+                    <div class="text-danger small mt-1">{{ sform.display_order.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove
+                      title="Remove Specification">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <template data-formset-empty>
+            <tr>
+              <td class="d-none">
+                {{ specifications.empty_form.id }}
+                {{ specifications.empty_form.DELETE }}
+              </td>
+              <td>{{ specifications.empty_form.name }}</td>
+              <td>{{ specifications.empty_form.value }}</td>
+              <td>{{ specifications.empty_form.display_order }}</td>
+              <td class="text-center">
+                <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove>
+                  <i class="ti ti-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </template>
+        </div>
+      </div>
+
+      <div class="card mb-3" data-formset="documents">
+        <div class="card-header panel-header">
+          <div>
+            <h3 class="panel-title">Manuals &amp; Documents</h3>
+            <p class="panel-sub">Downloadable user guides, booklets, and brochures (almost always PDF format)</p>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
+              class="ti ti-plus me-1"></i>Add manual/document</button>
+        </div>
+        <div class="card-body p-0">
+          {{ documents.management_form }}
+          <div class="table-responsive">
+            <table class="table repeater align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="d-none"></th>
+                  <th>Document Title</th>
+                  <th>PDF/Document File</th>
+                  <th>Display Order</th>
+                  <th class="text-center">View</th>
+                  <th class="text-center">Remove</th>
+                </tr>
+              </thead>
+              <tbody data-formset-body>
+                {% for dform in documents %}
+                <tr>
+                  <td class="d-none">
+                    {{ dform.id }}
+                    {% if dform.instance.pk %}{{ dform.DELETE }}{% endif %}
+                  </td>
+                  <td>
+                    {{ dform.title }}
+                    {% if dform.title.errors %}
+                    <div class="text-danger small mt-1">{{ dform.title.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if dform.instance.pk and dform.instance.document_file %}
+                    <div class="d-flex align-items-center mb-1 py-1" data-existing-file-container>
+                      <span class="small fw-semibold text-dark text-truncate" style="max-width: 250px;" data-file-label>
+                        <i class="ti ti-file-text me-1 text-secondary"></i>{{ dform.instance.filename }}
+                      </span>
+                      <button type="button" class="btn btn-xs btn-outline-primary ms-2" data-replace-file-btn
+                        style="padding: 2px 8px; font-size: 0.75rem;">Change</button>
+                      <div class="d-none">
+                        {{ dform.document_file }}
+                      </div>
+                    </div>
+                    <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Replace current document (PDF or
+                      Image).</span>
+                    {% else %}
+                    {{ dform.document_file }}
+                    <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Upload document (PDF or
+                      Image).</span>
+                    {% endif %}
+                    {% if dform.document_file.errors %}
+                    <div class="text-danger small mt-1">{{ dform.document_file.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {{ dform.display_order }}
+                    {% if dform.display_order.errors %}
+                    <div class="text-danger small mt-1">{{ dform.display_order.errors|join:", " }}</div>
+                    {% endif %}
+                  </td>
+                  <td class="text-center" data-view-container>
+                    {% if dform.instance.pk and dform.instance.document_file %}
+                    <a href="{{ dform.instance.document_file.url }}" target="_blank"
+                      class="btn btn-icon btn-sm btn-light text-info" data-view-btn title="View Document"><i
+                        class="ti ti-eye"></i></a>
+                    {% else %}
+                    <span class="text-muted small" data-view-placeholder>-</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-center">
+                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove
+                      title="Remove Document">
+                      <i class="ti ti-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <template data-formset-empty>
+            <tr>
+              <td class="d-none">
+                {{ documents.empty_form.id }}
+                {{ documents.empty_form.DELETE }}
+              </td>
+              <td>{{ documents.empty_form.title }}</td>
+              <td>
+                {{ documents.empty_form.document_file }}
+                <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Upload a PDF or Image.</span>
+              </td>
+              <td>{{ documents.empty_form.display_order }}</td>
+              <td class="text-center" data-view-container>
+                <span class="text-muted small" data-view-placeholder>-</span>
+              </td>
+              <td class="text-center">
+                <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove>
+                  <i class="ti ti-trash"></i>
+                </button>
+              </td>
+            </tr>
+          </template>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="card-header panel-header">
+          <h3 class="panel-title">Search engine listing</h3>
+        </div>
+        <div class="card-body">
+          {% include "dashboard/partials/_field.html" with field=form.meta_title %}
+          {% include "dashboard/partials/_field.html" with field=form.meta_description %}
+          {% include "dashboard/partials/_field.html" with field=form.og_image %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-xl-4">
+      <div class="sticky-sidebar">
+        <div class="card mb-3">
+          <div class="card-body d-grid gap-2">
+            <button type="submit" class="btn btn-primary"><i class="ti ti-device-floppy me-1"></i>Save Product</button>
+            <a href="{{ cancel_url }}" class="btn btn-light">Cancel</a>
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header panel-header">
+            <h3 class="panel-title">Status &amp; visibility</h3>
+          </div>
+          <div class="card-body">
+            {% include "dashboard/partials/_field.html" with field=form.is_active %}
+            {% include "dashboard/partials/_field.html" with field=form.is_bestseller %}
+            {% include "dashboard/partials/_field.html" with field=form.is_new_arrival %}
+            {% include "dashboard/partials/_field.html" with field=form.is_featured %}
+          </div>
+        </div>
+
+        <div class="card mb-3">
+          <div class="card-header panel-header">
+            <h3 class="panel-title">Inventory</h3>
+          </div>
+          <div class="card-body">
+            {% include "dashboard/partials/_field.html" with field=form.stock_quantity %}
+            {% include "dashboard/partials/_field.html" with field=form.low_stock_threshold %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% load i18n %}
+<div class="jm-pdp-gallery" data-jm-pdp-gallery>
+  <div class="jm-pdp-gallery__stage ratio ratio-1x1 zoom-container">
+    {% with primary=product.images.first %}
+    {% if primary %}
+    <img id="main-pdp-image"
+         class="jm-pdp-gallery__image zoom-image object-fit-contain"
+         src="{{ primary.image.url }}"
+         alt="{{ primary.alt_text|default:product.name }}"
+         width="800"
+         height="800"
+         fetchpriority="high">
+    {% endif %}
+    {% endwith %}
+  </div>
+  {% if product.images.all|length > 1 %}
+  <div class="jm-pdp-gallery__thumbs" role="list">
+    {% for image in product.images.all %}
+    <button type="button"
+            class="jm-pdp-gallery__thumb thumb-btn{% if forloop.first %} is-active active{% endif %}"
+            data-full="{{ image.image.url }}"
+            aria-label="{% trans 'View image' %} {{ forloop.counter }}"
+            role="listitem">
+      <img src="{{ image.image.url }}" alt="" width="72" height="72" class="object-fit-cover" loading="lazy">
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

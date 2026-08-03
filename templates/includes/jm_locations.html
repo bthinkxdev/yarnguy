@@ -1,0 +1,24 @@
+{% load i18n %}
+{# Single source of truth for storefront location copy. Pass compact=1 for footer. #}
+<div class="jm-locations{% if compact %} jm-locations--compact{% endif %}">
+  <div class="jm-locations__block">
+    <strong class="jm-locations__label">{% trans "Store location" %}</strong>
+    <p class="jm-locations__body">
+      Yarn Guy<br>
+      Aluva - Perumbavoor KSRTC Road, valiyyaveettil building<br>
+      683105 Aluva KL<br>
+      India<br>
+      <a href="tel:+919961170396">+91 9961170396</a>
+    </p>
+  </div>
+
+  {% if not compact %}
+  <div class="jm-locations__block">
+    <strong class="jm-locations__label">{% trans "Products" %}</strong>
+    <ul class="jm-locations__branches" role="list">
+      <li>{% trans "Premium Gym Wear" %}</li>
+      <li>{% trans "Activewear" %}</li>
+    </ul>
+  </div>
+  {% endif %}
+</div>

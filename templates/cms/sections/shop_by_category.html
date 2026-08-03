@@ -1,0 +1,35 @@
+{% load i18n %}
+<section class="jm-section jm-categories" id="jm-categories">
+  <div class="container">
+    <div class="jm-cat-scroll" aria-label="{% trans 'Shop by category' %}">
+      {% for category in section_context.categories %}
+      <a href="{% url 'catalog:plp-category' category_slug=category.slug %}" class="jm-cat-chip">
+        <span class="jm-cat-chip__icon" aria-hidden="true">
+          {% with slug=category.slug|lower name=category.name|lower %}
+          {% if "phone" in slug or "mobile" in name or "smartphone" in name %}
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="16" y="6" width="16" height="36" rx="3"/><path d="M22 38h4"/></svg>
+          {% elif "accessor" in slug or "case" in name or "charger" in name or "cable" in name %}
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 14h12v6H18z"/><path d="M22 20v14a2 2 0 0 0 4 0V20"/><path d="M16 10h16"/></svg>
+          {% elif "repair" in slug or "service" in name %}
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M30 10l8 8-16 16H14v-8L30 10z"/><path d="M26 14l8 8"/></svg>
+          {% elif "sim" in slug or "audio" in name or "computer" in name %}
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="10" y="12" width="28" height="20" rx="2"/><path d="M18 38h12"/><path d="M24 32v6"/></svg>
+          {% else %}
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="16" y="6" width="16" height="36" rx="3"/><circle cx="24" cy="36" r="1.5" fill="currentColor" stroke="none"/></svg>
+          {% endif %}
+          {% endwith %}
+        </span>
+        <span class="jm-cat-chip__label">{{ category.name }}</span>
+      </a>
+      {% endfor %}
+      <a href="{% url 'catalog:plp' %}" class="jm-cat-chip jm-cat-chip--all">
+        <span class="jm-cat-chip__icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="12" rx="2"/><rect x="28" y="8" width="12" height="12" rx="2"/><rect x="8" y="28" width="12" height="12" rx="2"/><rect x="28" y="28" width="12" height="12" rx="2"/></svg>
+        </span>
+        <span class="jm-cat-chip__label">{% trans "View All Categories" %}</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+{% include "cms/sections/_trust_strip.html" %}

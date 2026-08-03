@@ -1,0 +1,64 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Orders{% endblock %}
+{% block page_title %}Orders{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+      <input type="text" name="q" value="{{ search_query }}" class="form-control" style="max-width: 260px;" placeholder="Search order number..." />
+      <select name="status" class="form-select" style="max-width: 220px;" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for value, label in statuses %}
+        <option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-secondary"><i class="ti ti-search"></i></button>
+    </form>
+
+    <div class="card table-responsive">
+      <table class="table mb-0 text-nowrap table-hover align-middle">
+        <thead class="table-light">
+          <tr><th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Placed</th><th class="text-center">Invoice</th><th class="text-end">Actions</th></tr>
+        </thead>
+        <tbody>
+          {% for order in objects %}
+          <tr>
+            <td><a href="{% url 'dashboard:order-detail' order.pk %}">{{ order.order_number }}</a></td>
+            <td>
+              {% if order.cart and not order.cart.customer_profile %}
+                Guest
+              {% else %}
+                {{ order.customer_profile|default:"Guest" }}
+              {% endif %}
+            </td>
+            <td><span class="badge bg-primary-subtle text-primary">{{ order.get_order_status_display }}</span></td>
+            <td>
+              {% if order.payment_status_display == 'Success' or order.payment_status_display == 'Paid' %}
+              <span class="badge bg-success-subtle text-success">{{ order.payment_status_display }}</span>
+              {% elif order.payment_status_display == 'Failed' %}
+              <span class="badge bg-danger-subtle text-danger">{{ order.payment_status_display }}</span>
+              {% else %}
+              <span class="badge bg-warning-subtle text-warning">{{ order.payment_status_display }}</span>
+              {% endif %}
+            </td>
+            <td>{{ order.total_amount|floatformat:2 }} {% if order.currency %}{{ order.currency.code }}{% endif %}</td>
+            <td>{{ order.created_at|date:"M d, Y H:i" }}</td>
+            <td class="text-center">
+              <a href="{% url 'dashboard:order-invoice' order.pk %}" class="btn btn-sm btn-outline-secondary" title="View Invoice" target="_blank"><i class="ti ti-file-invoice"></i> View</a>
+            </td>
+            <td class="text-end">
+              <a href="{% url 'dashboard:order-detail' order.pk %}" class="btn btn-sm btn-light" title="View Order"><i class="ti ti-eye"></i></a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" class="text-center text-secondary py-5">No orders found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "dashboard/partials/_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

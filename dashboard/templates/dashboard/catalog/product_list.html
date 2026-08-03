@@ -1,0 +1,120 @@
+{% extends "dashboard/base.html" %}
+{% load dashboard_extras %}
+
+{% block title %}Products{% endblock %}
+{% block page_title %}Products{% endblock %}
+{% block breadcrumbs %}<p class="mb-0 text-secondary">{{ paginator.count }} product{{ paginator.count|pluralize }} in your catalog</p>{% endblock %}
+
+{% block page_actions %}
+<a href="{{ create_url }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>Add Product</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-center">
+      <div class="col-12 col-md">
+        <div class="input-group">
+          <span class="input-group-text bg-transparent border-end-0"><i class="ti ti-search text-secondary"></i></span>
+          <input type="text" name="q" value="{{ search_query }}" class="form-control border-start-0 ps-0"
+                 placeholder="Search by name or SKU..." />
+        </div>
+      </div>
+      <div class="col-6 col-md-auto">
+        <select name="category" class="form-select" onchange="this.form.submit()">
+          <option value="">All categories</option>
+          {% for cat in categories %}
+          <option value="{{ cat.pk }}" {% if category_filter == cat.pk|stringformat:"s" %}selected{% endif %}>{{ cat.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-6 col-md-auto">
+        <select name="status" class="form-select" onchange="this.form.submit()">
+          <option value="">All status</option>
+          <option value="active" {% if status_filter == "active" %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if status_filter == "inactive" %}selected{% endif %}>Inactive</option>
+          <option value="low" {% if status_filter == "low" %}selected{% endif %}>Low stock</option>
+          <option value="out" {% if status_filter == "out" %}selected{% endif %}>Out of stock</option>
+        </select>
+      </div>
+      <div class="col-12 col-md-auto d-grid d-md-block">
+        <button type="submit" class="btn btn-outline-secondary">Filter</button>
+        {% if search_query or status_filter or category_filter %}
+        <a href="{% url 'dashboard:product-list' %}" class="btn btn-link text-secondary">Clear</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table data-table align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Product</th>
+          <th>SKU</th>
+          <th>Category</th>
+          <th class="text-end">Price</th>
+          <th>Stock</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in objects %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-3">
+              {% with img=obj|primary_image %}
+              {% if img %}<img src="{{ img }}" class="thumb" alt="">{% else %}<span class="thumb thumb-fallback">{{ obj.name|first|upper }}</span>{% endif %}
+              {% endwith %}
+              <div class="list-main">
+                <p class="list-title mb-0">{{ obj.name }}</p>
+                <div class="d-flex gap-1 mt-1 flex-wrap">
+                  {% if obj.is_bestseller %}<span class="tag-chip"><i class="ti ti-star-filled"></i>Bestseller</span>{% endif %}
+                  {% if obj.is_new_arrival %}<span class="tag-chip"><i class="ti ti-sparkles"></i>New</span>{% endif %}
+                  {% if obj.is_featured %}<span class="tag-chip"><i class="ti ti-star"></i>Featured</span>{% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td><span class="text-secondary">{{ obj.sku }}</span></td>
+          <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
+          <td class="text-end fw-semibold">{{ currency_symbol }} {{ obj.base_price|floatformat:2 }}</td>
+          <td>
+            {% if obj.stock_quantity == 0 %}
+              <span class="pill pill-red">Out of stock</span>
+            {% elif obj.stock_quantity <= obj.low_stock_threshold %}
+              <span class="pill pill-amber">{{ obj.stock_quantity }} left</span>
+            {% else %}
+              <span class="pill pill-green">{{ obj.stock_quantity }} in stock</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if obj.is_active %}<span class="pill pill-green">Active</span>{% else %}<span class="pill pill-gray">Inactive</span>{% endif %}
+          </td>
+          <td class="text-end">
+            <div class="d-inline-flex gap-1">
+              <a href="{% url 'dashboard:product-update' obj.pk %}" class="btn btn-icon btn-sm btn-light" title="Edit"><i class="ti ti-edit"></i></a>
+              <a href="{% url 'dashboard:product-delete' obj.pk %}" class="btn btn-icon btn-sm btn-light text-danger" title="Delete"><i class="ti ti-trash"></i></a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">
+              <i class="ti ti-package fs-1 d-block mb-2 text-secondary"></i>
+              No products found. Try adjusting your filters or <a href="{{ create_url }}">add a product</a>.
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% include "dashboard/partials/_pagination.html" %}
+{% endblock %}

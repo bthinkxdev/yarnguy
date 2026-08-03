@@ -1,0 +1,17 @@
+{% load i18n %}
+<div class="jm-pdp-field">
+  <label class="jm-pdp-field__label" for="delivery-city">{% trans "Delivery to" %}</label>
+  <select id="delivery-city"
+          class="form-select jm-pdp-select"
+          data-estimate-url="{% url 'catalog:delivery-estimate' product_id=product.pk %}">
+    <option value="" disabled {% if not delivery_estimate %}selected{% endif %}>{% trans "Select a city" %}</option>
+    {% for city in cities %}
+    <option value="{{ city.slug }}" {% if delivery_estimate.city == city.name %}selected{% endif %}>{{ city.name }}</option>
+    {% endfor %}
+  </select>
+  <p id="delivery-estimate-text" class="jm-pdp-field__hint">
+    {% if delivery_estimate %}
+    {% blocktrans with label=delivery_estimate.label city=delivery_estimate.city %}Delivery: {{ label }} to {{ city }}{% endblocktrans %}
+    {% else %}{% trans "Choose your city for an estimate" %}{% endif %}
+  </p>
+</div>

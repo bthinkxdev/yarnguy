@@ -1,0 +1,38 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Payments{% endblock %}
+{% block page_title %}Payments{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <form method="get" class="d-flex gap-2 mb-3 flex-wrap">
+      <input type="text" name="q" value="{{ search_query }}" class="form-control" style="max-width: 260px;" placeholder="Search order number..." />
+      <select name="status" class="form-select" style="max-width: 200px;" onchange="this.form.submit()">
+        <option value="">All statuses</option>
+        {% for value, label in statuses %}<option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="btn btn-outline-secondary"><i class="ti ti-search"></i></button>
+    </form>
+
+    <div class="card table-responsive">
+      <table class="table mb-0 text-nowrap table-hover align-middle">
+        <thead class="table-light"><tr><th>Order</th><th>Gateway</th><th>Amount</th><th>Status</th><th>Reference</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for pay in objects %}
+          <tr>
+            <td><a href="{% url 'dashboard:order-detail' pay.order_id %}">{{ pay.order.order_number }}</a></td>
+            <td>{{ pay.gateway_key }}</td>
+            <td>{{ pay.amount|floatformat:2 }} {{ pay.currency.code }}</td>
+            <td><span class="badge bg-secondary-subtle text-secondary">{{ pay.get_status_display }}</span></td>
+            <td class="small text-muted">{{ pay.external_transaction_id|default:"—" }}</td>
+            <td>{{ pay.created_at|date:"M d, Y H:i" }}</td>
+          </tr>
+          {% empty %}<tr><td colspan="6" class="text-center text-secondary py-5">No payment transactions.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include "dashboard/partials/_pagination.html" %}
+  </div>
+</div>
+{% endblock %}

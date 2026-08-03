@@ -1,0 +1,356 @@
+"""HTTP views for the catalog app; thin request parsing delegating to selectors/services."""
+
+from __future__ import annotations
+
+import json
+
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect
+from django.views.decorators.http import require_GET, require_POST
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+
+from catalog.models import Product
+from catalog.forms import ReviewSubmissionForm
+from catalog.services import submit_review
+
+from catalog.selectors import (
+    get_category_by_slug,
+    get_plp_filter_options,
+    get_plp_products,
+    get_product_detail,
+    get_related_products,
+    get_search_suggestions,
+    get_variant_price,
+    record_product_view,
+)
+from core.seo import build_plp_canonical_url, build_product_json_ld, resolve_meta_title, seo_context
+from delivery.selectors import (
+    get_active_cities,
+    get_city_by_slug,
+    get_earliest_delivery_estimate,
+)
+
+
+def _parse_plp_filters(request: HttpRequest) -> dict:
+    """Parse shareable PLP filter query params into a selector filter dict."""
+    filters: dict = {}
+    category_id = request.GET.get("category")
+    subcategory_id = request.GET.get("subcategory")
+    if subcategory_id:
+        filters["category_id"] = int(subcategory_id)
+        filters["subcategory_id"] = int(subcategory_id)
+        if category_id:
+            filters["parent_category_id"] = int(category_id)
+    elif category_id:
+        filters["category_id"] = int(category_id)
+
+    if occasion_id := request.GET.get("occasion"):
+        filters["occasion_id"] = int(occasion_id)
+    if brand_id := request.GET.get("brand"):
+        filters["brand_id"] = int(brand_id)
+    if recipient_id := request.GET.get("recipient"):
+        filters["recipient_id"] = int(recipient_id)
+    if color := request.GET.get("color"):
+        filters["color"] = color
+    if request.GET.get("featured") == "1":
+        filters["featured"] = True
+    if request.GET.get("bestseller") == "1":
+        filters["bestseller"] = True
+    if request.GET.get("new_arrival") == "1":
+        filters["new_arrival"] = True
+    if request.GET.get("in_stock") == "1":
+        filters["in_stock"] = True
+    if min_price := request.GET.get("min_price"):
+        filters["min_price"] = min_price
+    if max_price := request.GET.get("max_price"):
+        filters["max_price"] = max_price
+    return filters
+
+
+@require_GET
+def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResponse:
+    """Product listing page with HTMX partial support for the product grid."""
+    filters = _parse_plp_filters(request)
+    category = None
+    if category_slug:
+        category = get_category_by_slug(slug=category_slug)
+        if category is None:
+            raise Http404("Category not found")
+
+        if not filters.get("subcategory_id"):
+            filters["category_id"] = category.pk
+
+    resolved_cat = category
+    if not resolved_cat and (cat_id := filters.get("category_id")):
+        from catalog.models import Category
+
+        resolved_cat = Category.objects.filter(pk=cat_id, is_active=True).first()
+
+    subcategories = []
+    if resolved_cat:
+        if resolved_cat.parent_id:
+            subcategories = list(resolved_cat.parent.children.filter(is_active=True))
+            filters["subcategory_id"] = resolved_cat.pk
+            filters["parent_category_id"] = resolved_cat.parent_id
+        else:
+            subcategories = list(resolved_cat.children.filter(is_active=True))
+            filters["parent_category_id"] = resolved_cat.pk
+
+    sort = request.GET.get("sort", "newest")
+    page = int(request.GET.get("page", 1))
+    plp_data = get_plp_products(filters=filters, sort=sort, page=page, user=request.user)
+    filter_options = get_plp_filter_options()
+
+    active_cat = resolved_cat if resolved_cat else None
+    title = (
+        resolve_meta_title(obj=active_cat, fallback="Shop All | Yarn Guy")
+        if active_cat
+        else "Shop All | Yarn Guy"
+    )
+    description = (
+        f"Browse {active_cat.name} — premium gym wear and activewear."
+        if active_cat
+        else "Browse Premium Gym Wear & Activewear - Yarn Guy."
+    )
+
+    context = seo_context(
+        request=request,
+        obj=active_cat,
+        title=f"{title} | DESERT STAR MOBILE PHONES",
+        description=description,
+        canonical_url=build_plp_canonical_url(request=request, category_slug=category_slug),
+    )
+    context.update(
+        {
+            "plp": plp_data,
+            "filters": filters,
+            "sort": sort,
+            "categories": filter_options["categories"],
+            "brands": filter_options["brands"],
+            "subcategories": subcategories,
+            "subcategories_map": filter_options.get("subcategories_map", {}),
+            "active_category": active_cat,
+        }
+    )
+
+    if request.headers.get("HX-Request"):
+        return render(request, "catalog/partials/product_grid.html", context)
+    return render(request, "catalog/plp.html", context)
+
+
+@require_GET
+def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
+    """Product detail page with gallery, variants, reviews, and delivery estimate."""
+    product = get_product_detail(slug=slug)
+    if product is None:
+        raise Http404("Product not found")
+
+    viewer_key = str(request.session.session_key or request.user.pk or "anon")
+    record_product_view(viewer_key=viewer_key, product_id=product.pk)
+
+    city_slug = request.GET.get("city", "ernakulam")
+    destination_city = get_city_by_slug(slug=city_slug)
+    if not destination_city:
+        active_cities = get_active_cities()
+        destination_city = active_cities[0] if active_cities else None
+    delivery_estimate = None
+    if destination_city:
+        delivery_estimate = get_earliest_delivery_estimate(
+            product=product,
+            destination_city=destination_city,
+        )
+
+
+    from core.services import get_site_settings
+
+    site_settings = get_site_settings()
+
+    from cart.models import CartItem
+    from cart.selectors import get_cart_for_request
+
+    cart = get_cart_for_request(request=request)
+    variant_id = request.GET.get("variant_id")
+    if variant_id and variant_id.isdigit():
+        cart_item = CartItem.objects.filter(cart=cart, product=product, variant_id=int(variant_id)).first() if cart else None
+    else:
+        cart_item = CartItem.objects.filter(cart=cart, product=product, variant__isnull=True).first() if cart else None
+    is_in_cart = cart_item is not None
+
+    quantity = cart_item.quantity if cart_item else 1
+    price_data = get_variant_price(product_id=product.pk, user=request.user, quantity=quantity)
+
+    reviews = getattr(product, "approved_reviews", [])
+    review_count = len(reviews)
+    average_rating = None
+    if review_count:
+        average_rating = sum(r.rating for r in reviews) / review_count
+
+    from accounts.models import WishlistItem
+    from accounts.subscription_services import get_or_create_wishlist
+
+    wishlist = get_or_create_wishlist(request=request)
+    is_in_wishlist = WishlistItem.objects.filter(wishlist=wishlist, product_id=product.pk).exists()
+
+
+    has_delivered_order = False
+    if request.user.is_authenticated and hasattr(request.user, "customer_profile"):
+        from orders.models import OrderItem, OrderStatus
+        has_delivered_order = OrderItem.objects.filter(
+            product=product,
+            order__customer_profile=request.user.customer_profile,
+            order__order_status=OrderStatus.DELIVERED
+        ).exists()
+
+    context = seo_context(
+        request=request,
+        obj=product,
+        title=f"{product.name} | DESERT STAR MOBILE PHONES",
+        description=f"{product.name} — quality mobiles and accessories from Desert Star Mobile Phones, Abu Dhabi.",
+    )
+    context.update(
+        {
+            "product": product,
+            "price_data": price_data,
+            "delivery_estimate": delivery_estimate,
+            "cities": get_active_cities(),
+            "whatsapp_number": site_settings.whatsapp_number,
+            "is_in_cart": is_in_cart,
+            "cart_item": cart_item,
+            "selected_variant_id": variant_id if variant_id and variant_id.isdigit() else "",
+            "is_in_wishlist": is_in_wishlist,
+            "related_products": get_related_products(product=product, user=request.user),
+            "has_delivered_order": has_delivered_order,
+            "product_json_ld": json.dumps(
+                build_product_json_ld(
+                    product=product,
+                    price=price_data["price"],
+                    request=request,
+                    average_rating=average_rating,
+                    review_count=review_count,
+                )
+            ),
+        }
+    )
+    return render(request, "catalog/pdp.html", context)
+
+
+@require_GET
+def search_suggestions_view(request: HttpRequest) -> HttpResponse:
+    """HTMX live search suggestions partial."""
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        response = render(
+            request,
+            "catalog/partials/search_suggestions.html",
+            {
+                "products": [],
+                "brands": [],
+                "categories": [],
+                "equipment_types": [],
+                "query": "",
+            },
+        )
+        response.content = response.content.strip()
+        return response
+    suggestions = get_search_suggestions(query=query)
+    context = {
+        "products": suggestions.get("products", []),
+        "brands": suggestions.get("brands", []),
+        "categories": suggestions.get("categories", []),
+        "equipment_types": suggestions.get("equipment_types", []),
+        "query": query,
+    }
+    response = render(
+        request,
+        "catalog/partials/search_suggestions.html",
+        context,
+    )
+    response.content = response.content.strip()
+    return response
+
+
+@require_GET
+def variant_price_view(request: HttpRequest, product_id: int) -> JsonResponse:
+    """JSON endpoint for variant price updates on PDP."""
+    variant_id = request.GET.get("variant_id")
+    quantity_str = request.GET.get("quantity", "1")
+    try:
+        quantity = int(quantity_str)
+    except ValueError:
+        quantity = 1
+    parsed_variant = int(variant_id) if variant_id else None
+    data = get_variant_price(product_id=product_id, variant_id=parsed_variant, user=request.user, quantity=quantity)
+    
+    from cart.models import CartItem
+    from cart.selectors import get_cart_for_request
+    
+    cart = get_cart_for_request(request=request)
+    if parsed_variant:
+        cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant_id=parsed_variant).first() if cart else None
+    else:
+        cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant__isnull=True).first() if cart else None
+    data["is_in_cart"] = cart_item is not None
+
+    return JsonResponse(data)
+
+
+@require_GET
+def delivery_estimate_view(request: HttpRequest, product_id: int) -> JsonResponse:
+    """JSON endpoint for delivery estimate widget on PDP."""
+    from catalog.selectors import get_products_by_ids
+
+    products = get_products_by_ids(product_ids=[product_id])
+    if not products:
+        raise Http404("Product not found")
+    product = products[0]
+    city_slug = request.GET.get("city", "ernakulam")
+    city = get_city_by_slug(slug=city_slug)
+    if city is None:
+        active_cities = get_active_cities()
+        city = active_cities[0] if active_cities else None
+    if city is None:
+        raise Http404("City not found")
+    estimate = get_earliest_delivery_estimate(product=product, destination_city=city)
+    return JsonResponse(estimate)
+
+
+@require_GET
+def rental_list_view(request: HttpRequest) -> HttpResponse:
+    from catalog.selectors import _primary_image_prefetch, PLP_CARD_FIELDS
+    products = (
+        Product.objects.filter(is_active=True, is_rental=True, show_rental_storefront=True)
+        .select_related("category", "brand")
+        .prefetch_related(_primary_image_prefetch())
+        .only(*PLP_CARD_FIELDS)
+    )
+    return render(request, "catalog/rentals.html", {"products": list(products)})
+
+@require_POST
+@login_required
+def submit_review_view(request, product_id: int):
+    """Handle product review submission from the customer order details page."""
+    product = get_object_or_404(Product, pk=product_id, is_active=True)
+    from catalog.forms import ReviewSubmissionForm
+    form = ReviewSubmissionForm(request.POST)
+    
+    if not hasattr(request.user, "customer_profile"):
+        messages.error(request, "Only customers can submit reviews.")
+        return redirect(request.META.get('HTTP_REFERER', '/'))
+        
+    if form.is_valid():
+        from catalog.services import submit_review
+        submit_review(
+            product=product,
+            customer=request.user.customer_profile,
+            rating=form.cleaned_data["rating"],
+            title=form.cleaned_data["title"],
+            body=form.cleaned_data["body"],
+            is_verified_purchase=True,
+        )
+        messages.success(request, "Thank you for your valuable review!")
+    else:
+        messages.error(request, "There was an error with your review submission. Please check your inputs.")
+        
+    return redirect(request.META.get('HTTP_REFERER', '/'))

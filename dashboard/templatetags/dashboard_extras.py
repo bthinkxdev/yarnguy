@@ -1,0 +1,77 @@
+"""Template helpers for the admin dashboard."""
+
+from __future__ import annotations
+
+from django import template
+from django.urls import reverse
+
+register = template.Library()
+
+
+@register.simple_tag
+def cell_value(obj, column):
+    """Resolve a column's value from an object, supporting dotted paths + callables."""
+    name = column.get("name")
+    if not name:
+        return ""
+    value = obj
+    for part in name.split("."):
+        if value is None:
+            return ""
+        value = getattr(value, part, None)
+        if callable(value):
+            value = value()
+    return value
+
+
+@register.simple_tag
+def row_action_url(basename, action, pk):
+    """Build a dashboard CRUD url like dashboard:product-update for a given pk."""
+    return reverse(f"dashboard:{basename}-{action}", args=[pk])
+
+
+@register.filter
+def get_item(dictionary, key):
+    """Look up a dict value by variable key inside templates."""
+    if hasattr(dictionary, "get"):
+        return dictionary.get(key)
+    return None
+
+
+_STATUS_PILL = {
+    "received": "pill-gray",
+    "preparing": "pill-blue",
+    "packaging": "pill-blue",
+    "ready": "pill-amber",
+    "out_for_delivery": "pill-amber",
+    "delivered": "pill-green",
+    "cancelled": "pill-red",
+    "refunded": "pill-red",
+    "success": "pill-green",
+    "pending": "pill-amber",
+    "failed": "pill-red",
+    "approved": "pill-green",
+    "rejected": "pill-red",
+}
+
+
+@register.filter
+def status_pill(value):
+    """Return the soft-pill CSS class for an order/payment/approval status code."""
+    return _STATUS_PILL.get(str(value).lower(), "pill-gray")
+
+
+@register.filter
+def primary_image(product):
+    """Return the URL of a product's primary (or first) image, else empty string."""
+    try:
+        images = list(product.images.all())
+    except (AttributeError, ValueError):
+        return ""
+    if not images:
+        return ""
+    chosen = next((im for im in images if im.is_primary), images[0])
+    try:
+        return chosen.image.url if chosen.image else ""
+    except ValueError:
+        return ""
