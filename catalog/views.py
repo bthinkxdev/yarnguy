@@ -170,6 +170,9 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     if review_count:
         average_rating = sum(r.rating for r in reviews) / review_count
 
+    product.review_count = review_count
+    product.average_rating = average_rating
+
     from accounts.models import WishlistItem
     from accounts.subscription_services import get_or_create_wishlist
 
