@@ -1,8 +1,10 @@
 {% load i18n static storefront_tags %}
+{% with first_variant=product.variants.all.0 %}
+{% with eff_stock=first_variant.stock_quantity|default_if_none:product.stock_quantity eff_thresh=first_variant.low_stock_threshold|default_if_none:product.low_stock_threshold %}
 <article class="jm-product-card card h-100" data-product-id="{{ product.pk }}" data-product-name="{{ product.name }}"
   data-product-url="{% url 'catalog:pdp' slug=product.slug %}"
   data-product-price="{% money_label product.display_price|default:product.base_price display_currency %}"
-  data-product-stock="{% if product.is_in_stock %}{% trans 'In Stock' %}{% else %}{% trans 'Out of Stock' %}{% endif %}"
+  data-product-stock="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %}{% endif %}"
   data-product-badge="{% if product.is_featured %}{% trans 'Featured' %}{% elif product.is_bestseller %}{% trans 'Bestseller' %}{% elif product.is_new_arrival %}{% trans 'New' %}{% endif %}"
   {% with img=product.primary_images.0 %}
   data-product-image="{% if img and img.image %}{{ img.image.url }}{% else %}{% static 'img/product-placeholder.svg' %}{% endif %}"
@@ -94,9 +96,9 @@
       {% else %}
       <span class="jm-product-card__rating jm-product-card__rating--muted">{% trans "New" %}</span>
       {% endif %}
-      <span class="jm-product-card__stock {% if product.is_in_stock %}is-in{% else %}is-out{% endif %}"
-        title="{% if product.is_in_stock %}{% trans 'In Stock' %}{% else %}{% trans 'Out of Stock' %}{% endif %}">
-        {% if product.is_in_stock %}{% trans "In Stock" %}{% else %}{% trans "Out of Stock" %}{% endif %}
+      <span class="jm-product-card__stock {% if eff_stock <= 0 %}is-out{% elif eff_stock <= eff_thresh %}is-low{% else %}is-in{% endif %}"
+        title="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %}{% endif %}">
+        {% if eff_stock <= 0 %}{% trans "Out of Stock" %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans "In Stock" %}{% endif %}
       </span>
     </div>
 
@@ -133,13 +135,13 @@
       {% csrf_token %}
       <input type="hidden" name="product_id" value="{{ product.pk }}">
       <input type="hidden" name="quantity" value="1">
-      <button type="submit" class="jm-product-card__atc" {% if not product.is_in_stock %}disabled{% endif %}>
+      <button type="submit" class="jm-product-card__atc" {% if eff_stock <= 0 %}disabled{% endif %}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <circle cx="9" cy="21" r="1" />
           <circle cx="20" cy="21" r="1" />
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
         </svg>
-        <span>{% if product.is_in_stock %}{% trans "Add to Cart" %}{% else %}{% trans "Unavailable" %}{% endif %}</span>
+        <span>{% if eff_stock > 0 %}{% trans "Add to Cart" %}{% else %}{% trans "Unavailable" %}{% endif %}</span>
       </button>
     </form>
     {% if cart_product_ids and product.pk in cart_product_ids %}
@@ -150,3 +152,5 @@
     {% endif %}
   </div>
 </article>
+{% endwith %}
+{% endwith %}

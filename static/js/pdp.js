@@ -141,10 +141,18 @@
               if (stockText) {
                 if (data.is_in_stock) {
                   stockText.classList.remove('is-out');
-                  stockText.classList.add('is-in');
-                  stockText.innerHTML = 'In stock' + (data.stock_quantity ? ' &bull; ' + data.stock_quantity : '');
+                  if (data.stock_quantity !== undefined && data.low_stock_threshold !== undefined && data.stock_quantity <= data.low_stock_threshold) {
+                    stockText.classList.remove('is-in');
+                    stockText.classList.add('is-low');
+                    stockText.innerHTML = 'Only ' + data.stock_quantity + ' left';
+                  } else {
+                    stockText.classList.remove('is-low');
+                    stockText.classList.add('is-in');
+                    stockText.innerHTML = 'In stock' + (data.stock_quantity ? ' &bull; ' + data.stock_quantity : '');
+                  }
                 } else {
                   stockText.classList.remove('is-in');
+                  stockText.classList.remove('is-low');
                   stockText.classList.add('is-out');
                   stockText.textContent = 'Out of stock';
                 }

@@ -35,6 +35,7 @@ PLP_CARD_FIELDS: tuple[str, ...] = (
     "is_bestseller",
     "is_new_arrival",
     "stock_quantity",
+    "low_stock_threshold",
     "category_id",
     "brand_id",
 )
@@ -598,6 +599,7 @@ def get_variant_price(
         "is_flash_sale": str(sale["is_flash_sale"]).lower(),
         "is_in_stock": is_in_stock,
         "stock_quantity": getattr(variant, 'stock_quantity', getattr(product, 'stock_quantity', 0)) if variant_id else getattr(product, 'stock_quantity', 0),
+        "low_stock_threshold": getattr(variant, 'low_stock_threshold', getattr(product, 'low_stock_threshold', 5)) if variant_id else getattr(product, 'low_stock_threshold', 5),
         "mrp": str(mrp) if mrp else "",
         "has_mrp_discount": "true" if mrp and mrp > retail_price else "false",
     }

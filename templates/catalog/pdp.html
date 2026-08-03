@@ -38,12 +38,14 @@
           {% endif %}
           <span id="pdp-price-value">{% money_label price_data.price display_currency %}</span>
         </p>
-        <p class="jm-pdp-buybox__stock {% if product.is_in_stock %}is-in{% else %}is-out{% endif %}"
+        <p class="jm-pdp-buybox__stock {% if not product.is_in_stock %}is-out{% elif product.stock_quantity <= product.low_stock_threshold %}is-low{% else %}is-in{% endif %}"
           id="pdp-stock-text">
-          {% if product.is_in_stock %}
-          {% trans "In stock" %}{% if product.stock_quantity %} · {{ product.stock_quantity }}{% endif %}
-          {% else %}
+          {% if not product.is_in_stock %}
           {% trans "Out of stock" %}
+          {% elif product.stock_quantity <= product.low_stock_threshold %}
+          Only {{ product.stock_quantity }} left
+          {% else %}
+          {% trans "In stock" %}{% if product.stock_quantity %} · {{ product.stock_quantity }}{% endif %}
           {% endif %}
         </p>
       </div>

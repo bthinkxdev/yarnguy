@@ -4469,6 +4469,11 @@ body.mobile-search-open .jm-wa-float {
   color: var(--jm-success);
 }
 
+.jm-product-card__stock.is-low,
+.jm-pdp-buybox__stock.is-low {
+  color: #f97316 !important; 
+}
+
 .jm-product-card__stock.is-out {
   color: var(--jm-accent);
 }
