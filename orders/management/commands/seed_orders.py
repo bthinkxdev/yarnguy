@@ -148,7 +148,7 @@ class Command(BaseCommand):
             variant_type=VariantType.SIZE,
             name="Large",
             defaults={
-                "price_delta": Decimal("40.00"),
+                "base_price": Decimal("240.00"),
                 "sku_suffix": "LG",
                 "stock_quantity": 100,
             },

@@ -101,7 +101,7 @@ class ProductAdmin(admin.ModelAdmin):
 class ProductVariantAdmin(admin.ModelAdmin):
     """Admin for product variants."""
 
-    list_display = ("product", "variant_type", "name", "price_delta", "stock_quantity")
+    list_display = ("product", "variant_type", "name", "base_price", "stock_quantity")
     list_filter = ("variant_type",)
     search_fields = ("product__name", "product__sku", "name")
     list_select_related = ("product",)

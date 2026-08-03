@@ -88,14 +88,27 @@ def _render_product_form(request, product, mode):
             product = form.save()
             variants.instance = product
             variants.save()
+
+            if product.variants.exists():
+                from django.db.models import Sum
+                first_variant = product.variants.order_by("id").first()
+                total_stock = product.variants.aggregate(total=Sum("stock_quantity"))["total"] or 0
+                
+                product.stock_quantity = total_stock
+                product.base_price = first_variant.base_price
+                product.mrp = first_variant.mrp
+                product.purchase_price = first_variant.purchase_price
+                product.save(update_fields=["stock_quantity", "base_price", "mrp", "purchase_price"])
+
             images.instance = product
             images.save()
             specifications.instance = product
             specifications.save()
             documents.instance = product
             documents.save()
-            messages.success(request, f"Product {'created' if mode == 'create' else 'updated'}.")
+            messages.success(request, f"Product '{product.name}' saved successfully.")
             return redirect("dashboard:product-list")
+
     else:
         form = forms.ProductForm(instance=product)
         variants = forms.ProductVariantFormSet(instance=product, prefix="variants")

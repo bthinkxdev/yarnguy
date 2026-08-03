@@ -341,7 +341,7 @@ def get_product_detail(*, slug: str) -> Optional[Product]:
         .prefetch_related(
             Prefetch(
                 "variants",
-                queryset=ProductVariant.objects.order_by("variant_type", "name"),
+                queryset=ProductVariant.objects.order_by("id"),
                 to_attr="variant_list",
             ),
             Prefetch(
@@ -577,7 +577,7 @@ def get_variant_price(
     if variant_id:
         variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
         if variant:
-            retail_price = product.base_price + variant.price_delta
+            retail_price = variant.base_price
             resolved_variant_id = variant.pk
             is_in_stock = variant.stock_quantity > 0
 

@@ -243,22 +243,38 @@ class ProductVariant(TimeStampedModel):
         max_length=50,
         verbose_name="Variant type",
     )
-    name = models.CharField(max_length=120, verbose_name="Name")
-    price_delta = models.DecimalField(
+    name = models.CharField(max_length=120, verbose_name="Variant Name")
+    base_price = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=0,
-        verbose_name="Price delta",
-        help_text="Amount added to the product base price.",
+        verbose_name="Base price",
+    )
+    mrp = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="MRP",
+    )
+    purchase_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        verbose_name="Purchase Price",
     )
     sku_suffix = models.CharField(
         max_length=32,
+        blank=True,
         verbose_name="SKU suffix",
         help_text="Appended to the parent product SKU.",
     )
     stock_quantity = models.PositiveIntegerField(
         default=0,
         verbose_name="Stock quantity",
+    )
+    low_stock_threshold = models.PositiveIntegerField(
+        default=5,
+        verbose_name="Low stock threshold",
     )
 
     class Meta:

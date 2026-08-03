@@ -6,6 +6,77 @@
   images{% else %}Create a new product for your catalog{% endif %}</p>{% endblock %}
 
 {% block content %}
+<style>
+  [data-formset="variants"] thead { display: none; }
+  [data-formset="variants"] .table-responsive, [data-formset="variants"] .table { overflow: visible; background: transparent; border: none; padding: 0; margin: 0; }
+  
+  /* transform tr into flex-cards */
+  [data-formset="variants"] tbody[data-formset-body] tr {
+    display: flex;
+    flex-wrap: wrap;
+    background: #fdfdfd;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px 8px 8px 24px;
+    margin-bottom: 24px;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  [data-formset="variants"] tbody[data-formset-body] td {
+    display: block;
+    border: none;
+    padding: 0 16px 16px 0;
+    margin: 0;
+    box-sizing: border-box;
+  }
+  
+  [data-formset="variants"] tbody[data-formset-body] td.d-none { display: none; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(2) { width: 50%; } /* Type */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(3) { width: 50%; } /* Name */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(4) { width: 33.33%; } /* Base Price */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(5) { width: 33.33%; } /* MRP */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(6) { width: 33.33%; } /* Purchase Price */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(7) { width: 33.33%; } /* SKU */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(8) { width: 33.33%; } /* Stock */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(9) { width: 33.33%; } /* Threshold */
+  
+  /* floating remove button */
+  [data-formset="variants"] tbody[data-formset-body] td:last-child {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    padding: 0;
+    width: auto;
+    z-index: 5;
+  }
+  
+  [data-formset="variants"] tbody[data-formset-body] td:last-child .btn-icon {
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+  [data-formset="variants"] tbody[data-formset-body] td:last-child .btn-icon:hover {
+    background: #fee2e2;
+    color: #ef4444 !important;
+    border-color: #fca5a5;
+  }
+  
+  /* re-add labels */
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(2)::before { content: "Variant Type"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(3)::before { content: "Variant Name"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(4)::before { content: "Base Price"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(5)::before { content: "MRP"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(6)::before { content: "Purchase Price"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(7)::before { content: "SKU Suffix"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(8)::before { content: "Stock Quantity"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+  [data-formset="variants"] tbody[data-formset-body] td:nth-child(9)::before { content: "Low Stock Threshold"; display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; }
+</style>
 <form method="post" enctype="multipart/form-data" novalidate>
   {% csrf_token %}
   {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
@@ -57,16 +128,23 @@
                   <th class="d-none"></th>
                   <th>Type</th>
                   <th>Name</th>
-                  <th>Price delta</th>
+                  <th>Base Price</th>
+                  <th>MRP</th>
+                  <th>Purchase Price</th>
                   <th>SKU suffix</th>
                   <th>Stock</th>
+                  <th>Threshold</th>
                   <th class="text-center">Remove</th>
                 </tr>
               </thead>
               <tbody data-formset-body>
                 {% for vform in variants %}
                 <tr>
-                  <td class="d-none">{{ vform.id }}</td>
+                  <td class="d-none">
+                    {% for hidden in vform.hidden_fields %}
+                      {{ hidden }}
+                    {% endfor %}
+                  </td>
                   <td>
                     {{ vform.variant_type }}
                     {% if vform.variant_type.errors %}<div class="text-danger small mt-1">{{ vform.variant_type.errors|join:", " }}</div>{% endif %}
@@ -76,8 +154,16 @@
                     {% if vform.name.errors %}<div class="text-danger small mt-1">{{ vform.name.errors|join:", " }}</div>{% endif %}
                   </td>
                   <td>
-                    {{ vform.price_delta }}
-                    {% if vform.price_delta.errors %}<div class="text-danger small mt-1">{{ vform.price_delta.errors|join:", " }}</div>{% endif %}
+                    {{ vform.base_price }}
+                    {% if vform.base_price.errors %}<div class="text-danger small mt-1">{{ vform.base_price.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.mrp }}
+                    {% if vform.mrp.errors %}<div class="text-danger small mt-1">{{ vform.mrp.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td>
+                    {{ vform.purchase_price }}
+                    {% if vform.purchase_price.errors %}<div class="text-danger small mt-1">{{ vform.purchase_price.errors|join:", " }}</div>{% endif %}
                   </td>
                   <td>
                     {{ vform.sku_suffix }}
@@ -87,13 +173,17 @@
                     {{ vform.stock_quantity }}
                     {% if vform.stock_quantity.errors %}<div class="text-danger small mt-1">{{ vform.stock_quantity.errors|join:", " }}</div>{% endif %}
                   </td>
+                  <td>
+                    {{ vform.low_stock_threshold }}
+                    {% if vform.low_stock_threshold.errors %}<div class="text-danger small mt-1">{{ vform.low_stock_threshold.errors|join:", " }}</div>{% endif %}
+                  </td>
                   <td class="text-center">
                     {% if vform.instance.pk %}
-                    <label class="form-check d-inline-flex m-0" title="Delete on save">{{ vform.DELETE }}</label>
-                    {% else %}
-                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove><i
-                        class="ti ti-trash"></i></button>
+                    <div class="d-none">{{ vform.DELETE }}</div>
                     {% endif %}
+                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove title="Remove Variant">
+                      <i class="ti ti-trash"></i>
+                    </button>
                   </td>
                 </tr>
                 {% endfor %}
@@ -102,12 +192,19 @@
           </div>
           <template data-formset-empty>
             <tr>
-              <td class="d-none">{{ variants.empty_form.id }}</td>
+              <td class="d-none">
+                {% for hidden in variants.empty_form.hidden_fields %}
+                  {{ hidden }}
+                {% endfor %}
+              </td>
               <td>{{ variants.empty_form.variant_type }}</td>
               <td>{{ variants.empty_form.name }}</td>
-              <td>{{ variants.empty_form.price_delta }}</td>
+              <td>{{ variants.empty_form.base_price }}</td>
+              <td>{{ variants.empty_form.mrp }}</td>
+              <td>{{ variants.empty_form.purchase_price }}</td>
               <td>{{ variants.empty_form.sku_suffix }}</td>
               <td>{{ variants.empty_form.stock_quantity }}</td>
+              <td>{{ variants.empty_form.low_stock_threshold }}</td>
               <td class="text-center"><button type="button" class="btn btn-icon btn-sm btn-light text-danger"
                   data-row-remove><i class="ti ti-trash"></i></button></td>
             </tr>
@@ -275,11 +372,11 @@
       <div class="card mb-3" data-formset="documents">
         <div class="card-header panel-header">
           <div>
-            <h3 class="panel-title">Manuals &amp; Documents</h3>
-            <p class="panel-sub">Downloadable user guides, booklets, and brochures (almost always PDF format)</p>
+            <h3 class="panel-title">Size Chart</h3>
+            <p class="panel-sub">Upload a size chart or guide for this product (Image or PDF format)</p>
           </div>
           <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
-              class="ti ti-plus me-1"></i>Add manual/document</button>
+              class="ti ti-plus me-1"></i>Add size chart</button>
         </div>
         <div class="card-body p-0">
           {{ documents.management_form }}
@@ -415,7 +512,7 @@
           </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card mb-3" id="main-inventory-card">
           <div class="card-header panel-header">
             <h3 class="panel-title">Inventory</h3>
           </div>
@@ -429,4 +526,65 @@
     </div>
   </div>
 </form>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  function updateProductFieldsVisibility() {
+    const variantRows = document.querySelectorAll('#variant-select-group tr, tbody[data-formset-body] tr');
+    let hasVariants = false;
+    
+    // check if any variant row is active
+    document.querySelectorAll('tbody[data-formset-body] tr').forEach(row => {
+      const delCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      if (row.style.display !== 'none' && (!delCheckbox || !delCheckbox.checked)) {
+        hasVariants = true;
+      }
+    });
+
+    const basePriceInput = document.getElementById('id_base_price');
+    const mrpInput = document.getElementById('id_mrp');
+    const purchasePriceInput = document.getElementById('id_purchase_price');
+    const stockInput = document.getElementById('id_stock_quantity');
+    const thresholdInput = document.getElementById('id_low_stock_threshold');
+
+    const basePriceCol = basePriceInput?.closest('.col-md-3');
+    const mrpCol = mrpInput?.closest('.col-md-3');
+    const purchasePriceCol = purchasePriceInput?.closest('.col-md-3');
+    const inventoryCard = document.getElementById('main-inventory-card');
+
+    if (hasVariants) {
+      if (basePriceCol) basePriceCol.style.display = 'none';
+      if (mrpCol) mrpCol.style.display = 'none';
+      if (purchasePriceCol) purchasePriceCol.style.display = 'none';
+      if (inventoryCard) inventoryCard.style.display = 'none';
+      
+      // remove required attributes 
+      if (basePriceInput) basePriceInput.required = false;
+      if (mrpInput) mrpInput.required = false;
+      if (purchasePriceInput) purchasePriceInput.required = false;
+      if (stockInput) stockInput.required = false;
+      if (thresholdInput) thresholdInput.required = false;
+    } else {
+      if (basePriceCol) basePriceCol.style.display = '';
+      if (mrpCol) mrpCol.style.display = '';
+      if (purchasePriceCol) purchasePriceCol.style.display = '';
+      if (inventoryCard) inventoryCard.style.display = '';
+      
+      if (basePriceInput) basePriceInput.required = true;
+      if (mrpInput) mrpInput.required = true;
+      if (purchasePriceInput) purchasePriceInput.required = true;
+      if (stockInput) stockInput.required = true;
+      if (thresholdInput) thresholdInput.required = true;
+    }
+  }
+
+  updateProductFieldsVisibility();
+
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('[data-formset-add]') || e.target.closest('[data-row-remove]') || e.target.closest('input[type="checkbox"][name$="-DELETE"]')) {
+      setTimeout(updateProductFieldsVisibility, 50);
+    }
+  });
+});
+</script>
 {% endblock %}

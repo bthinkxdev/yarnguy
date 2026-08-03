@@ -75,6 +75,18 @@ class ProductForm(SlugAutoMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["slug"].required = False
+        self.fields["base_price"].required = False
+        self.fields["mrp"].required = False
+        self.fields["purchase_price"].required = False
+        self.fields["stock_quantity"].required = False
+        self.fields["low_stock_threshold"].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        for field in ["base_price", "mrp", "purchase_price", "stock_quantity", "low_stock_threshold"]:
+            if cleaned.get(field) is None:
+                cleaned[field] = 0
+        return cleaned
 
 
 class CategoryForm(SlugAutoMixin):
@@ -117,7 +129,7 @@ class ReviewForm(forms.ModelForm):
 class ProductVariantForm(forms.ModelForm):
     class Meta:
         model = ProductVariant
-        fields = ["variant_type", "name", "price_delta", "sku_suffix", "stock_quantity"]
+        fields = ["variant_type", "name", "base_price", "mrp", "purchase_price", "sku_suffix", "stock_quantity", "low_stock_threshold"]
         widgets = {
             "variant_type": forms.TextInput(attrs={
                 "list": "variant-type-list",
@@ -128,29 +140,33 @@ class ProductVariantForm(forms.ModelForm):
         error_messages = {
             "variant_type": {"required": "Variant type is required."},
             "name": {"required": "Name is required."},
-            "price_delta": {"required": "Price delta is required."},
-            "sku_suffix": {"required": "SKU suffix is required."},
+            "base_price": {"required": "Base price is required."},
+            "mrp": {"required": "MRP is required."},
+            "purchase_price": {"required": "Purchase price is required."},
             "stock_quantity": {"required": "Stock quantity is required."},
+            "low_stock_threshold": {"required": "Low stock threshold is required."},
         }
 
     def has_changed(self):
         """Ignore empty extra forms even if fields have model defaults (like stock_quantity=0)."""
         changed = super().has_changed()
         if changed:
-            #if every field in the POST data is empty, it's an untouched extra form.
+            #if every field in the POST data is empty or default, it's an untouched extra form.
+            has_real_data = False
             for name in self.fields:
                 prefixed_name = self.add_prefix(name)
                 val = self.data.get(prefixed_name)
-                if val:  #any non-empty string means user interacted
-                    return True
-            return False
+                if val and val not in ["0", "5", "0.0", "0.00"]:  # ignore empty strings and default numeric strings
+                    has_real_data = True
+                    break
+            return has_real_data
         return changed
 
 ProductVariantFormSet = forms.inlineformset_factory(
     Product,
     ProductVariant,
     form=ProductVariantForm,
-    extra=1,
+    extra=0,
     can_delete=True,
 )
 
