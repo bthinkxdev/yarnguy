@@ -50,7 +50,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
         from accounts.models import Address
         dashboard_address = profile.default_address
         if not dashboard_address:
-            dashboard_address = Address.objects.select_related("city").filter(customer_profile=profile).first()
+            dashboard_address = Address.objects.filter(customer_profile=profile).first()
         if dashboard_address:
             addresses = [dashboard_address]
             

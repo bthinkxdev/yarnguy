@@ -36,13 +36,12 @@ def get_customer_profile_for_user(*, user: User) -> Optional[CustomerProfile]:
     Return the customer profile for a user with related currency and default address.
 
     Query guarantee: exactly 1 SELECT with select_related on preferred_currency,
-    default_address, and default_address__city.
+    and default_address.
     """
     return (
         CustomerProfile.objects.select_related(
             "preferred_currency",
             "default_address",
-            "default_address__city",
         )
         .filter(user=user)
         .first()
@@ -54,7 +53,7 @@ def get_customer_dashboard_context(*, user: User) -> Optional[CustomerDashboardC
     Build the customer dashboard context from dedicated selectors.
 
     Query guarantee: exactly 4 queries total —
-      1) customer profile + preferred_currency + default_address + city (select_related),
+      1) customer profile + preferred_currency + default_address (select_related),
       2–3) paginated orders via orders.get_customer_orders (COUNT + page SELECT),
       4) unread notification count via notifications.get_unread_notification_count.
     Params:
@@ -72,7 +71,7 @@ def get_customer_dashboard_context(*, user: User) -> Optional[CustomerDashboardC
 
     address = profile.default_address
     if not address:
-        address = Address.objects.select_related("city").filter(customer_profile=profile).first()
+        address = Address.objects.filter(customer_profile=profile).first()
 
     return CustomerDashboardContext(
         profile=profile,
@@ -90,11 +89,10 @@ def get_address_by_id(
     """
     Return a single address owned by the customer.
 
-    Query guarantee: exactly 1 SELECT with select_related(city).
+    Query guarantee: exactly 1 SELECT.
     """
     return (
-        Address.objects.select_related("city")
-        .filter(pk=address_id, customer_profile=customer_profile)
+        Address.objects.filter(pk=address_id, customer_profile=customer_profile)
         .first()
     )
 
@@ -108,11 +106,10 @@ def get_saved_addresses(
     """
     Return a paginated page of customer addresses.
 
-    Query guarantee: 2 queries — COUNT + page SELECT with select_related(city).
+    Query guarantee: 2 queries — COUNT + page SELECT.
     """
     queryset = (
-        Address.objects.select_related("city")
-        .filter(customer_profile=customer_profile)
+        Address.objects.filter(customer_profile=customer_profile)
         .order_by("-is_default", "-created_at")
     )
     paginator = Paginator(queryset, page_size)
