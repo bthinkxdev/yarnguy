@@ -73,4 +73,9 @@ def transition_order_status(
         new_status=new_status,
         send_notifications=send_notifications,
     )
+
+    if new_status == OrderStatus.CONFIRMED:
+        from orders.plugins import order_confirmed_registry
+        order_confirmed_registry.execute_plugins(order)
+
     return order

@@ -1,0 +1,115 @@
+import json
+import logging
+import urllib.request
+import urllib.parse
+import urllib.error
+from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+def trigger_shipment_on_order_confirmed(order):
+    """
+    Trigger a Delhivery B2C shipment when an order status changes to 'Confirmed'.
+    Sends an actual HTTP POST request directly to Delhivery Express servers.
+    """
+    logger.info(f"Triggering Delhivery shipment for order {order.order_number}")
+    
+    api_key = getattr(settings, "DELHIVERY_API_KEY", "")
+    base_url = getattr(settings, "DELHIVERY_BASE_URL", "https://staging-express.delhivery.com").rstrip("/")
+    
+    if not api_key:
+        logger.error("DELHIVERY_API_KEY is missing in settings/env. Cannot trigger shipment.")
+        return False
+
+    #extract B2C customer details from delivery_address_snapshot
+    addr = order.delivery_address_snapshot or {}
+    customer_name = addr.get("name") or addr.get("recipient_name") or "Customer"
+    phone = addr.get("phone") or ""
+    if not phone and order.customer_profile and order.customer_profile.phone:
+        phone = order.customer_profile.phone
+
+    #check payment method
+    is_cod = hasattr(order, 'payment_transactions') and order.payment_transactions.filter(gateway_key="cod").exists()
+    
+    #construct B2C package payload
+    shipment_payload = {
+        "name": customer_name,
+        "add": f"{addr.get('line1', '')} {addr.get('line2', '')}".strip() or "Shipping Address",
+        "pin": addr.get("pin") or addr.get("pincode") or addr.get("postal_code") or "110001",
+        "city": addr.get("city", "") or "New Delhi",
+        "state": addr.get("state", "") or "Delhi",
+        "country": addr.get("country", "") or "India",
+        "phone": phone or "9999999999",
+        "order": order.order_number,
+        "payment_mode": "COD" if is_cod else "Prepaid",
+        "return_pin": "",
+        "products_desc": f"Order {order.order_number} items",
+        "total_amount": float(order.total_amount),
+        "cod_amount": float(order.total_amount) if is_cod else 0.0,
+    }
+    
+    url = f"{base_url}/api/cmu/create.json"
+    
+    #format according to Delhivery B2C specs
+    form_data = {
+        "format": "json",
+        "data": json.dumps({
+            "shipments": [shipment_payload],
+            "pickup_location": getattr(settings, "DELHIVERY_PICKUP_LOCATION", "Primary"),
+        })
+    }
+    
+    encoded_data = urllib.parse.urlencode(form_data).encode("utf-8")
+    headers = {
+        "Authorization": f"Token {api_key}",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+    }
+    
+    logger.info(f"Sending real shipment POST request to Delhivery ({url}) for Order {order.order_number}")
+    
+    req = urllib.request.Request(url, data=encoded_data, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as response:
+            response_data = response.read().decode("utf-8")
+            logger.info(f"Delhivery API response for {order.order_number}: {response_data}")
+            from delhivery.models import DelhiveryShipment
+            try:
+                result = json.loads(response_data)
+                waybill = ""
+                status_label = "Error" if result.get("error") else "Initiated"
+                err_msg = result.get("rmk") or str(result) if result.get("error") else ""
+                packages = result.get("packages", [])
+                if packages and isinstance(packages, list) and len(packages) > 0:
+                    waybill = str(packages[0].get("waybill", ""))
+                
+                DelhiveryShipment.objects.update_or_create(
+                    order=order,
+                    defaults={
+                        "waybill_number": waybill,
+                        "tracking_status": status_label,
+                        "error_message": err_msg or str(result),
+                    }
+                )
+                return result.get("success", True)
+            except json.JSONDecodeError:
+                DelhiveryShipment.objects.update_or_create(
+                    order=order,
+                    defaults={"tracking_status": "Unknown Response", "error_message": response_data}
+                )
+                return True
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode("utf-8") if e.fp else ""
+        logger.error(f"Delhivery API HTTPError {e.code} for order {order.order_number}: {error_body}")
+        from delhivery.models import DelhiveryShipment
+        DelhiveryShipment.objects.update_or_create(
+            order=order,
+            defaults={"tracking_status": f"HTTP Error {e.code}", "error_message": error_body}
+        )
+        return False
+    except urllib.error.URLError as e:
+        logger.error(f"Delhivery connection failed for order {order.order_number}: {e.reason}")
+        return False
+    except Exception as e:
+        logger.error(f"Unexpected error when calling Delhivery API: {str(e)}")
+        return False
