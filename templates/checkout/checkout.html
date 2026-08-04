@@ -95,6 +95,10 @@
           {% for key, adapter in payment_gateways.items %}
           <div class="form-check mb-2">
             <input class="form-check-input" type="radio" name="gateway_key" value="{{ key }}" id="gw-{{ key }}" 
+              hx-post="{% url 'checkout:update-delivery-charge' %}"
+              hx-target="#order-summary-container"
+              hx-select="#order-summary-container"
+              hx-swap="outerHTML"
               {% if selected_gateway_key == key %}checked{% elif not selected_gateway_key and forloop.first %}checked{% endif %}>
             <label class="form-check-label small" for="gw-{{ key }}">{{ adapter.display_name }}</label>
           </div>
@@ -108,7 +112,7 @@
     </div>
 
     <div class="col-lg-5">
-      <div class="checkout-step sticky-top" style="top: 100px;">
+      <div class="checkout-step sticky-top" style="top: 100px;" id="order-summary-container">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="mb-0">{% trans "Order Summary" %}</h2>
           <a href="#" class="text-decoration-none small text-floward fw-semibold" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">{% trans "Edit Cart" %}</a>
@@ -150,6 +154,13 @@
           <span class="flex-shrink-0 fw-semibold" style="font-size: 0.875rem;">{{ display_currency.symbol }} {{ line.line_subtotal }}</span>
         </div>
         {% endfor %}
+
+        {% if summary.delivery_charge > 0 %}
+        <div class="d-flex justify-content-between py-2 border-bottom text-muted" style="font-size: 0.875rem;">
+          <span>{% trans "Delivery Charge (COD)" %}</span>
+          <span>{{ display_currency.symbol }} {{ summary.delivery_charge }}</span>
+        </div>
+        {% endif %}
 
         {% if summary.coupon_code %}
         <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
@@ -198,13 +209,17 @@
     var checkoutForm = document.getElementById('checkout-form');
     if (checkoutForm) {
       checkoutForm.addEventListener('htmx:beforeSend', function(event) {
-        var selectedGateway = document.querySelector('input[name="gateway_key"]:checked');
-        if (selectedGateway && selectedGateway.value === 'cod') {
-          document.getElementById('order-processing-overlay').classList.remove('d-none');
+        if (event.detail.elt === checkoutForm) {
+          var selectedGateway = document.querySelector('input[name="gateway_key"]:checked');
+          if (selectedGateway && selectedGateway.value === 'cod') {
+            document.getElementById('order-processing-overlay').classList.remove('d-none');
+          }
         }
       });
       checkoutForm.addEventListener('htmx:afterSwap', function(event) {
-        document.getElementById('order-processing-overlay').classList.add('d-none');
+        if (event.detail.elt === checkoutForm) {
+          document.getElementById('order-processing-overlay').classList.add('d-none');
+        }
       });
       checkoutForm.addEventListener('htmx:responseError', function(event) {
         document.getElementById('order-processing-overlay').classList.add('d-none');

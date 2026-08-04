@@ -218,7 +218,7 @@ class SiteSettings(TimeStampedModel):
     )
     default_language = models.CharField(max_length=5, default="en")
     tax_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
-    default_shipping_charge = models.DecimalField(max_digits=10, decimal_places=2, default=50)
+    cod_delivery_charge = models.DecimalField(max_digits=10, decimal_places=2, default=50, verbose_name="COD Delivery Charge")
     card_gateway_public_key_env = models.CharField(
         max_length=80,
         default="CARD_GATEWAY_PUBLIC_KEY",

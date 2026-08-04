@@ -23,6 +23,30 @@ from payments.registry import PAYMENT_GATEWAYS
 from payments.services import process_payment
 
 
+@require_POST
+def checkout_update_delivery_charge_view(request: HttpRequest) -> HttpResponse:
+    """Update cart delivery charge if COD is selected and return updated summary."""
+    cart = get_cart_for_request(request=request)
+    if not cart:
+        return HttpResponse("")
+
+    gateway_key = request.POST.get("gateway_key", "")
+    request.session["checkout_gateway_key"] = gateway_key
+    
+    if gateway_key == "cod":
+        from core.services import get_site_settings
+        settings = get_site_settings()
+        cart.delivery_charge = settings.cod_delivery_charge
+    else:
+        from decimal import Decimal
+        cart.delivery_charge = Decimal("0.00")
+        
+    cart.save(update_fields=["delivery_charge", "updated_at"])
+
+    from django.shortcuts import redirect
+    return redirect("checkout:checkout")
+
+
 @require_GET
 def checkout_view(request: HttpRequest) -> HttpResponse:
     """Multi-step checkout page with gift Order Preview partial."""
@@ -57,8 +81,8 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
     from delivery.models import City
     active_cities = City.objects.filter(is_active=True)
 
-    selected_gateway_key = None
-    if session.order:
+    selected_gateway_key = request.session.get("checkout_gateway_key")
+    if not selected_gateway_key and session.order:
         last_tx = session.order.payment_transactions.last()
         if last_tx:
             selected_gateway_key = last_tx.gateway_key
@@ -71,6 +95,24 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
         if key.startswith("razorpay") and (not razorpay_key or not razorpay_secret):
             continue
         available_gateways[key] = adapter
+        
+    if not selected_gateway_key and available_gateways:
+        selected_gateway_key = list(available_gateways.keys())[0]
+        
+    if selected_gateway_key == "cod":
+        from core.services import get_site_settings
+        settings = get_site_settings()
+        if cart.delivery_charge != settings.cod_delivery_charge:
+            cart.delivery_charge = settings.cod_delivery_charge
+            cart.save(update_fields=["delivery_charge", "updated_at"])
+    else:
+        from decimal import Decimal
+        if cart.delivery_charge != Decimal("0.00"):
+            cart.delivery_charge = Decimal("0.00")
+            cart.save(update_fields=["delivery_charge", "updated_at"])
+
+    #reload summary after potential delivery charge update
+    summary = get_cart_summary(cart=cart)
 
     from marketing.selectors import has_any_active_coupons
     return render(
@@ -241,6 +283,19 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             checkout_session=session,
             delivery_date=delivery_form.cleaned_data.get("delivery_date"),
         )
+        
+    gateway_key = form.cleaned_data["gateway_key"]
+    if gateway_key == "cod":
+        from core.services import get_site_settings
+        settings = get_site_settings()
+        if cart.delivery_charge != settings.cod_delivery_charge:
+            cart.delivery_charge = settings.cod_delivery_charge
+            cart.save(update_fields=["delivery_charge", "updated_at"])
+    else:
+        from decimal import Decimal
+        if cart.delivery_charge != Decimal("0.00"):
+            cart.delivery_charge = Decimal("0.00")
+            cart.save(update_fields=["delivery_charge", "updated_at"])
 
     from cart.selectors import get_cart_summary
     summary = get_cart_summary(cart=cart)
@@ -270,7 +325,6 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
 
     payment_data = {}
 
-    gateway_key = form.cleaned_data["gateway_key"]
     process_payment(
         order=order,
         gateway_key=gateway_key,
