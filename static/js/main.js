@@ -618,6 +618,8 @@ document.addEventListener('DOMContentLoaded', () => {
     var badge = document.getElementById('jm-qv-badge');
     var pdp = document.getElementById('jm-qv-pdp');
     var productId = document.getElementById('jm-qv-product-id');
+    var variantId = document.getElementById('jm-qv-variant-id');
+    var isOut = card.dataset.isOutOfStock === 'true';
 
     if (img) {
       img.src = card.dataset.productImage || '';
@@ -625,7 +627,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (title) title.textContent = card.dataset.productName || '';
     if (price) price.textContent = card.dataset.productPrice || '';
-    if (stock) stock.textContent = card.dataset.productStock || '';
+    if (stock) {
+      stock.textContent = card.dataset.productStock || '';
+      if (isOut) {
+        stock.classList.add('text-danger');
+      } else {
+        stock.classList.remove('text-danger');
+      }
+    }
     if (badge) {
       if (card.dataset.productBadge) {
         badge.hidden = false;
@@ -636,10 +645,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (pdp) pdp.href = card.dataset.productUrl || '#';
     if (productId) productId.value = card.dataset.productId || '';
+    if (variantId) variantId.value = card.dataset.variantId || '';
 
     var inCart = card.dataset.inCart === 'true';
     var qvCartForm = document.getElementById('jm-qv-cart');
     var qvViewCart = document.getElementById('jm-qv-view-cart');
+    var qvAddBtn = document.getElementById('jm-qv-add-btn');
     if (qvCartForm && qvViewCart) {
       if (inCart) {
         qvCartForm.classList.add('d-none');
@@ -647,6 +658,17 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         qvCartForm.classList.remove('d-none');
         qvViewCart.classList.add('d-none');
+      }
+    }
+    if (qvAddBtn) {
+      if (isOut) {
+        qvAddBtn.disabled = true;
+        qvAddBtn.textContent = 'Unavailable';
+        qvAddBtn.style.cursor = 'not-allowed';
+      } else {
+        qvAddBtn.disabled = false;
+        qvAddBtn.textContent = 'Add to Cart';
+        qvAddBtn.style.cursor = 'pointer';
       }
     }
 
