@@ -134,6 +134,19 @@ class Address(TimeStampedModel):
         verbose_name="City",
         help_text="Deliverable city for this address.",
     )
+    state = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="State / Province",
+    )
+    pincode = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        verbose_name="PIN / Postal code",
+        help_text="6-digit PIN code for shipping.",
+    )
     is_default = models.BooleanField(
         default=False,
         db_index=True,

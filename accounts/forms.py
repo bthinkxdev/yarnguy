@@ -150,7 +150,7 @@ class AddressForm(forms.ModelForm):
 
     class Meta:
         model = Address
-        fields = ("label", "line1", "line2", "city", "is_default")
+        fields = ("label", "line1", "line2", "city", "state", "pincode", "is_default")
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

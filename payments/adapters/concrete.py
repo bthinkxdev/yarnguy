@@ -281,6 +281,7 @@ class RazorpayAdapter(PaymentGatewayAdapter):
         self,
         *,
         razorpay_payment_id: str,
+        amount: Any = 0,
         currency: str = None,
     ) -> bool:
         if not currency:

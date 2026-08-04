@@ -46,6 +46,7 @@ def dispatch_order_status_notification(
         product_names += " and more"
         
     status_messages = {
+        "confirmed": f"Great news! Your order ({order.order_number}) containing {product_names} has been verified and confirmed! We will process it shortly.",
         "preparing": f"Great news! We have started packing your order ({order.order_number}) containing {product_names} and will ship it out soon.",
         "packaging": f"Great news! We have started packing your order ({order.order_number}) containing {product_names} and will ship it out soon.",
         "ready": f"Your order ({order.order_number}) is ready to be shipped out.",
@@ -88,7 +89,9 @@ def dispatch_order_confirmation_notification(*, order_id: int) -> None:
 
     profile = order.customer_profile
     user = profile.user
-    title = f"Order Confirmation - {order.order_number}"
+    is_confirmed = (order.order_status == "confirmed")
+    status_word = "confirmed" if is_confirmed else "received"
+    title = f"Order {'Confirmation' if is_confirmed else 'Received'} - {order.order_number}"
     
     items = list(order.items.all())
     product_names = ", ".join([item.product.name for item in items[:3]])
@@ -108,7 +111,7 @@ def dispatch_order_confirmation_notification(*, order_id: int) -> None:
 
     if profile.phone:
         if profile.notify_via_sms:
-            send_sms(phone=profile.phone, message=f"Desert Star: Order {order.order_number} confirmed. Thank you!")
+            send_sms(phone=profile.phone, message=f"The Yarn Guy: Order {order.order_number} has been {status_word}. Thank you!")
         if profile.notify_via_whatsapp:
             send_whatsapp(phone=profile.phone, message=body)
 

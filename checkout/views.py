@@ -174,6 +174,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
             guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
             guest_city = request.POST.get("guest_city", "").strip()
+            guest_state = request.POST.get("guest_state", "").strip()
+            guest_pincode = request.POST.get("guest_pincode", "").strip()
 
             errors = {}
             if not guest_name: 
@@ -197,6 +199,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
 
             if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
             if not guest_city: errors["guest_city"] = ["City is required."]
+            if not guest_state: errors["guest_state"] = ["State / Province is required."]
+            if not guest_pincode: errors["guest_pincode"] = ["PIN / Postal Code is required."]
 
             if errors:
                 return render(
@@ -219,6 +223,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                 line1=guest_address_line1,
                 line2=guest_address_line2,
                 city=guest_city,
+                pincode=guest_pincode,
             ).first()
             if not address:
                 address = Address.objects.create(
@@ -226,6 +231,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                     line1=guest_address_line1,
                     line2=guest_address_line2,
                     city=guest_city,
+                    state=guest_state,
+                    pincode=guest_pincode,
                     label="Delivery Address"
                 )
                 
@@ -242,10 +249,14 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
             guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
             guest_city = request.POST.get("guest_city", "").strip()
+            guest_state = request.POST.get("guest_state", "").strip()
+            guest_pincode = request.POST.get("guest_pincode", "").strip()
 
             errors = {}
             if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
             if not guest_city: errors["guest_city"] = ["City is required."]
+            if not guest_state: errors["guest_state"] = ["State / Province is required."]
+            if not guest_pincode: errors["guest_pincode"] = ["PIN / Postal Code is required."]
 
             if errors:
                 return render(
@@ -261,6 +272,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                 line1=guest_address_line1,
                 line2=guest_address_line2,
                 city=guest_city,
+                pincode=guest_pincode,
             ).first()
             if not address:
                 address = Address.objects.create(
@@ -268,6 +280,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
                     line1=guest_address_line1,
                     line2=guest_address_line2,
                     city=guest_city,
+                    state=guest_state,
+                    pincode=guest_pincode,
                     label="Delivery Address"
                 )
             

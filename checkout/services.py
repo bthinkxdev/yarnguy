@@ -135,7 +135,8 @@ def place_order(
             "line1": addr.line1,
             "line2": addr.line2,
             "city": addr.city,
-            "state": "",
+            "state": getattr(addr, "state", "") or "",
+            "pincode": getattr(addr, "pincode", "") or "",
         }
 
     try:

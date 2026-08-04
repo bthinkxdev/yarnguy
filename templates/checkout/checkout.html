@@ -76,6 +76,18 @@
               <input type="text" name="guest_city" class="form-control form-control-sm" value="{{ checkout_session.address.city|default:'' }}">
               <div id="error-guest_city" class="text-danger small mt-1"></div>
             </div>
+            <div class="row g-2 mb-3">
+              <div class="col-md-6">
+                <label class="form-label small">{% trans "State" %} <span class="text-danger">*</span></label>
+                <input type="text" name="guest_state" class="form-control form-control-sm" value="{{ checkout_session.address.state|default:'' }}">
+                <div id="error-guest_state" class="text-danger small mt-1"></div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small">{% trans "PIN / Postal Code" %} <span class="text-danger">*</span></label>
+                <input type="text" name="guest_pincode" class="form-control form-control-sm" value="{{ checkout_session.address.pincode|default:'' }}">
+                <div id="error-guest_pincode" class="text-danger small mt-1"></div>
+              </div>
+            </div>
           </div>
         </div>
 
