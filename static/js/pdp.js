@@ -158,6 +158,11 @@
                 }
               }
             }
+            if (data.stock_quantity !== undefined) {
+              var qtyInput = document.getElementById('pdp-qty');
+              if (qtyInput) qtyInput.setAttribute('data-max-stock', data.stock_quantity);
+            }
+            if (window.validatePdpStock) window.validatePdpStock();
           });
       });
     });
@@ -183,4 +188,77 @@
         });
     });
   }
+
+  window.handlePdpQtyChange = function (delta) {
+    var qtyInput = document.getElementById('pdp-qty');
+    if (!qtyInput) return;
+    var maxStock = parseInt(qtyInput.getAttribute('data-max-stock'));
+    var currQty = parseInt(qtyInput.value) || 1;
+    var errorMsg = document.getElementById('pdp-stock-error-msg');
+
+    if (delta > 0 && !isNaN(maxStock) && currQty >= maxStock) {
+      if (errorMsg) {
+        errorMsg.textContent = maxStock <= 0 ? 'Out of stock' : 'Only ' + maxStock + ' items available in stock.';
+        errorMsg.classList.remove('d-none');
+      }
+      return;
+    }
+
+    var newQty = currQty + delta;
+    if (newQty < 1) newQty = 1;
+    qtyInput.value = newQty;
+    document.querySelectorAll('.pdp-qty-input').forEach(function (i) { i.value = newQty; });
+
+    if (errorMsg) {
+      errorMsg.classList.add('d-none');
+      errorMsg.textContent = '';
+    }
+    if (window.validatePdpStock) window.validatePdpStock();
+  };
+
+  window.validatePdpStock = function () {
+    var qtyInput = document.getElementById('pdp-qty');
+    if (!qtyInput) return;
+    var maxStock = parseInt(qtyInput.getAttribute('data-max-stock'));
+    if (isNaN(maxStock)) return;
+    var currQty = parseInt(qtyInput.value) || 1;
+    var errorMsg = document.getElementById('pdp-stock-error-msg');
+    var atcBtn = document.querySelector('#buy-form button');
+    var bnBtn = document.querySelector('#buy-now-form button');
+    var stickyAtcBtn = document.querySelector('#sticky-buy-form button');
+    var stickyBnBtn = document.querySelector('#sticky-buy-now-form button');
+    var allBtns = [atcBtn, bnBtn, stickyAtcBtn, stickyBnBtn].filter(Boolean);
+
+    if (currQty > maxStock && maxStock > 0) {
+      currQty = maxStock;
+      qtyInput.value = maxStock;
+      document.querySelectorAll('.pdp-qty-input').forEach(function (i) { i.value = maxStock; });
+    }
+
+    if (maxStock <= 0) {
+      if (errorMsg) {
+        errorMsg.textContent = 'Out of stock';
+        errorMsg.classList.remove('d-none');
+      }
+      allBtns.forEach(function (btn) {
+        btn.type = 'button';
+        btn.classList.add('disabled');
+        btn.style.cursor = 'not-allowed';
+        btn.style.opacity = '0.6';
+        btn.style.pointerEvents = 'auto';
+        btn.onclick = function (e) { e.preventDefault(); return false; };
+      });
+    } else {
+      allBtns.forEach(function (btn) {
+        btn.type = 'submit';
+        btn.classList.remove('disabled');
+        btn.style.cursor = 'pointer';
+        btn.style.opacity = '1';
+        btn.style.pointerEvents = 'auto';
+        btn.onclick = null;
+      });
+    }
+  };
+
+  if (window.validatePdpStock) window.validatePdpStock();
 })();

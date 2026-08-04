@@ -25,10 +25,11 @@
       <div class="cart-line__meta text-muted small mt-1 mb-1">{{ line.variant.name }}</div>
       {% endif %}
       <div class="cart-line__meta">{{ display_currency.symbol }} {{ line.unit_price_at_add }}</div>
-      {% if not line.product.is_in_stock %}
+      {% with max_stock=line.variant.stock_quantity|default_if_none:line.product.stock_quantity %}
+      {% if not line.product.is_in_stock or max_stock <= 0 %}
       <div class="text-danger small mt-1">{% trans "Out of stock" %}</div>
-      {% elif line.quantity > line.product.stock_quantity %}
-      <div class="text-danger small mt-1">{% trans "Only" %} {{ line.product.stock_quantity }} {% trans "items available in stock." %}</div>
+      {% elif line.quantity > max_stock %}
+      <div class="text-danger small mt-1">{% trans "Only" %} {{ max_stock }} {% trans "items available in stock." %}</div>
       {% elif error_item_id == line.item.pk and error %}
       <div class="text-danger small mt-1">{{ error }}</div>
       {% endif %}
@@ -51,6 +52,7 @@
           <button class="qty-stepper__btn" type="submit" aria-label="{% trans 'Increase quantity' %}" style="padding: 2px 8px; font-size: 14px; border: none; background: transparent;">&plus;</button>
         </form>
       </div>
+      {% endwith %}
     </div>
     <form method="post" action="{% url 'cart:remove' %}" hx-post="{% url 'cart:remove' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
       {% csrf_token %}

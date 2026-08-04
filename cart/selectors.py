@@ -192,7 +192,8 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
                 line_subtotal=line_subtotal,
             )
         )
-        if not item.product.is_in_stock or item.quantity > item.product.stock_quantity:
+        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
+        if not item.product.is_in_stock or max_stock <= 0 or item.quantity > max_stock:
             has_stock_issues = True
 
     delivery_charge = cart.delivery_charge

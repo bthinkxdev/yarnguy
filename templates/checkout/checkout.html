@@ -156,11 +156,13 @@
               {% endif %}
               <div class="text-muted" style="font-size: 0.75rem;">{% trans "Qty:" %} {{ line.quantity }} &times; {{ display_currency.symbol }} {{ line.unit_price_at_add }}</div>
               
-              {% if not line.product.is_in_stock %}
+              {% with max_stock=line.variant.stock_quantity|default_if_none:line.product.stock_quantity %}
+              {% if not line.product.is_in_stock or max_stock <= 0 %}
               <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Out of stock" %}</div>
-              {% elif line.quantity > line.product.stock_quantity %}
-              <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Only" %} {{ line.product.stock_quantity }} {% trans "items available in stock." %}</div>
+              {% elif line.quantity > max_stock %}
+              <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Only" %} {{ max_stock }} {% trans "items available in stock." %}</div>
               {% endif %}
+              {% endwith %}
             </div>
           </div>
           <span class="flex-shrink-0 fw-semibold" style="font-size: 0.875rem;">{{ display_currency.symbol }} {{ line.line_subtotal }}</span>

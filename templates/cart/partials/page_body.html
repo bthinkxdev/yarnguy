@@ -27,10 +27,11 @@
               <span class="fw-semibold flex-shrink-0">{{ display_currency.symbol }} {{ line.line_subtotal }}</span>
             </div>
             {% if line.variant %}<div class="cart-line__meta">{{ line.variant.name }}</div>{% endif %}
-            {% if not line.product.is_in_stock %}
+            {% with max_stock=line.variant.stock_quantity|default_if_none:line.product.stock_quantity %}
+            {% if not line.product.is_in_stock or max_stock <= 0 %}
             <div class="text-danger small mt-1">{% trans "Out of stock" %}</div>
-            {% elif line.quantity > line.product.stock_quantity %}
-            <div class="text-danger small mt-1">{% trans "Only" %} {{ line.product.stock_quantity }} {% trans "items available in stock." %}</div>
+            {% elif line.quantity > max_stock %}
+            <div class="text-danger small mt-1">{% trans "Only" %} {{ max_stock }} {% trans "items available in stock." %}</div>
             {% elif error_item_id == line.item.pk and error %}
             <div class="text-danger small mt-1">{{ error }}</div>
             {% endif %}
@@ -54,6 +55,7 @@
                   <button class="qty-stepper__btn" type="submit" aria-label="{% trans 'Increase quantity' %}">&plus;</button>
                 </form>
               </div>
+              {% endwith %}
 
               <form method="post" action="{% url 'cart:page-remove' %}" hx-post="{% url 'cart:page-remove' %}" hx-target="#cart-page-body" hx-swap="outerHTML">
                 {% csrf_token %}

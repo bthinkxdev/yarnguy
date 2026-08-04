@@ -170,7 +170,7 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     is_in_cart = cart_item is not None
 
     quantity = cart_item.quantity if cart_item else 1
-    price_data = get_variant_price(product_id=product.pk, user=request.user, quantity=quantity)
+    price_data = get_variant_price(product_id=product.pk, variant_id=target_variant.pk if target_variant else None, user=request.user, quantity=quantity)
 
     reviews = getattr(product, "approved_reviews", [])
     review_count = len(reviews)
