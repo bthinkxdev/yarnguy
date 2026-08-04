@@ -651,6 +651,8 @@ def get_product_for_cart_add(
     variant = None
     if variant_id:
         variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
+    if variant is None:
+        variant = ProductVariant.objects.filter(product=product).first()
     return product, variant
 
 

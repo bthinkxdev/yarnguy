@@ -756,28 +756,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  document.body.addEventListener('cartItemAdded', function (event) {
-    var detail = event.detail || {};
-    var productId = detail.product_id ? String(detail.product_id) : '';
-    if (!productId) return;
-
+  function setProductCardCartState(productId, inCart) {
     document.querySelectorAll('.jm-product-card[data-product-id="' + productId + '"]').forEach(function (card) {
-      card.dataset.inCart = 'true';
+      card.dataset.inCart = inCart ? 'true' : 'false';
       var form = card.querySelector('form.jm-product-card__cart');
-      if (form && !form.classList.contains('d-none')) {
-        var viewCartLink = document.createElement('a');
-        var cartUrl = '/cart/';
-        var existingLink = document.querySelector('a[href*="/cart/"]');
-        if (existingLink) {
-            cartUrl = existingLink.getAttribute('href');
+      var viewCartLink = card.querySelector('.jm-dynamic-view-cart');
+
+      if (inCart) {
+        if (form && !form.classList.contains('d-none')) {
+          var newLink = document.createElement('a');
+          var cartUrl = '/cart/';
+          var existingLink = document.querySelector('a[href*="/cart/"]');
+          if (existingLink) cartUrl = existingLink.getAttribute('href');
+
+          newLink.href = cartUrl;
+          newLink.className = 'btn btn-outline-floward jm-product-card__atc jm-product-card__atc--in-cart mt-auto jm-dynamic-view-cart';
+          newLink.innerHTML = '<span>View Cart</span>';
+
+          form.classList.add('d-none');
+          if (viewCartLink) viewCartLink.replaceWith(newLink);
+          else form.parentNode.insertBefore(newLink, form.nextSibling);
         }
-
-        viewCartLink.href = cartUrl;
-        viewCartLink.className = 'btn btn-outline-floward jm-product-card__atc jm-product-card__atc--in-cart mt-auto jm-dynamic-view-cart';
-        viewCartLink.innerHTML = '<span>View Cart</span>';
-
-        form.classList.add('d-none');
-        form.parentNode.insertBefore(viewCartLink, form.nextSibling);
+      } else {
+        if (viewCartLink) viewCartLink.remove();
+        if (form) form.classList.remove('d-none');
       }
     });
 
@@ -786,45 +788,69 @@ document.addEventListener('DOMContentLoaded', () => {
       var qvCartForm = document.getElementById('jm-qv-cart');
       var qvViewCart = document.getElementById('jm-qv-view-cart');
       if (qvCartForm && qvViewCart) {
-        qvCartForm.classList.add('d-none');
-        qvViewCart.classList.remove('d-none');
+        if (inCart) {
+          qvCartForm.classList.add('d-none');
+          qvViewCart.classList.remove('d-none');
+        } else {
+          qvCartForm.classList.remove('d-none');
+          qvViewCart.classList.add('d-none');
+        }
       }
     }
+  }
+
+  document.body.addEventListener('cartItemAdded', function (event) {
+    var pid = (event.detail && event.detail.product_id) ? String(event.detail.product_id) : '';
+    if (pid) setProductCardCartState(pid, true);
   });
 
   document.body.addEventListener('cartItemRemoved', function (event) {
-    var detail = event.detail || {};
-    var productId = detail.product_id ? String(detail.product_id) : '';
-    if (!productId) return;
-
-    document.querySelectorAll('.jm-product-card[data-product-id="' + productId + '"]').forEach(function (card) {
-      card.dataset.inCart = 'false';
-      var viewCartLink = card.querySelector('.jm-dynamic-view-cart');
-      if (viewCartLink) {
-        viewCartLink.remove();
-      }
-      var form = card.querySelector('form.jm-product-card__cart');
-      if (form) {
-        form.classList.remove('d-none');
-      }
-    });
-
-    var qvProductId = document.getElementById('jm-qv-product-id');
-    if (qvProductId && qvProductId.value === productId) {
-      var qvCartForm = document.getElementById('jm-qv-cart');
-      var qvViewCart = document.getElementById('jm-qv-view-cart');
-      if (qvCartForm && qvViewCart) {
-        qvCartForm.classList.remove('d-none');
-        qvViewCart.classList.add('d-none');
-      }
-    }
+    var pid = (event.detail && event.detail.product_id) ? String(event.detail.product_id) : '';
+    if (pid) setProductCardCartState(pid, false);
   });
 
-  window.addEventListener('pageshow', function (event) {
-    if (event.persisted) {
-      window.location.reload();
-    }
-  });
+  var lastSync = 0;
+  function syncCartStatus() {
+    if (Date.now() - lastSync < 300) return;
+    lastSync = Date.now();
+
+    fetch('/cart/status/', { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !Array.isArray(data.cart_product_ids)) return;
+        var cartSet = new Set(data.cart_product_ids.map(String));
+        document.querySelectorAll('.jm-product-card').forEach(function (card) {
+          if (card.dataset.productId) setProductCardCartState(String(card.dataset.productId), cartSet.has(String(card.dataset.productId)));
+        });
+
+        var badge = document.getElementById('cart-count-badge');
+        if (badge && data.cart_count !== undefined) {
+          badge.innerHTML = data.cart_count > 0 ? '<span class="badge-count">' + data.cart_count + '</span>' : '';
+        }
+
+        var pdpForm = document.getElementById('buy-form');
+        if (pdpForm) {
+          var pid = (pdpForm.querySelector('input[name="product_id"]') || {}).value;
+          var vid = (pdpForm.querySelector('input[name="variant_id"]') || {}).value;
+          if (pid) {
+            var itemKey = vid ? (pid + '_' + vid) : pid;
+            var inPdp = Array.isArray(data.cart_item_keys) ? data.cart_item_keys.indexOf(itemKey) !== -1 : cartSet.has(pid);
+            var addGrp = document.getElementById('pdp-add-to-cart-group');
+            var viewGrp = document.getElementById('pdp-view-cart-group');
+            var stickyAdd = document.getElementById('sticky-buy-form');
+            var stickyView = document.getElementById('pdp-sticky-view-cart-btn');
+            if (addGrp) addGrp.classList.toggle('d-none', inPdp);
+            if (viewGrp) viewGrp.classList.toggle('d-none', !inPdp);
+            if (stickyAdd) stickyAdd.classList.toggle('d-none', inPdp);
+            if (stickyView) stickyView.classList.toggle('d-none', !inPdp);
+          }
+        }
+      }).catch(function () {});
+  }
+
+  window.addEventListener('pageshow', function (e) { syncCartStatus(); if (e.persisted) window.location.reload(); });
+  window.addEventListener('focus', syncCartStatus);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncCartStatus(); });
 })();
 
 /* Desert Star: sticky header offset + mobile trust auto-slide */

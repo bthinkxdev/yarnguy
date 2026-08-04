@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import json
 
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import Http404, HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_GET, require_POST
 
 from cart.exceptions import CartItemNotFoundError, InsufficientStockError
 from cart.forms import CartCouponForm, CartQuantityForm
-from cart.selectors import get_cart_count, get_cart_for_request, get_cart_summary, get_wishlist_count
+from cart.selectors import get_cart_count, get_cart_for_request, get_cart_summary, get_wishlist_count, get_cart_product_ids
 from cart.services import (
     add_to_cart,
     adjust_cart_item_quantity,
@@ -100,6 +100,26 @@ def cart_count_view(request: HttpRequest) -> HttpResponse:
         "cart/partials/count_badge.html",
         {"count": get_cart_count(request=request)},
     )
+
+
+@require_GET
+def cart_status_view(request: HttpRequest) -> JsonResponse:
+    """JSON endpoint returning active cart count, product IDs, and item keys for JS state sync."""
+    from cart.models import CartItem
+    cart = get_cart_for_request(request=request)
+    product_ids = set()
+    cart_item_keys = []
+    count = 0
+    if cart:
+        for pid, vid, qty in CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id", "quantity"):
+            product_ids.add(pid)
+            cart_item_keys.append(f"{pid}_{vid}" if vid else f"{pid}")
+            count += qty
+    return JsonResponse({
+        "cart_product_ids": list(product_ids),
+        "cart_count": count,
+        "cart_item_keys": cart_item_keys,
+    })
 
 
 @require_GET

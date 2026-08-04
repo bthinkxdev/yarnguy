@@ -155,10 +155,18 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
 
     cart = get_cart_for_request(request=request)
     variant_id = request.GET.get("variant_id")
+    target_variant = None
     if variant_id and variant_id.isdigit():
-        cart_item = CartItem.objects.filter(cart=cart, product=product, variant_id=int(variant_id)).first() if cart else None
+        target_variant = product.variants.filter(pk=int(variant_id)).first()
     else:
-        cart_item = CartItem.objects.filter(cart=cart, product=product, variant__isnull=True).first() if cart else None
+        target_variant = product.variants.first()
+
+    cart_item = None
+    if cart:
+        if target_variant:
+            cart_item = CartItem.objects.filter(cart=cart, product=product, variant=target_variant).first()
+        else:
+            cart_item = CartItem.objects.filter(cart=cart, product=product, variant__isnull=True).first()
     is_in_cart = cart_item is not None
 
     quantity = cart_item.quantity if cart_item else 1
@@ -203,7 +211,7 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
             "whatsapp_number": site_settings.whatsapp_number,
             "is_in_cart": is_in_cart,
             "cart_item": cart_item,
-            "selected_variant_id": variant_id if variant_id and variant_id.isdigit() else "",
+            "selected_variant_id": target_variant.pk if target_variant else "",
             "is_in_wishlist": is_in_wishlist,
             "related_products": get_related_products(product=product, user=request.user),
             "has_delivered_order": has_delivered_order,
@@ -272,10 +280,12 @@ def variant_price_view(request: HttpRequest, product_id: int) -> JsonResponse:
     from cart.selectors import get_cart_for_request
     
     cart = get_cart_for_request(request=request)
-    if parsed_variant:
-        cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant_id=parsed_variant).first() if cart else None
-    else:
-        cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant__isnull=True).first() if cart else None
+    cart_item = None
+    if cart:
+        if parsed_variant:
+            cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant_id=parsed_variant).first()
+        else:
+            cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant__isnull=True).first()
     data["is_in_cart"] = cart_item is not None
 
     return JsonResponse(data)

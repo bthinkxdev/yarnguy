@@ -136,6 +136,7 @@
       hx-swap="innerHTML">
       {% csrf_token %}
       <input type="hidden" name="product_id" value="{{ product.pk }}">
+      {% if first_variant %}<input type="hidden" name="variant_id" value="{{ first_variant.pk }}">{% endif %}
       <input type="hidden" name="quantity" value="1">
       <button type="submit" class="jm-product-card__atc" {% if eff_stock <= 0 %}disabled{% endif %}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
