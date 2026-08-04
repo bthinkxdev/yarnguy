@@ -11,11 +11,10 @@ from core.models import TimeStampedModel
 class OrderStatus(models.TextChoices):
     """Lifecycle states for a customer order."""
 
-    RECEIVED = "received", "Placed"
+    PLACED = "placed", "Placed"
+    CONFIRMED = "confirmed", "Confirmed"
     PREPARING = "preparing", "Preparing"
-    PACKAGING = "packaging", "Packaging"
-    READY = "ready", "Ready"
-    OUT_FOR_DELIVERY = "out_for_delivery", "Out for delivery"
+    SHIPPED = "shipped", "Shipped"
     DELIVERED = "delivered", "Delivered"
     CANCELLED = "cancelled", "Cancelled"
     REFUNDED = "refunded", "Refunded"
@@ -65,7 +64,7 @@ class Order(TimeStampedModel):
     order_status = models.CharField(
         max_length=20,
         choices=OrderStatus.choices,
-        default=OrderStatus.RECEIVED,
+        default=OrderStatus.PLACED,
         db_index=True,
         verbose_name="Order status",
     )

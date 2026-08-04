@@ -33,11 +33,10 @@ SEED_KEY_PREFIXES = ("seed-", "recurring-sub-")
 SEED_EMAIL_DOMAIN = "seed.floward.test"
 
 LINEAR_FLOW = [
-    OrderStatus.RECEIVED,
+    OrderStatus.PLACED,
+    OrderStatus.CONFIRMED,
     OrderStatus.PREPARING,
-    OrderStatus.PACKAGING,
-    OrderStatus.READY,
-    OrderStatus.OUT_FOR_DELIVERY,
+    OrderStatus.SHIPPED,
     OrderStatus.DELIVERED,
 ]
 
@@ -111,7 +110,7 @@ class Command(BaseCommand):
             order.refresh_from_db()
 
             is_guest = order.customer_profile_id is None
-            if not is_guest and target != OrderStatus.RECEIVED:
+            if not is_guest and target != OrderStatus.PLACED:
                 self._advance(order, target, actor=None)
             self._record_payment(order, created)
             if order.order_status == OrderStatus.DELIVERED:
@@ -244,7 +243,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Order with product variant",
-                "status": OrderStatus.READY,
+                "status": OrderStatus.PREPARING,
                 "place": {"profile": c[2], "lines": [(variant_product, variant, 1)]},
             },
             {
@@ -258,7 +257,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Coupon FLAT50 (fixed) on larger order",
-                "status": OrderStatus.PACKAGING,
+                "status": OrderStatus.CONFIRMED,
                 "place": {
                     "profile": c[3],
                     "lines": [(p[8 % len(p)], None, 3), (p[9 % len(p)], None, 2)],
@@ -267,7 +266,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Scheduled delivery with booked slot",
-                "status": OrderStatus.READY,
+                "status": OrderStatus.SHIPPED,
                 "place": {
                     "profile": c[4],
                     "lines": [(p[10 % len(p)], None, 1)],
@@ -277,7 +276,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Guest checkout (no account)",
-                "status": OrderStatus.RECEIVED,
+                "status": OrderStatus.PLACED,
                 "place": {
                     "profile": None,
                     "session_key": uuid.uuid4().hex,
@@ -404,7 +403,7 @@ class Command(BaseCommand):
         gateway = self.rng.choice(["card", "applepay", "gift_voucher", "benefit"])
         if order.order_status in {OrderStatus.CANCELLED}:
             status = PaymentStatus.FAILED
-        elif order.order_status == OrderStatus.RECEIVED:
+        elif order.order_status == OrderStatus.PLACED:
             status = self.rng.choice([PaymentStatus.PENDING, PaymentStatus.SUCCESS])
         else:
             status = PaymentStatus.SUCCESS

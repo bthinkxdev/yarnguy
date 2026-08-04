@@ -37,6 +37,12 @@ def confirm_payment_success(*, payment_transaction: PaymentTransaction) -> Payme
             from cart.models import CartItem
             CartItem.objects.filter(cart=cart).delete()
 
+        # auto confirm order if it's placed and not COD
+        from orders.models import OrderStatus
+        from orders.services import transition_order_status
+        if payment_transaction.gateway_key != "cod" and order.order_status == OrderStatus.PLACED:
+            transition_order_status(order=order, new_status=OrderStatus.CONFIRMED, note="Payment successful", force=True)
+
         #send order placement confirmation email
         from notifications.tasks import dispatch_order_confirmation_notification
         transaction.on_commit(

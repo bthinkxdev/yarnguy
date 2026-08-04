@@ -95,8 +95,6 @@ def place_order(
             "cart",
             "cart__currency",
             "address",
-            "address__city",
-
         )
         .filter(pk=checkout_session_id)
         .first()
@@ -136,8 +134,8 @@ def place_order(
             "label": addr.label,
             "line1": addr.line1,
             "line2": addr.line2,
-            "city": addr.city.name if hasattr(addr, 'city') and addr.city else "",
-            "state": addr.city.state.name if hasattr(addr, 'city') and addr.city and getattr(addr.city, 'state', None) else "",
+            "city": addr.city,
+            "state": "",
         }
 
     try:
@@ -146,7 +144,7 @@ def place_order(
             cart=session.cart,
             order_number=generate_order_number(),
             idempotency_key=idempotency_key,
-            order_status=OrderStatus.RECEIVED,
+            order_status=OrderStatus.PLACED,
             delivery_date=session.delivery_date,
             subtotal=summary.subtotal,
             coupon_discount=summary.coupon_discount,
