@@ -1,9 +1,9 @@
 {% load i18n static storefront_tags %}
-{% with first_variant=product.variants.all.0 %}
-{% with eff_stock=first_variant.stock_quantity|default_if_none:product.stock_quantity eff_thresh=first_variant.low_stock_threshold|default_if_none:product.low_stock_threshold %}
+{% with display_variant=product.display_variant %}
+{% with eff_stock=display_variant.stock_quantity|default_if_none:product.stock_quantity eff_thresh=display_variant.low_stock_threshold|default_if_none:product.low_stock_threshold eff_price=product.display_price|default:product.effective_base_price eff_base=product.effective_base_price eff_mrp=product.effective_mrp %}
 <article class="jm-product-card card h-100" data-product-id="{{ product.pk }}" data-product-name="{{ product.name }}"
   data-product-url="{% url 'catalog:pdp' slug=product.slug %}"
-  data-product-price="{% money_label product.display_price|default:product.base_price display_currency %}"
+  data-product-price="{% money_label eff_price display_currency %}"
   data-product-stock="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %}{% endif %}"
   data-product-badge="{% if product.is_featured %}{% trans 'Featured' %}{% elif product.is_bestseller %}{% trans 'Bestseller' %}{% elif product.is_new_arrival %}{% trans 'New' %}{% endif %}"
   {% with img=product.primary_images.0 %}
@@ -109,19 +109,18 @@
     <div class="jm-product-card__pricing">
       {% if product.is_flash_sale %}
       <p class="product-price jm-product-card__price--sale mb-0">
-        {% money_label product.display_price|default:product.base_price display_currency %}
+        {% money_label eff_price display_currency %}
       </p>
       <p class="jm-product-card__was mb-0">
-        <span class="text-decoration-line-through">{% money_label product.original_price|default:product.base_price
-          display_currency %}</span>
+        <span class="text-decoration-line-through">{% money_label product.original_price|default:eff_base display_currency %}</span>
       </p>
       {% else %}
       <p class="product-price mb-0">
-        {% money_label product.display_price|default:product.base_price display_currency %}
+        {% money_label eff_price display_currency %}
       </p>
-      {% if product.mrp and product.mrp > product.base_price %}
+      {% if eff_mrp and eff_mrp > eff_base %}
       <p class="jm-product-card__was mb-0">
-        <span class="text-decoration-line-through text-muted">{% money_label product.mrp display_currency %}</span>
+        <span class="text-decoration-line-through text-muted">{% money_label eff_mrp display_currency %}</span>
       </p>
       {% endif %}
       {% endif %}
@@ -136,7 +135,7 @@
       hx-swap="innerHTML">
       {% csrf_token %}
       <input type="hidden" name="product_id" value="{{ product.pk }}">
-      {% if first_variant %}<input type="hidden" name="variant_id" value="{{ first_variant.pk }}">{% endif %}
+      {% if display_variant %}<input type="hidden" name="variant_id" value="{{ display_variant.pk }}">{% endif %}
       <input type="hidden" name="quantity" value="1">
       <button type="submit" class="jm-product-card__atc" {% if eff_stock <= 0 %}disabled{% endif %}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">

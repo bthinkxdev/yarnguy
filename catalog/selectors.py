@@ -51,7 +51,7 @@ def get_product_display_price(*, product: Product) -> Decimal:
     """Return flash-sale-adjusted display price for PLP cards."""
     from marketing.selectors import get_active_flash_sale_price
 
-    sale = get_active_flash_sale_price(product_id=product.pk, base_price=product.base_price)
+    sale = get_active_flash_sale_price(product_id=product.pk, base_price=product.effective_base_price)
     return sale["price"]
 
 
@@ -70,6 +70,15 @@ def _primary_image_prefetch() -> Prefetch:
     )
 
 
+def _variants_prefetch() -> Prefetch:
+    """Prefetch variants ordered by ID to attach variant_list for card displays."""
+    return Prefetch(
+        "variants",
+        queryset=ProductVariant.objects.order_by("id"),
+        to_attr="variant_list",
+    )
+
+
 def _homepage_rail_queryset(*, filters: Q) -> QuerySet[Product]:
     """Base queryset for a single homepage rail with shared optimizations."""
     approved = Q(reviews__moderation_status=ModerationStatus.APPROVED)
@@ -77,7 +86,7 @@ def _homepage_rail_queryset(*, filters: Q) -> QuerySet[Product]:
         Product.objects.filter(is_active=True)
         .filter(filters)
         .select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
         .annotate(
             average_rating=Avg("reviews__rating", filter=approved),
@@ -117,7 +126,7 @@ def get_products_by_category_slug(slug: str, limit: int | None = None) -> list[P
         Product.objects.filter(is_active=True)
         .filter(cat_filter)
         .select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
         .annotate(
             average_rating=Avg("reviews__rating", filter=approved),
@@ -145,20 +154,21 @@ def _decorate_homepage_rail_prices(rails: dict[str, list[Product]]) -> None:
         return
 
     discounts = get_flash_sale_discounts_for_products(
-        product_prices={pid: p.base_price for pid, p in seen.items()},
+        product_prices={pid: p.effective_base_price for pid, p in seen.items()},
     )
     for product in seen.values():
+        eff_base = product.effective_base_price
         pct = discounts.get(product.pk)
         if pct is None:
-            product.display_price = product.base_price
+            product.display_price = eff_base
             product.is_flash_sale = False
             product.flash_discount_percentage = None
             continue
-        discount = (product.base_price * pct / Decimal("100")).quantize(Decimal("0.01"))
-        product.display_price = product.base_price - discount
+        discount = (eff_base * pct / Decimal("100")).quantize(Decimal("0.01"))
+        product.display_price = eff_base - discount
         product.is_flash_sale = True
         product.flash_discount_percentage = pct
-        product.original_price = product.base_price
+        product.original_price = eff_base
 
 
 def _apply_plp_filters(queryset: QuerySet[Product], filters: dict[str, Any]) -> QuerySet[Product]:
@@ -223,7 +233,7 @@ def get_plp_products(
     queryset = (
         Product.objects.filter(is_active=True)
         .select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
         .annotate(
             average_rating=Avg(
@@ -243,22 +253,23 @@ def get_plp_products(
     from marketing.selectors import get_flash_sale_discounts_for_products
 
     flash_discounts = get_flash_sale_discounts_for_products(
-        product_prices={product.pk: product.base_price for product in results},
+        product_prices={product.pk: product.effective_base_price for product in results},
     )
     for product in results:
+        eff_base = product.effective_base_price
         discount_pct = flash_discounts.get(product.pk)
         if discount_pct is None:
-            display_prices[product.pk] = product.base_price
+            display_prices[product.pk] = eff_base
             product.is_flash_sale = False
             product.flash_discount_percentage = None
         else:
-            discount = (product.base_price * discount_pct / Decimal("100")).quantize(
+            discount = (eff_base * discount_pct / Decimal("100")).quantize(
                 Decimal("0.01")
             )
-            display_prices[product.pk] = product.base_price - discount
+            display_prices[product.pk] = eff_base - discount
             product.is_flash_sale = True
             product.flash_discount_percentage = discount_pct
-            product.original_price = product.base_price
+            product.original_price = eff_base
         product.display_price = display_prices[product.pk]
 
     return {
@@ -419,7 +430,7 @@ def get_recently_viewed(
     products = (
         Product.objects.filter(id__in=product_ids, is_active=True)
         .select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
     )
     product_map = {product.id: product for product in products}
@@ -475,7 +486,7 @@ def get_search_suggestions(*, query: str, limit: int = 8) -> dict[str, list]:
     products = list(
         Product.objects.filter(is_active=True, name__icontains=clean_query)
         .select_related("category")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)[:limit]
     )
 
@@ -534,7 +545,7 @@ def get_products_for_section_config(*, config: dict) -> list[Product]:
     limit = config.get("limit", HOMEPAGE_RAIL_LIMIT)
     return list(
         qs.select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
         .order_by("-created_at")[:limit]
     )
@@ -686,7 +697,7 @@ def get_related_products(*, product: Product, user: Optional[Any] = None, limit:
     products = list(
         Product.objects.filter(pk__in=explicit_ids, is_active=True)
         .select_related("category", "brand")
-        .prefetch_related(_primary_image_prefetch())
+        .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
         .only(*PLP_CARD_FIELDS)
     )
     
@@ -698,7 +709,7 @@ def get_related_products(*, product: Product, user: Optional[Any] = None, limit:
             Product.objects.filter(category=product.category, is_active=True)
             .exclude(pk__in=exclude_ids)
             .select_related("category", "brand")
-            .prefetch_related(_primary_image_prefetch())
+            .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
             .only(*PLP_CARD_FIELDS)[:needed]
         )
         products.extend(list(cat_products))
@@ -711,7 +722,7 @@ def get_related_products(*, product: Product, user: Optional[Any] = None, limit:
             Product.objects.filter(is_active=True)
             .exclude(pk__in=exclude_ids)
             .select_related("category", "brand")
-            .prefetch_related(_primary_image_prefetch())
+            .prefetch_related(_primary_image_prefetch(), _variants_prefetch())
             .only(*PLP_CARD_FIELDS)[:needed]
         )
         products.extend(list(fallback_products))
@@ -720,17 +731,18 @@ def get_related_products(*, product: Product, user: Optional[Any] = None, limit:
     from marketing.selectors import get_flash_sale_discounts_for_products
 
     flash_discounts = get_flash_sale_discounts_for_products(
-        product_prices={p.pk: p.base_price for p in products},
+        product_prices={p.pk: p.effective_base_price for p in products},
     )
     for p in products:
+        eff_base = p.effective_base_price
         discount_pct = flash_discounts.get(p.pk)
         if discount_pct is None:
-            p.display_price = p.base_price
+            p.display_price = eff_base
         else:
-            discount = (p.base_price * discount_pct / Decimal("100")).quantize(
+            discount = (eff_base * discount_pct / Decimal("100")).quantize(
                 Decimal("0.01")
             )
-            p.display_price = p.base_price - discount
+            p.display_price = eff_base - discount
 
     return products
 

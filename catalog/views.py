@@ -159,7 +159,7 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     if variant_id and variant_id.isdigit():
         target_variant = product.variants.filter(pk=int(variant_id)).first()
     else:
-        target_variant = product.variants.first()
+        target_variant = product.display_variant
 
     cart_item = None
     if cart:
@@ -212,6 +212,7 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
             "is_in_cart": is_in_cart,
             "cart_item": cart_item,
             "selected_variant_id": target_variant.pk if target_variant else "",
+            "target_variant": target_variant,
             "is_in_wishlist": is_in_wishlist,
             "related_products": get_related_products(product=product, user=request.user),
             "has_delivered_order": has_delivered_order,

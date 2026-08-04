@@ -85,10 +85,10 @@
             }
 
             if (data.is_in_stock !== undefined) {
-              var atcBtn = document.querySelector('#buy-form button[type="submit"]');
+              var atcBtn = document.querySelector('#buy-form button');
               var bnForm = document.getElementById('buy-now-form');
               var qtyStepper = document.querySelector('.jm-pdp-qty');
-              var stickyAtcBtn = document.querySelector('#sticky-buy-form button[type="submit"]');
+              var stickyAtcBtn = document.querySelector('#sticky-buy-form button');
               var stickyBnForm = document.getElementById('sticky-buy-now-form');
 
               if (data.is_in_stock) {
@@ -108,7 +108,9 @@
                   stickyAtcBtn.style.opacity = '1';
                   stickyAtcBtn.style.pointerEvents = 'auto';
                   stickyAtcBtn.onclick = null;
-                  stickyAtcBtn.textContent = 'Add';
+                  var stText = stickyAtcBtn.querySelector('.btn-text');
+                  if (stText) stText.textContent = 'Add to cart';
+                  else stickyAtcBtn.textContent = 'Add to cart';
                 }
                 if (bnForm) bnForm.classList.remove('d-none');
                 if (stickyBnForm) stickyBnForm.classList.remove('d-none');
@@ -130,7 +132,9 @@
                   stickyAtcBtn.style.opacity = '0.6';
                   stickyAtcBtn.style.pointerEvents = 'auto';
                   stickyAtcBtn.onclick = function (e) { e.preventDefault(); return false; };
-                  stickyAtcBtn.textContent = 'Sold out';
+                  var stText = stickyAtcBtn.querySelector('.btn-text');
+                  if (stText) stText.textContent = 'Sold out';
+                  else stickyAtcBtn.textContent = 'Sold out';
                 }
                 if (bnForm) bnForm.classList.add('d-none');
                 if (stickyBnForm) stickyBnForm.classList.add('d-none');
@@ -248,7 +252,17 @@
         btn.style.pointerEvents = 'auto';
         btn.onclick = function (e) { e.preventDefault(); return false; };
       });
+      if (atcBtn) atcBtn.textContent = 'Sold out';
+      if (stickyAtcBtn) {
+        var stText = stickyAtcBtn.querySelector('.btn-text');
+        if (stText) stText.textContent = 'Sold out';
+        else stickyAtcBtn.textContent = 'Sold out';
+      }
     } else {
+      if (errorMsg) {
+        errorMsg.textContent = '';
+        errorMsg.classList.add('d-none');
+      }
       allBtns.forEach(function (btn) {
         btn.type = 'submit';
         btn.classList.remove('disabled');
@@ -257,6 +271,12 @@
         btn.style.pointerEvents = 'auto';
         btn.onclick = null;
       });
+      if (atcBtn) atcBtn.textContent = 'Add to Cart';
+      if (stickyAtcBtn) {
+        var stText = stickyAtcBtn.querySelector('.btn-text');
+        if (stText) stText.textContent = 'Add to cart';
+        else stickyAtcBtn.textContent = 'Add to cart';
+      }
     }
   };
 

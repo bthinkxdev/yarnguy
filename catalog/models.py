@@ -222,6 +222,30 @@ class Product(TimeStampedModel):
     def price(self, value):
         self.base_price = value
 
+    @property
+    def display_variant(self):
+        """
+        Return the first in-stock variant for display on product cards (PLP/Home) and initial PDP loading.
+        If all variants are out of stock, fallback to the first variant.
+        """
+        variants = self.variant_list if hasattr(self, "variant_list") else list(self.variants.all())
+        if not variants:
+            return None
+        for v in variants:
+            if v.stock_quantity > 0:
+                return v
+        return variants[0]
+
+    @property
+    def effective_base_price(self):
+        v = self.display_variant
+        return v.base_price if (v and v.base_price is not None and v.base_price > 0) else self.base_price
+
+    @property
+    def effective_mrp(self):
+        v = self.display_variant
+        return v.mrp if (v and v.mrp is not None and v.mrp > 0) else self.mrp
+
 
 class VariantType(models.TextChoices):
     """Allowed product variant dimensions."""
