@@ -10,8 +10,8 @@
   {% if items %}
   <div class="row product-grid-inner g-3 justify-content-start">
     {% for item in items %}
-    <div class="col-6 col-md-auto product-grid-item">
-      <div class="wishlist-card h-100" style="width: 100%; max-width: 250px;">
+    <div class="col-6 col-sm-4 col-md-3 col-lg-2 product-grid-item d-flex">
+      <div class="wishlist-card h-100 w-100">
         {% include "catalog/partials/product_card.html" with product=item.product %}
       </div>
     </div>

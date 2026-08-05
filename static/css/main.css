@@ -2909,6 +2909,9 @@ body.mobile-search-open {
    ============================================ */
 
 .wishlist-card {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100%;
   border: 1px solid var(--floward-border-light);
   border-radius: var(--floward-radius-lg);
   overflow: hidden;
@@ -2925,21 +2928,26 @@ body.mobile-search-open {
   border-radius: 0 !important;
   box-shadow: none !important;
   width: 100% !important;
-  align-items: stretch !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
   padding: 0 !important;
   margin: 0 !important;
-  height: auto !important;
 }
 
 .wishlist-card .jm-product-card__body {
   width: 100% !important;
-  align-items: stretch !important;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
   padding: 0.75rem !important;
   margin: 0 !important;
 }
 
-.wishlist-card .jm-product-card__cart {
-  margin-top: 0 !important;
+.wishlist-card .jm-product-card__cart,
+.wishlist-card .jm-product-card__atc--in-cart {
+  margin-top: auto !important;
 }
 
 .wishlist-card .jm-product-card:hover {
