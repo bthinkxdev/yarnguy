@@ -4,8 +4,53 @@ from __future__ import annotations
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
+import socket
 from recurring.models import RecurrenceFrequency 
 from accounts.models import Address
+
+
+def validate_real_email_domain(email: str) -> str:
+    """Validate email formatting, reject purely numeric/dummy domains, and check DNS resolvability."""
+    email_clean = (email or "").strip().lower()
+    if "@" not in email_clean:
+        raise forms.ValidationError("Please enter a valid email address.")
+    
+    local_part, domain = email_clean.rsplit("@", 1)
+    if "." not in domain or len(domain.split(".")[-1]) < 2:
+        raise forms.ValidationError("Please enter a valid email address with a complete domain.")
+        
+    domain_parts = domain.split(".")
+    domain_prefix = domain_parts[0]
+    
+    if domain_prefix.isdigit():
+        raise forms.ValidationError("Please enter a valid, active email address.")
+        
+    invalid_domains = {
+        "123.com", "000.com", "test.com", "example.com", "example.org", 
+        "sample.com", "dummy.com", "fake.com", "mailinator.com", 
+        "tempmail.com", "yopmail.com", "10minutemail.com", "guerrillamail.com", "disposable.com"
+    }
+    if domain in invalid_domains:
+        raise forms.ValidationError("Please enter a valid, active email address.")
+
+    resolved = False
+    old_timeout = socket.getdefaulttimeout()
+    try:
+        socket.setdefaulttimeout(2.5)
+        for host in (domain, f"mail.{domain}", f"mx.{domain}"):
+            try:
+                socket.getaddrinfo(host, None)
+                resolved = True
+                break
+            except (socket.gaierror, socket.timeout, Exception):
+                continue
+    finally:
+        socket.setdefaulttimeout(old_timeout)
+            
+    if not resolved:
+        raise forms.ValidationError("Please enter a valid, active email address.")
+        
+    return email_clean
 
 
 class EmailLoginForm(AuthenticationForm):
@@ -66,6 +111,9 @@ class EmailRegistrationForm(forms.Form):
     )
     name = forms.CharField(max_length=150, label="Full name")
 
+    def clean_email(self):
+        return validate_real_email_domain(self.cleaned_data["email"])
+
 
 class GoogleLoginForm(forms.Form):
     """Form accepting a Google ID token from the client."""
@@ -102,7 +150,7 @@ class ForgotPasswordEmailForm(forms.Form):
     )
 
     def clean_email(self):
-        email = self.cleaned_data["email"].strip().lower()
+        email = validate_real_email_domain(self.cleaned_data["email"])
         from django.contrib.auth import get_user_model
         User = get_user_model()
         if not User.objects.filter(email=email).exists():
@@ -188,6 +236,9 @@ class EmailOTPRequestForm(forms.Form):
         widget=forms.EmailInput(attrs={"class": "form-control", "placeholder": "you@example.com"}),
     )
 
+    def clean_email(self):
+        return validate_real_email_domain(self.cleaned_data["email"])
+
 
 class EmailOTPVerifyForm(forms.Form):
     """Form to verify an email OTP code."""
@@ -215,3 +266,5 @@ class CustomerProfileEditForm(forms.Form):
     address_line1 = forms.CharField(max_length=255, label="Address Line 1", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     address_line2 = forms.CharField(max_length=255, label="Address Line 2", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     city = forms.CharField(label="City", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    state = forms.CharField(max_length=120, label="State / Province", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    pincode = forms.CharField(max_length=20, label="PIN / Postal Code", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))

@@ -31,4 +31,7 @@ def homepage_view(request: HttpRequest) -> HttpResponse:
         description="Premium Gym Wear & Activewear - Yarn Guy",
     )
     context["section_contexts"] = section_contexts
-    return render(request, "cms/homepage.html", context)
+    response = render(request, "cms/homepage.html", context)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response

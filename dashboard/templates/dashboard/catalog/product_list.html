@@ -47,73 +47,69 @@
   </div>
 </div>
 
-<div class="card">
-  <div class="table-responsive">
-    <table class="table data-table align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Product</th>
-          <th>SKU</th>
-          <th>Category</th>
-          <th class="text-end">Price</th>
-          <th>Stock</th>
-          <th>Status</th>
-          <th class="text-end">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obj in objects %}
-        <tr>
-          <td>
-            <div class="d-flex align-items-center gap-3">
-              {% with img=obj|primary_image %}
-              {% if img %}<img src="{{ img }}" class="thumb" alt="">{% else %}<span class="thumb thumb-fallback">{{ obj.name|first|upper }}</span>{% endif %}
-              {% endwith %}
-              <div class="list-main">
-                <p class="list-title mb-0">{{ obj.name }}</p>
-                <div class="d-flex gap-1 mt-1 flex-wrap">
-                  {% if obj.is_bestseller %}<span class="tag-chip"><i class="ti ti-star-filled"></i>Bestseller</span>{% endif %}
-                  {% if obj.is_new_arrival %}<span class="tag-chip"><i class="ti ti-sparkles"></i>New</span>{% endif %}
-                  {% if obj.is_featured %}<span class="tag-chip"><i class="ti ti-star"></i>Featured</span>{% endif %}
-                </div>
+<div class="card table-responsive">
+  <table class="table data-table align-middle mb-0">
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>SKU</th>
+        <th>Category</th>
+        <th>Stock</th>
+        <th>Status</th>
+        <th class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for obj in objects %}
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-3">
+            {% with img=obj|primary_image %}
+            {% if img %}<img src="{{ img }}" class="thumb" alt="">{% else %}<span class="thumb thumb-fallback">{{ obj.name|first|upper }}</span>{% endif %}
+            {% endwith %}
+            <div class="list-main">
+              <p class="list-title mb-0">{{ obj.name }}</p>
+              <div class="d-flex gap-1 mt-1 flex-wrap">
+                {% if obj.is_bestseller %}<span class="tag-chip"><i class="ti ti-star-filled"></i>Bestseller</span>{% endif %}
+                {% if obj.is_new_arrival %}<span class="tag-chip"><i class="ti ti-sparkles"></i>New</span>{% endif %}
+                {% if obj.is_featured %}<span class="tag-chip"><i class="ti ti-star"></i>Featured</span>{% endif %}
               </div>
             </div>
-          </td>
-          <td><span class="text-secondary">{{ obj.sku }}</span></td>
-          <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
-          <td class="text-end fw-semibold">{{ currency_symbol }} {{ obj.base_price|floatformat:2 }}</td>
-          <td>
-            {% if obj.stock_quantity == 0 %}
-              <span class="pill pill-red">Out of stock</span>
-            {% elif obj.stock_quantity <= obj.low_stock_threshold %}
-              <span class="pill pill-amber">{{ obj.stock_quantity }} left</span>
-            {% else %}
-              <span class="pill pill-green">{{ obj.stock_quantity }} in stock</span>
-            {% endif %}
-          </td>
-          <td>
-            {% if obj.is_active %}<span class="pill pill-green">Active</span>{% else %}<span class="pill pill-gray">Inactive</span>{% endif %}
-          </td>
-          <td class="text-end">
-            <div class="d-inline-flex gap-1">
-              <a href="{% url 'dashboard:product-update' obj.pk %}" class="btn btn-icon btn-sm btn-light" title="Edit"><i class="ti ti-edit"></i></a>
-              <a href="{% url 'dashboard:product-delete' obj.pk %}" class="btn btn-icon btn-sm btn-light text-danger" title="Delete"><i class="ti ti-trash"></i></a>
-            </div>
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="7">
-            <div class="empty-state">
-              <i class="ti ti-package fs-1 d-block mb-2 text-secondary"></i>
-              No products found. Try adjusting your filters or <a href="{{ create_url }}">add a product</a>.
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+          </div>
+        </td>
+        <td class="text-nowrap"><span class="text-secondary">{{ obj.sku }}</span></td>
+        <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
+        <td>
+          {% if obj.stock_quantity == 0 %}
+            <span class="pill pill-red">Out of stock</span>
+          {% elif obj.stock_quantity <= obj.low_stock_threshold %}
+            <span class="pill pill-amber">{{ obj.stock_quantity }} left</span>
+          {% else %}
+            <span class="pill pill-green">{{ obj.stock_quantity }} in stock</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if obj.is_active %}<span class="pill pill-green">Active</span>{% else %}<span class="pill pill-gray">Inactive</span>{% endif %}
+        </td>
+        <td class="text-end">
+          <div class="d-inline-flex gap-1">
+            <a href="{% url 'dashboard:product-update' obj.pk %}" class="btn btn-icon btn-sm btn-light" title="Edit"><i class="ti ti-edit"></i></a>
+            <a href="{% url 'dashboard:product-delete' obj.pk %}" class="btn btn-icon btn-sm btn-light text-danger" title="Delete"><i class="ti ti-trash"></i></a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6">
+          <div class="empty-state">
+            <i class="ti ti-package fs-1 d-block mb-2 text-secondary"></i>
+            No products found. Try adjusting your filters or <a href="{{ create_url }}">add a product</a>.
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
 {% include "dashboard/partials/_pagination.html" %}

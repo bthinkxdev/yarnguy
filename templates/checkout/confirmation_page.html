@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n storefront_tags %}
 
-{% block title %}{% trans "Order Confirmed" %} | DESERT STAR MOBILE PHONES{% endblock %}
+{% block title %}{% trans "Order Confirmed" %} | Yarn Guy{% endblock %}
 
 {% block content %}
 <div class="container page-container py-5">
@@ -63,7 +63,7 @@
                     {% if order.delivery_address_snapshot.line2 %}
                     {{ order.delivery_address_snapshot.line2 }}<br>
                     {% endif %}
-                    {{ order.delivery_address_snapshot.city }}
+                    {{ order.delivery_address_snapshot.city }}{% if order.delivery_address_snapshot.state %}, {{ order.delivery_address_snapshot.state }}{% endif %}{% if order.delivery_address_snapshot.pincode %} - {{ order.delivery_address_snapshot.pincode }}{% endif %}
                   </div>
                 </div>
               </div>

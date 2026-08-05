@@ -322,7 +322,7 @@ def get_product_detail(*, slug: str) -> Optional[Product]:
         .prefetch_related(
             Prefetch(
                 "related_product__images",
-                queryset=ProductImage.objects.filter(is_primary=True).order_by("id"),
+                queryset=ProductImage.objects.order_by("-is_primary", "display_order"),
                 to_attr="primary_images",
             ),
         ),
@@ -341,7 +341,7 @@ def get_product_detail(*, slug: str) -> Optional[Product]:
         .prefetch_related(
             Prefetch(
                 "related_product__images",
-                queryset=ProductImage.objects.filter(is_primary=True).order_by("id"),
+                queryset=ProductImage.objects.order_by("-is_primary", "display_order"),
                 to_attr="primary_images",
             ),
         ),
@@ -592,8 +592,10 @@ def get_variant_price(
     if variant_id:
         variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
         if variant:
-            retail_price = variant.base_price
-            mrp = variant.mrp
+            if variant.base_price is not None and variant.base_price > 0:
+                retail_price = variant.base_price
+            if variant.mrp is not None and variant.mrp > 0:
+                mrp = variant.mrp
             resolved_variant_id = variant.pk
             is_in_stock = variant.stock_quantity > 0
 

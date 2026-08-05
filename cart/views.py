@@ -43,6 +43,8 @@ def _cart_drawer_response(request: HttpRequest, *, error: str | None = None, err
     )
     if hx_triggers:
         response["HX-Trigger"] = json.dumps(hx_triggers)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -72,6 +74,8 @@ def _cart_page_response(
     )
     if hx_triggers:
         response["HX-Trigger"] = json.dumps(hx_triggers)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -81,7 +85,7 @@ def cart_page_view(request: HttpRequest) -> HttpResponse:
     cart = get_or_create_cart(request=request)
     summary = get_cart_summary(cart=cart)
     from marketing.selectors import has_any_active_coupons
-    return render(
+    response = render(
         request,
         "cart/cart_page.html",
         {
@@ -90,6 +94,9 @@ def cart_page_view(request: HttpRequest) -> HttpResponse:
             "has_active_coupons": has_any_active_coupons(),
         },
     )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET
@@ -107,16 +114,14 @@ def cart_status_view(request: HttpRequest) -> JsonResponse:
     """JSON endpoint returning active cart count, product IDs, and item keys for JS state sync."""
     from cart.models import CartItem
     cart = get_cart_for_request(request=request)
-    product_ids = set()
     cart_item_keys = []
     count = 0
     if cart:
         for pid, vid, qty in CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id", "quantity"):
-            product_ids.add(pid)
             cart_item_keys.append(f"{pid}_{vid}" if vid else f"{pid}")
             count += qty
     return JsonResponse({
-        "cart_product_ids": list(product_ids),
+        "cart_product_ids": list(get_cart_product_ids(cart=cart)),
         "cart_count": count,
         "cart_item_keys": cart_item_keys,
     })
@@ -144,10 +149,32 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
     if product is None:
         raise Http404("Product not found.")
 
-    cart = get_or_create_cart(request=request)
-
     buy_now = request.POST.get("buy_now") == "true"
-    
+    if buy_now:
+        if not request.session.session_key:
+            request.session.create()
+        session_key = f"bn_{request.session.session_key}"[:40]
+        from core.selectors import get_default_currency
+        from cart.models import Cart
+        cart = Cart.objects.filter(session_key=session_key).first()
+        if not cart:
+            cart = Cart.objects.create(
+                session_key=session_key,
+                currency=get_default_currency(),
+            )
+        else:
+            cart.items.all().delete()
+            if cart.coupon_code:
+                from decimal import Decimal
+                cart.coupon_code = ""
+                cart.coupon_discount = Decimal("0.00")
+                cart.save(update_fields=["coupon_code", "coupon_discount", "updated_at"])
+        request.session["checkout_mode"] = "buy_now"
+        request.session["buy_now_cart_id"] = cart.pk
+    else:
+        cart = get_or_create_cart(request=request)
+        request.session["checkout_mode"] = "cart"
+
     try:
         new_item = add_to_cart(
             cart=cart,
@@ -175,7 +202,7 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
 
     return _cart_drawer_response(
         request,
-        hx_triggers={"cartItemAdded": {"product_id": product.pk}},
+        hx_triggers={"cartItemAdded": {"product_id": product.pk, "variant_id": variant.pk if variant else None}},
     )
 
 

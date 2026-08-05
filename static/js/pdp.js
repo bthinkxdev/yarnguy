@@ -12,7 +12,11 @@
         });
 
         var qtyInput = document.getElementById('pdp-qty');
-        var qty = qtyInput ? qtyInput.value : '1';
+        if (qtyInput) qtyInput.value = '1';
+        document.querySelectorAll('.pdp-qty-input').forEach(function (input) {
+          input.value = '1';
+        });
+        var qty = '1';
         var queryString = '?quantity=' + qty + (vid ? '&variant_id=' + vid : '');
 
         fetch(url + queryString)
@@ -241,8 +245,8 @@
 
     if (maxStock <= 0) {
       if (errorMsg) {
-        errorMsg.textContent = 'Out of stock';
-        errorMsg.classList.remove('d-none');
+        errorMsg.textContent = '';
+        errorMsg.classList.add('d-none');
       }
       allBtns.forEach(function (btn) {
         btn.type = 'button';

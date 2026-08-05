@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Verify OTP Code" %} | Desert Star Mobile{% endblock %}
+{% block title %}{% trans "Verify OTP Code" %} | Yarn Guy{% endblock %}
 
 {% block content %}
 <div class="container page-container py-5 d-flex align-items-center justify-content-center" style="min-height: 75vh;">
@@ -79,6 +79,7 @@
           </form>
 
           <div class="text-center mt-3">
+            <div id="resend-status-msg" class="alert alert-success d-none py-2 small mb-3" role="alert"></div>
             <div id="countdown-wrapper" class="small text-muted py-2 d-flex align-items-center justify-content-center gap-2">
               <span class="spinner-grow spinner-grow-sm text-floward-accent" role="status" style="width: 8px; height: 8px; animation-duration: 1.5s;"></span>
               <span>{% trans "Resend code in" %} <strong id="timer-display" class="text-floward">01:00</strong></span>
@@ -239,63 +240,86 @@
     var display = document.querySelector('#timer-display');
     var countdownWrapper = document.querySelector('#countdown-wrapper');
     var resendBtn = document.querySelector('#resend-btn');
-    
-    var timer = duration, minutes, seconds;
-    var interval = setInterval(function () {
-      minutes = parseInt(timer / 60, 10);
-      seconds = parseInt(timer % 60, 10);
+    var resendStatusMsg = document.querySelector('#resend-status-msg');
+    var interval = null;
 
-      minutes = minutes < 10 ? "0" + minutes : minutes;
-      seconds = seconds < 10 ? "0" + seconds : seconds;
-
-      display.textContent = minutes + ":" + seconds;
-
-      if (--timer < 0) {
-        clearInterval(interval);
-        countdownWrapper.classList.add('d-none');
-        resendBtn.classList.remove('d-none');
-      }
-    }, 1000);
-
-    resendBtn.addEventListener('click', function() {
-      var requestUrl = "{% url 'accounts:login-email-otp' %}";
-      if ("{{ next }}") {
-        requestUrl += "?next=" + encodeURIComponent("{{ next }}");
-      }
-
-      var form = document.createElement('form');
-      form.method = 'POST';
-      form.action = requestUrl;
+    function startTimer() {
+      if (interval) clearInterval(interval);
+      var timer = duration;
+      display.textContent = "01:00";
+      countdownWrapper.classList.remove('d-none');
+      resendBtn.classList.add('d-none');
       
-      var csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = 'csrfmiddlewaretoken';
-      csrfInput.value = '{{ csrf_token }}';
-      form.appendChild(csrfInput);
+      interval = setInterval(function () {
+        var minutes = parseInt(timer / 60, 10);
+        var seconds = parseInt(timer % 60, 10);
 
-      var emailInput = document.createElement('input');
-      emailInput.type = 'hidden';
-      emailInput.name = 'email';
-      emailInput.value = '{{ email }}';
-      form.appendChild(emailInput);
+        minutes = minutes < 10 ? "0" + minutes : minutes;
+        seconds = seconds < 10 ? "0" + seconds : seconds;
 
-      var pendingName = "{{ request.session.pending_customer_name|escapejs }}";
-      var nameInput = document.createElement('input');
-      nameInput.type = 'hidden';
-      nameInput.name = 'name';
-      nameInput.value = pendingName;
-      form.appendChild(nameInput);
+        display.textContent = minutes + ":" + seconds;
 
-      if ("{{ next }}") {
-        var nextInput = document.createElement('input');
-        nextInput.type = 'hidden';
-        nextInput.name = 'next';
-        nextInput.value = '{{ next }}';
-        form.appendChild(nextInput);
-      }
+        if (--timer < 0) {
+          clearInterval(interval);
+          countdownWrapper.classList.add('d-none');
+          resendBtn.classList.remove('d-none');
+        }
+      }, 1000);
+    }
 
-      document.body.appendChild(form);
-      form.submit();
+    startTimer();
+
+    resendBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      resendBtn.style.pointerEvents = 'none';
+      resendBtn.textContent = '{% trans "Sending..." %}';
+
+      fetch("{% url 'accounts:resend-email-otp' %}", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify({
+          email: "{{ email|escapejs }}",
+          purpose: "{{ purpose|default:'login'|escapejs }}"
+        })
+      })
+      .then(function(response) {
+        return response.json().then(function(data) {
+          return { ok: response.ok, data: data };
+        });
+      })
+      .then(function(result) {
+        resendBtn.style.pointerEvents = 'auto';
+        resendBtn.textContent = '{% trans "Resend Code" %}';
+
+        if (result.ok && result.data.success) {
+          if (resendStatusMsg) {
+            resendStatusMsg.className = 'alert alert-success py-2 small mb-3';
+            resendStatusMsg.textContent = result.data.message || '{% trans "A new verification code has been sent to your email." %}';
+            resendStatusMsg.classList.remove('d-none');
+            setTimeout(function() { resendStatusMsg.classList.add('d-none'); }, 5000);
+          }
+          startTimer();
+        } else {
+          if (resendStatusMsg) {
+            resendStatusMsg.className = 'alert alert-danger py-2 small mb-3';
+            resendStatusMsg.textContent = result.data.message || '{% trans "Failed to resend code. Please try again." %}';
+            resendStatusMsg.classList.remove('d-none');
+          }
+        }
+      })
+      .catch(function() {
+        resendBtn.style.pointerEvents = 'auto';
+        resendBtn.textContent = '{% trans "Resend Code" %}';
+        if (resendStatusMsg) {
+          resendStatusMsg.className = 'alert alert-danger py-2 small mb-3';
+          resendStatusMsg.textContent = '{% trans "An error occurred. Please try again." %}';
+          resendStatusMsg.classList.remove('d-none');
+        }
+      });
     });
 
     var hiddenOtpInput = document.querySelector('#id_otp_code');

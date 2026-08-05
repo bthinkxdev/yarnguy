@@ -220,7 +220,7 @@
 
 {% with wa=site_settings.whatsapp_number|default:"971503131065" %}
 <a class="jm-wa-float"
-  href="https://wa.me/{{ wa|cut:'+'|cut:' '|cut:'-' }}?text={{ 'Hi Desert Star Mobile, I have an enquiry.'|urlencode }}"
+  href="https://wa.me/{{ wa|cut:'+'|cut:' '|cut:'-' }}?text={{ 'Hi Yarn Guy, I have an enquiry.'|urlencode }}"
   target="_blank" rel="noopener noreferrer" aria-label="{% trans 'WhatsApp enquiry' %}">
   <span class="jm-wa-float__pulse" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -271,7 +271,8 @@
   </div>
 </div>
 
-<div class="modal fade" id="jmQuickViewModal" tabindex="-1" aria-labelledby="jmQuickViewTitle" aria-hidden="true">
+<div class="modal fade" id="jmQuickViewModal" tabindex="-1" aria-labelledby="jmQuickViewTitle" aria-hidden="true"
+  data-cart-item-keys="{{ cart_item_keys|join:',' }}">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content jm-qv">
       <button type="button" class="btn-close jm-qv__close" data-bs-dismiss="modal"
@@ -285,17 +286,31 @@
           <h3 class="jm-qv__title" id="jmQuickViewTitle"></h3>
           <p class="jm-qv__price" id="jm-qv-price"></p>
           <p class="jm-qv__stock" id="jm-qv-stock"></p>
+          <div id="jm-qv-variants-wrap" class="jm-qv__variants mb-3 d-none">
+            <label class="small fw-bold mb-2">{% trans "Size" %}</label>
+            <div id="jm-qv-variants-group" class="d-flex flex-wrap gap-2"></div>
+          </div>
+          <div id="jm-qv-stock-error-msg" class="text-danger small mb-2 d-none"></div>
           <div class="jm-qv__actions">
             <a id="jm-qv-pdp" href="#" class="btn btn-floward">{% trans "View Details" %}</a>
             <form id="jm-qv-cart" method="post" action="{% url 'cart:add' %}" hx-post="{% url 'cart:add' %}"
-              hx-target="#cart-drawer-body" hx-swap="innerHTML">
+              hx-target="#cart-drawer-body" hx-swap="innerHTML" class="mb-0">
               {% csrf_token %}
               <input type="hidden" name="product_id" id="jm-qv-product-id" value="">
               <input type="hidden" name="variant_id" id="jm-qv-variant-id" value="">
-              <input type="hidden" name="quantity" value="1">
+              <input type="hidden" name="quantity" id="jm-qv-form-qty" value="1">
               <button type="submit" id="jm-qv-add-btn" class="btn btn-outline-floward" data-bs-dismiss="modal">{% trans "Add to Cart" %}</button>
             </form>
             <a id="jm-qv-view-cart" href="{% url 'cart:page' %}" class="btn btn-outline-floward d-none">{% trans "View Cart" %}</a>
+            <div id="jm-qv-qty-group" class="qty-stepper jm-pdp-qty">
+              <button class="qty-stepper__btn" type="button"
+                onclick="if(window.handleQvQtyChange) window.handleQvQtyChange(-1);"
+                aria-label="{% trans 'Decrease quantity' %}">&minus;</button>
+              <input type="number" id="jm-qv-qty" class="qty-stepper__value" data-max-stock="" value="1" min="1" readonly aria-label="{% trans 'Quantity' %}">
+              <button class="qty-stepper__btn" type="button"
+                onclick="if(window.handleQvQtyChange) window.handleQvQtyChange(1);"
+                aria-label="{% trans 'Increase quantity' %}">&plus;</button>
+            </div>
           </div>
         </div>
       </div>

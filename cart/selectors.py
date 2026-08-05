@@ -38,6 +38,15 @@ def get_cart_for_request(*, request: HttpRequest) -> Optional[Cart]:
         )
 
     if cart is None:
+        guest_cart_id = request.session.get("guest_cart_id")
+        if guest_cart_id:
+            cart = (
+                Cart.objects.filter(pk=guest_cart_id)
+                .select_related("currency")
+                .first()
+            )
+
+    if cart is None and session_key:
         cart = (
             Cart.objects.filter(session_key=session_key)
             .select_related("currency")
@@ -58,6 +67,9 @@ class CartSummaryLine:
     quantity: int
     unit_price_at_add: Decimal
     line_subtotal: Decimal
+    max_stock: int = 0
+    is_out_of_stock: bool = False
+    exceeds_stock: bool = False
 
 
 @dataclass
@@ -73,6 +85,8 @@ class CartSummary:
     grand_total: Decimal = Decimal("0.00")
     item_count: int = 0
     has_stock_issues: bool = False
+    has_out_of_stock_items: bool = False
+    has_exceeds_stock_items: bool = False
 
 
 def get_cart_by_id(*, cart_id: int) -> Optional[Cart]:
@@ -106,12 +120,40 @@ def get_cart_count(*, request: HttpRequest) -> int:
     return get_cart_item_count(cart=cart)
 
 
-def get_cart_product_ids(*, request: HttpRequest) -> set[int]:
-    """Return a set of product IDs currently in the persistent cart."""
+def get_cart_product_ids(*, request: HttpRequest = None, cart=None) -> set[int]:
+    """Return a set of product IDs currently in the cart where all purchasable variants are added."""
+    if not cart and request:
+        cart = get_cart_for_request(request=request)
+    if not cart:
+        return set()
+    items = list(CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id"))
+    if not items:
+        return set()
+    candidate_ids = {pid for pid, _ in items}
+    from catalog.models import ProductVariant
+    variant_map = {}
+    for pid, vid in ProductVariant.objects.filter(product_id__in=candidate_ids, stock_quantity__gt=0).values_list("product_id", "id"):
+        variant_map.setdefault(pid, set()).add(vid)
+    cart_variant_map = {}
+    for pid, vid in items:
+        if vid:
+            cart_variant_map.setdefault(pid, set()).add(vid)
+    fully_in_cart = set()
+    for pid in candidate_ids:
+        if pid in variant_map and variant_map[pid]:
+            if variant_map[pid].issubset(cart_variant_map.get(pid, set())):
+                fully_in_cart.add(pid)
+        else:
+            fully_in_cart.add(pid)
+    return fully_in_cart
+
+
+def get_cart_item_keys(*, request: HttpRequest) -> set[str]:
+    """Return a set of composite item keys ('pid_vid' or 'pid') currently in the cart."""
     cart = get_cart_for_request(request=request)
     if not cart:
         return set()
-    return set(CartItem.objects.filter(cart=cart).values_list("product_id", flat=True))
+    return {f"{pid}_{vid}" if vid else f"{pid}" for pid, vid in CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id")}
 
 
 def _wishlist_items_qs(*, request: HttpRequest):
@@ -175,13 +217,37 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
     subtotal = Decimal("0.00")
     item_count = 0
     has_stock_issues = False
+    has_out_of_stock_items = False
+    has_exceeds_stock_items = False
+
+    from cart.services import _resolve_unit_price
 
     for item in items:
-        unit_price = item.unit_price_at_add
+        try:
+            unit_price = _resolve_unit_price(
+                product=item.product,
+                variant=item.variant,
+                user=cart.customer_profile.user if hasattr(cart, "customer_profile") and cart.customer_profile else None,
+                quantity=item.quantity,
+            )
+        except Exception:
+            unit_price = item.unit_price_at_add
 
         line_subtotal = unit_price * item.quantity
         subtotal += line_subtotal
         item_count += item.quantity
+        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
+        if max_stock is None:
+            max_stock = 0
+        is_out = not item.product.is_in_stock or max_stock <= 0
+        exceeds = not is_out and item.quantity > max_stock
+        if is_out:
+            has_out_of_stock_items = True
+        if exceeds:
+            has_exceeds_stock_items = True
+        if is_out or exceeds:
+            has_stock_issues = True
+
         lines.append(
             CartSummaryLine(
                 item=item,
@@ -190,11 +256,11 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
                 quantity=item.quantity,
                 unit_price_at_add=unit_price,
                 line_subtotal=line_subtotal,
+                max_stock=max_stock,
+                is_out_of_stock=is_out,
+                exceeds_stock=exceeds,
             )
         )
-        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
-        if not item.product.is_in_stock or max_stock <= 0 or item.quantity > max_stock:
-            has_stock_issues = True
 
     delivery_charge = cart.delivery_charge
 
@@ -228,4 +294,6 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
         grand_total=grand_total,
         item_count=item_count,
         has_stock_issues=has_stock_issues,
+        has_out_of_stock_items=has_out_of_stock_items,
+        has_exceeds_stock_items=has_exceeds_stock_items,
     )

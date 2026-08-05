@@ -112,7 +112,7 @@
       </button>
       <div class="text-danger small mt-2 text-center">{% trans "Some items are out of stock. Please remove them to checkout." %}</div>
       {% else %}
-      <a href="{% url 'checkout:checkout' %}" class="btn btn-floward w-100 py-2 mt-3 d-flex justify-content-between align-items-center px-3">
+      <a href="{% url 'checkout:checkout' %}?mode=cart" class="btn btn-floward w-100 py-2 mt-3 d-flex justify-content-between align-items-center px-3">
         <span>{% trans "Proceed to Checkout" %}</span>
         <span>{{ display_currency.symbol }} {{ summary.grand_total }}</span>
       </a>

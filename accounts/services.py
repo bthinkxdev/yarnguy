@@ -390,6 +390,8 @@ def update_address(
     line1: str,
     line2: str,
     city: str,
+    state: str = "",
+    pincode: str = "",
     is_default: bool = False,
 ) -> Address:
     """
@@ -402,6 +404,8 @@ def update_address(
         line1: Primary address line.
         line2: Secondary address line.
         city: City name.
+        state: State or province.
+        pincode: Postal or PIN code.
         is_default: When True, demotes other defaults atomically.
     Returns:
         Updated Address instance.
@@ -411,7 +415,9 @@ def update_address(
     address.line1 = line1
     address.line2 = line2
     address.city = city
-    address.save(update_fields=["label", "line1", "line2", "city", "updated_at"])
+    address.state = state
+    address.pincode = pincode
+    address.save(update_fields=["label", "line1", "line2", "city", "state", "pincode", "updated_at"])
     if is_default:
         return set_default_address(customer_profile=customer_profile, address_id=address.pk)
     return address
@@ -425,6 +431,8 @@ def create_address(
     line1: str,
     line2: str,
     city: str,
+    state: str = "",
+    pincode: str = "",
     is_default: bool = False,
 ) -> Address:
     """
@@ -436,6 +444,8 @@ def create_address(
         line1: Primary address line.
         line2: Secondary address line.
         city: City name.
+        state: State or province.
+        pincode: Postal or PIN code.
         is_default: When True, demotes other defaults atomically.
     Returns:
         Created Address instance.
@@ -446,6 +456,8 @@ def create_address(
         line1=line1,
         line2=line2,
         city=city,
+        state=state,
+        pincode=pincode,
         is_default=False,
     )
     if is_default:
@@ -548,8 +560,10 @@ def _generate_email_otp_code() -> str:
 def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
     """Create a hashed email OTP request and dispatch it synchronously (single thread)."""
     from notifications.services import send_email
+    from accounts.forms import validate_real_email_domain
 
     normalized_email = email.strip().lower()
+    validate_real_email_domain(normalized_email)
     
     #rate limit check (using the email address as the key)
     rate_limit_key = f"accounts:email_otp_rate:{normalized_email}"
@@ -562,6 +576,27 @@ def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
     except ValueError:
         cache.set(rate_limit_key, 1, timeout=OTP_RATE_LIMIT_WINDOW)
 
+    existing_request = (
+        EmailOTPRequest.objects.filter(
+            email=normalized_email,
+            purpose=purpose,
+            is_used=False,
+            expires_at__gt=timezone.now()
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    raw_otp_cache_key = f"accounts:raw_email_otp:{normalized_email}:{purpose}"
+    existing_code = cache.get(raw_otp_cache_key)
+
+    if existing_request and existing_code:
+        send_email(
+            email=normalized_email,
+            subject="Your Yarn Guy Verification Code",
+            message=f"Your verification code is: {existing_code}. It is valid for 5 minutes.",
+        )
+        return existing_request
+
     otp_code = _generate_email_otp_code()
     expires_at = timezone.now() + timedelta(seconds=settings.ACCOUNTS_OTP_EXPIRY_SECONDS)
 
@@ -572,9 +607,11 @@ def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
         expires_at=expires_at,
     )
 
+    cache.set(raw_otp_cache_key, otp_code, timeout=settings.ACCOUNTS_OTP_EXPIRY_SECONDS)
+
     send_email(
         email=normalized_email,
-        subject="Your Desert Star Verification Code",
+        subject="Your Yarn Guy Verification Code",
         message=f"Your verification code is: {otp_code}. It is valid for 5 minutes.",
     )
     return otp_request
@@ -612,6 +649,8 @@ def verify_email_otp(*, email: str, otp_code: str, purpose: str) -> EmailOTPRequ
 
     otp_request.is_used = True
     otp_request.save(update_fields=["is_used", "updated_at"])
+    raw_otp_cache_key = f"accounts:raw_email_otp:{normalized_email}:{purpose}"
+    cache.delete(raw_otp_cache_key)
     return otp_request
 
 
@@ -623,11 +662,14 @@ def login_or_create_customer_by_email(*, email: str, name: str = "") -> Customer
     #check if a profile exists
     profile = CustomerProfile.objects.filter(user__email=normalized_email).select_related("user").first()
     if profile is not None:
-        if name and not profile.user.first_name and not profile.user.last_name:
+        if name:
             name_parts = name.strip().split(" ", 1)
-            profile.user.first_name = name_parts[0]
-            profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-            profile.user.save(update_fields=["first_name", "last_name"])
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            if profile.user.first_name != first_name or profile.user.last_name != last_name:
+                profile.user.first_name = first_name
+                profile.user.last_name = last_name
+                profile.user.save(update_fields=["first_name", "last_name"])
         return profile
 
     currency = get_default_currency()
@@ -645,11 +687,14 @@ def login_or_create_customer_by_email(*, email: str, name: str = "") -> Customer
         user.set_unusable_password()
         user.save()
     else:
-        if name and not user.first_name and not user.last_name:
+        if name:
             name_parts = name.strip().split(" ", 1)
-            user.first_name = name_parts[0]
-            user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-            user.save(update_fields=["first_name", "last_name"])
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            if user.first_name != first_name or user.last_name != last_name:
+                user.first_name = first_name
+                user.last_name = last_name
+                user.save(update_fields=["first_name", "last_name"])
 
     #create customerprofile
     profile, created = CustomerProfile.objects.get_or_create(

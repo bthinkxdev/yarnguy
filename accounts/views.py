@@ -101,6 +101,8 @@ def _serialize_address(address) -> dict[str, Any]:
         "line1": address.line1,
         "line2": address.line2,
         "city": address.city,
+        "state": getattr(address, "state", ""),
+        "pincode": getattr(address, "pincode", ""),
         "is_default": address.is_default,
     }
 
@@ -454,6 +456,8 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
             "address_line1": address.line1,
             "address_line2": address.line2,
             "city": address.city,
+            "state": address.state,
+            "pincode": address.pincode,
         })
         
     if request.method == "POST":
@@ -473,13 +477,17 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
             if line1:
                 city = form.cleaned_data.get("city")
                 line2 = form.cleaned_data.get("address_line2", "")
+                state = form.cleaned_data.get("state", "")
+                pincode = form.cleaned_data.get("pincode", "")
                 
                 if address:
                     address.line1 = line1
                     address.line2 = line2
                     if city:
                         address.city = city
-                    address.save(update_fields=["line1", "line2", "city", "updated_at"])
+                    address.state = state
+                    address.pincode = pincode
+                    address.save(update_fields=["line1", "line2", "city", "state", "pincode", "updated_at"])
                 else:
                     from accounts.models import Address
                     from accounts.services import set_default_address
@@ -488,6 +496,8 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
                         line1=line1,
                         line2=line2,
                         city=city if city else "",
+                        state=state,
+                        pincode=pincode,
                         label="Default Address"
                     )
                     set_default_address(customer_profile=profile, address_id=new_addr.pk)
@@ -529,6 +539,8 @@ def address_list_create_view(request: HttpRequest) -> HttpResponse:
         line1=form.cleaned_data["line1"],
         line2=form.cleaned_data.get("line2", ""),
         city=form.cleaned_data.get("city", ""),
+        state=form.cleaned_data.get("state", ""),
+        pincode=form.cleaned_data.get("pincode", ""),
         is_default=form.cleaned_data.get("is_default", False),
     )
     return _success_response({"address": _serialize_address(address)}, status=201)
@@ -554,6 +566,8 @@ def address_detail_view(request: HttpRequest, address_id: int) -> HttpResponse:
         line1=form.cleaned_data["line1"],
         line2=form.cleaned_data.get("line2", ""),
         city=form.cleaned_data.get("city", ""),
+        state=form.cleaned_data.get("state", ""),
+        pincode=form.cleaned_data.get("pincode", ""),
         is_default=form.cleaned_data.get("is_default", False),
     )
     address = get_address_by_id(address_id=address.pk, customer_profile=profile)
@@ -649,8 +663,12 @@ def wishlist_view(request: HttpRequest) -> HttpResponse:
             request.session["guest_wishlist_id"] = view.wishlist.pk
 
     if view is None:
-        return render(request, "accounts/wishlist.html", {"items": []})
-    return render(request, "accounts/wishlist.html", {"wishlist": view.wishlist, "items": view.items})
+        response = render(request, "accounts/wishlist.html", {"items": []})
+    else:
+        response = render(request, "accounts/wishlist.html", {"wishlist": view.wishlist, "items": view.items})
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @login_required
@@ -837,6 +855,40 @@ def email_otp_verify_view(request: HttpRequest) -> HttpResponse:
         if url_has_allowed_host_and_scheme(url=next_url, allowed_hosts={request.get_host()}):
             return redirect(next_url)
     return redirect("accounts:dashboard")
+
+
+@require_POST
+def resend_email_otp_view(request: HttpRequest) -> HttpResponse:
+    """Resend email OTP directly within the verify screen without requiring captcha re-submission."""
+    data = _json_body(request) or request.POST.dict()
+    email = (data.get("email") or "").strip()
+    purpose = data.get("purpose") or OTPPurpose.LOGIN
+
+    if not email:
+        return _error_response("Email address is required.", status=400)
+
+    try:
+        request_email_otp(email=email, purpose=purpose)
+    except Exception as exc:
+        msg = getattr(exc, "messages", [str(exc)])[0] if hasattr(exc, "messages") else str(exc)
+        if _wants_json(request):
+            return _error_response(msg, status=400)
+        from django.contrib import messages
+        messages.error(request, msg)
+        from django.utils.http import urlencode
+        return redirect(f"/accounts/verify-email-otp/?{urlencode({'email': email, 'purpose': purpose})}")
+
+    if _wants_json(request):
+        return _success_response({"message": "Verification code sent successfully."})
+
+    from django.contrib import messages
+    messages.success(request, "A new verification code has been sent to your email.")
+    from django.utils.http import urlencode
+    next_url = data.get("next") or request.GET.get("next", "")
+    params = {"email": email, "purpose": purpose}
+    if next_url:
+        params["next"] = next_url
+    return redirect(f"/accounts/verify-email-otp/?{urlencode(params)}")
 
 
 @require_http_methods(["GET"])

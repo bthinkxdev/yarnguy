@@ -8,7 +8,7 @@ from django import forms
 class CheckoutAddressForm(forms.Form):
     """Select delivery address for checkout."""
 
-    address_id = forms.IntegerField()
+    address_id = forms.IntegerField(required=False)
 
 
 class CheckoutDeliveryForm(forms.Form):

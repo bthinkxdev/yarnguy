@@ -14,7 +14,7 @@
 <div class="row">
   <div class="col-12">
     {% if searchable %}
-    <form method="get" class="d-flex gap-2 mb-3" role="search">
+    <form method="get" class="d-flex gap-2 mb-3 flex-wrap" role="search">
       <input type="text" name="q" value="{{ search_query }}" class="form-control" style="max-width: 320px;"
              placeholder="Search {{ plural_name|lower }}..." />
       <button type="submit" class="btn btn-outline-secondary"><i class="ti ti-search"></i></button>

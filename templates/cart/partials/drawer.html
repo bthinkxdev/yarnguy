@@ -73,7 +73,7 @@
   <button class="btn btn-floward w-100 py-2 mt-2" disabled style="cursor: not-allowed;" onclick="event.preventDefault();">{% trans "Checkout" %}</button>
   <div class="text-danger small mt-2 text-center">{% trans "Some items are out of stock. Please remove them to checkout." %}</div>
   {% else %}
-  <a href="{% url 'checkout:checkout' %}" class="btn btn-floward w-100 py-2 mt-2">{% trans "Checkout" %}</a>
+  <a href="{% url 'checkout:checkout' %}?mode=cart" class="btn btn-floward w-100 py-2 mt-2">{% trans "Checkout" %}</a>
   {% endif %}
 </div>
 {% else %}

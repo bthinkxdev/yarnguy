@@ -113,7 +113,7 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
     context = seo_context(
         request=request,
         obj=active_cat,
-        title=f"{title} | DESERT STAR MOBILE PHONES",
+        title=f"{title} | Yarn Guy",
         description=description,
         canonical_url=build_plp_canonical_url(request=request, category_slug=category_slug),
     )
@@ -130,9 +130,14 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
         }
     )
 
-    if request.headers.get("HX-Request"):
-        return render(request, "catalog/partials/product_grid.html", context)
-    return render(request, "catalog/plp.html", context)
+    if request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request"):
+        response = render(request, "catalog/partials/product_grid.html", context)
+        response["HX-Push-Url"] = request.get_full_path()
+    else:
+        response = render(request, "catalog/plp.html", context)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET
@@ -200,8 +205,8 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     context = seo_context(
         request=request,
         obj=product,
-        title=f"{product.name} | DESERT STAR MOBILE PHONES",
-        description=f"{product.name} — quality mobiles and accessories from Desert Star Mobile Phones, Abu Dhabi.",
+        title=f"{product.name} | Yarn Guy",
+        description=f"{product.name} — Premium gym wear and active wear from Yarn Guy",
     )
     context.update(
         {
@@ -227,7 +232,10 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
             ),
         }
     )
-    return render(request, "catalog/pdp.html", context)
+    response = render(request, "catalog/pdp.html", context)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET
@@ -288,6 +296,20 @@ def variant_price_view(request: HttpRequest, product_id: int) -> JsonResponse:
         else:
             cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant__isnull=True).first()
     data["is_in_cart"] = cart_item is not None
+
+    from core.selectors import get_currency_by_code, get_default_currency
+    from core.templatetags.storefront_tags import money_label
+
+    session_currency = request.session.get("storefront_currency", "")
+    display_currency = (
+        get_currency_by_code(code=session_currency) if session_currency else get_default_currency()
+    )
+    if "price" in data:
+        data["formatted_price"] = money_label(data["price"], display_currency)
+    if data.get("mrp"):
+        data["formatted_mrp"] = money_label(data["mrp"], display_currency)
+    if data.get("original_price"):
+        data["formatted_original_price"] = money_label(data["original_price"], display_currency)
 
     return JsonResponse(data)
 
