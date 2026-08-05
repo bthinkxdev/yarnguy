@@ -126,10 +126,16 @@
     </div>
 
     <div class="col-lg-5">
-      <div class="checkout-step sticky-top" style="top: 100px;" id="order-summary-container">
+      <div class="checkout-step sticky-top" style="top: 100px;" id="order-summary-container" hx-get="{% url 'checkout:checkout' %}" hx-trigger="stockChanged from:body" hx-select="#order-summary-container" hx-swap="outerHTML">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="mb-0">{% trans "Order Summary" %}</h2>
-          <a href="#" class="text-decoration-none small text-floward fw-semibold" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">{% trans "Edit Cart" %}</a>
+          {% if is_buy_now and summary.lines %}
+            {% with first_line=summary.lines|first %}
+            <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}" class="text-decoration-none small text-floward fw-semibold">{% trans "Edit Item" %}</a>
+            {% endwith %}
+          {% else %}
+            <a href="#" class="text-decoration-none small text-floward fw-semibold" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">{% trans "Edit Cart" %}</a>
+          {% endif %}
         </div>
         {% for line in summary.lines %}
         <div class="d-flex align-items-center justify-content-between py-2 border-bottom gap-2">
@@ -158,13 +164,11 @@
               {% endif %}
               <div class="text-muted" style="font-size: 0.75rem;">{% trans "Qty:" %} {{ line.quantity }} &times; {{ display_currency.symbol }} {{ line.unit_price_at_add }}</div>
               
-              {% with max_stock=line.variant.stock_quantity|default_if_none:line.product.stock_quantity %}
-              {% if not line.product.is_in_stock or max_stock <= 0 %}
+              {% if line.is_out_of_stock %}
               <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Out of stock" %}</div>
-              {% elif line.quantity > max_stock %}
-              <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Only" %} {{ max_stock }} {% trans "items available in stock." %}</div>
+              {% elif line.exceeds_stock %}
+              <div class="text-danger fw-semibold mt-1" style="font-size: 0.75rem;">{% trans "Only" %} {{ line.max_stock }} {% trans "items available in stock." %}</div>
               {% endif %}
-              {% endwith %}
             </div>
           </div>
           <span class="flex-shrink-0 fw-semibold" style="font-size: 0.875rem;">{{ display_currency.symbol }} {{ line.line_subtotal }}</span>
@@ -198,10 +202,35 @@
           <span class="text-floward">{{ display_currency.symbol }} {{ summary.grand_total }}</span>
         </div>
         {% if summary.has_stock_issues %}
-        <button type="button" class="btn btn-floward w-100 py-2 mt-3" disabled style="cursor: not-allowed;">{% trans "Place Order & Pay" %}</button>
-        <div class="text-danger small mt-2 text-center">{% trans "Some items are out of stock. Please click 'Edit Cart' to remove them." %}</div>
+          <button type="button" class="btn btn-floward w-100 py-2 mt-3" disabled style="cursor: not-allowed;">{% trans "Place Order & Pay" %}</button>
+          {% if is_buy_now %}
+            {% if summary.has_out_of_stock_items %}
+              <div class="text-danger small mt-2 text-center">{% trans "This product just went out of stock due to high demand." %}</div>
+              {% with first_line=summary.lines|first %}
+              <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}" class="btn btn-outline-dark w-100 py-2 mt-2">{% trans "Return to Product Page" %}</a>
+              {% endwith %}
+            {% elif summary.has_exceeds_stock_items %}
+              {% with first_line=summary.lines|first %}
+              <div class="text-danger small mt-2 text-center">{% trans "Only" %} {{ first_line.max_stock }} {% trans "items left in stock." %}</div>
+              <form method="post" action="{% url 'checkout:fix-stock' %}" hx-post="{% url 'checkout:fix-stock' %}" hx-target="#order-summary-container" hx-select="#order-summary-container" hx-swap="outerHTML" class="mt-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-dark w-100 py-2">{% trans "Update Quantity to" %} {{ first_line.max_stock }} ({% trans "Max Available" %})</button>
+              </form>
+              {% endwith %}
+            {% endif %}
+          {% else %}
+            {% if summary.has_exceeds_stock_items and not summary.has_out_of_stock_items %}
+              <div class="text-danger small mt-2 text-center">{% trans "Some items exceed available stock." %}</div>
+              <form method="post" action="{% url 'checkout:fix-stock' %}" hx-post="{% url 'checkout:fix-stock' %}" hx-target="#order-summary-container" hx-select="#order-summary-container" hx-swap="outerHTML" class="mt-2">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-dark w-100 py-2">{% trans "Update Items to Max Available Stock" %}</button>
+              </form>
+            {% else %}
+              <div class="text-danger small mt-2 text-center">{% trans "Some items are out of stock. Please click 'Edit Cart' to remove them." %}</div>
+            {% endif %}
+          {% endif %}
         {% else %}
-        <button type="submit" form="checkout-form" class="btn btn-floward w-100 py-2 mt-3">{% trans "Place Order & Pay" %}</button>
+          <button type="submit" form="checkout-form" class="btn btn-floward w-100 py-2 mt-3">{% trans "Place Order & Pay" %}</button>
         {% endif %}
       </div>
 

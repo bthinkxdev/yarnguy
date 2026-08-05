@@ -62,6 +62,45 @@ def checkout_update_delivery_charge_view(request: HttpRequest) -> HttpResponse:
     return redirect("checkout:checkout")
 
 
+@require_POST
+def checkout_fix_stock_view(request: HttpRequest) -> HttpResponse:
+    """Adjust cart items exceeding available stock to their maximum available stock."""
+    cart = _get_checkout_cart(request=request, create=False)
+    if not cart:
+        return HttpResponse("")
+
+    from cart.models import CartItem
+    from cart.services import _resolve_unit_price
+
+    items = CartItem.objects.filter(cart=cart).select_related("product", "variant")
+    for item in items:
+        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
+        if max_stock is None:
+            max_stock = 0
+        if max_stock > 0 and item.quantity > max_stock:
+            user = (
+                cart.customer_profile.user
+                if (hasattr(cart, "customer_profile") and cart.customer_profile and cart.customer_profile.user_id)
+                else None
+            )
+            try:
+                unit_price = _resolve_unit_price(
+                    product=item.product,
+                    variant=item.variant,
+                    user=user,
+                    quantity=max_stock,
+                )
+            except Exception:
+                unit_price = item.unit_price_at_add
+
+            item.quantity = max_stock
+            item.unit_price_at_add = unit_price
+            item.save(update_fields=["quantity", "unit_price_at_add", "updated_at"])
+
+    from django.shortcuts import redirect
+    return redirect("checkout:checkout")
+
+
 @require_GET
 def checkout_view(request: HttpRequest) -> HttpResponse:
     """Multi-step checkout page with gift Order Preview partial."""
@@ -143,6 +182,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,
             "has_active_coupons": has_any_active_coupons(),
+            "is_buy_now": request.session.get("checkout_mode") == "buy_now",
         },
     )
 
@@ -340,12 +380,16 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
     summary = get_cart_summary(cart=cart)
     if summary.has_stock_issues:
         from django.utils.translation import gettext as _
-        return render(
+        is_buy_now = request.session.get("checkout_mode") == "buy_now"
+        msg = _("This item just went out of stock or quantity exceeds available stock. Please review your order summary.") if is_buy_now else _("Some items in your cart are out of stock. Please review your order summary to adjust them.")
+        response = render(
             request,
             "checkout/partials/errors.html",
-            {"errors": {"__all__": [_("Some items in your cart are out of stock. Please remove them to proceed.")]}},
+            {"errors": {"__all__": [msg]}},
             status=200,
         )
+        response["HX-Trigger"] = "stockChanged"
+        return response
 
     try:
         from catalog.exceptions import InsufficientStockError
@@ -355,12 +399,14 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             customer_profile=profile,
         )
     except InsufficientStockError as exc:
-        return render(
+        response = render(
             request,
             "checkout/partials/errors.html",
             {"errors": {"__all__": [str(exc)]}},
             status=200,
         )
+        response["HX-Trigger"] = "stockChanged"
+        return response
 
     payment_data = {}
 

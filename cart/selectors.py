@@ -67,6 +67,9 @@ class CartSummaryLine:
     quantity: int
     unit_price_at_add: Decimal
     line_subtotal: Decimal
+    max_stock: int = 0
+    is_out_of_stock: bool = False
+    exceeds_stock: bool = False
 
 
 @dataclass
@@ -82,6 +85,8 @@ class CartSummary:
     grand_total: Decimal = Decimal("0.00")
     item_count: int = 0
     has_stock_issues: bool = False
+    has_out_of_stock_items: bool = False
+    has_exceeds_stock_items: bool = False
 
 
 def get_cart_by_id(*, cart_id: int) -> Optional[Cart]:
@@ -184,6 +189,8 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
     subtotal = Decimal("0.00")
     item_count = 0
     has_stock_issues = False
+    has_out_of_stock_items = False
+    has_exceeds_stock_items = False
 
     from cart.services import _resolve_unit_price
 
@@ -201,6 +208,18 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
         line_subtotal = unit_price * item.quantity
         subtotal += line_subtotal
         item_count += item.quantity
+        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
+        if max_stock is None:
+            max_stock = 0
+        is_out = not item.product.is_in_stock or max_stock <= 0
+        exceeds = not is_out and item.quantity > max_stock
+        if is_out:
+            has_out_of_stock_items = True
+        if exceeds:
+            has_exceeds_stock_items = True
+        if is_out or exceeds:
+            has_stock_issues = True
+
         lines.append(
             CartSummaryLine(
                 item=item,
@@ -209,11 +228,11 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
                 quantity=item.quantity,
                 unit_price_at_add=unit_price,
                 line_subtotal=line_subtotal,
+                max_stock=max_stock,
+                is_out_of_stock=is_out,
+                exceeds_stock=exceeds,
             )
         )
-        max_stock = item.variant.stock_quantity if item.variant else item.product.stock_quantity
-        if not item.product.is_in_stock or max_stock <= 0 or item.quantity > max_stock:
-            has_stock_issues = True
 
     delivery_charge = cart.delivery_charge
 
@@ -247,4 +266,6 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
         grand_total=grand_total,
         item_count=item_count,
         has_stock_issues=has_stock_issues,
+        has_out_of_stock_items=has_out_of_stock_items,
+        has_exceeds_stock_items=has_exceeds_stock_items,
     )
