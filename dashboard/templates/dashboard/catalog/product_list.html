@@ -54,7 +54,6 @@
         <th>Product</th>
         <th>SKU</th>
         <th>Category</th>
-        <th class="text-end">Price</th>
         <th>Stock</th>
         <th>Status</th>
         <th class="text-end">Actions</th>
@@ -78,9 +77,8 @@
             </div>
           </div>
         </td>
-        <td><span class="text-secondary">{{ obj.sku }}</span></td>
+        <td class="text-nowrap"><span class="text-secondary">{{ obj.sku }}</span></td>
         <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
-        <td class="text-end fw-semibold">{{ currency_symbol }} {{ obj.base_price|floatformat:2 }}</td>
         <td>
           {% if obj.stock_quantity == 0 %}
             <span class="pill pill-red">Out of stock</span>
@@ -102,7 +100,7 @@
       </tr>
       {% empty %}
       <tr>
-        <td colspan="7">
+        <td colspan="6">
           <div class="empty-state">
             <i class="ti ti-package fs-1 d-block mb-2 text-secondary"></i>
             No products found. Try adjusting your filters or <a href="{{ create_url }}">add a product</a>.

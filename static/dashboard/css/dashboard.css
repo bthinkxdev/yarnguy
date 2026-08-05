@@ -499,9 +499,9 @@ a {
   font-weight: 600;
   color: var(--dash-ink);
   margin-bottom: 0.1rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
 }
 .list-title.link { color: var(--dash-ink); }
 .list-title.link:hover { color: #e66239; }
@@ -570,6 +570,15 @@ a {
 }
 .data-table tbody tr:first-child td {
   border-top: none;
+}
+
+@media (max-width: 1400px) {
+  .data-table thead th {
+    padding: 0.65rem 0.55rem;
+  }
+  .data-table tbody td {
+    padding: 0.75rem 0.55rem;
+  }
 }
 
 .tag-chip {
