@@ -548,8 +548,10 @@ def _generate_email_otp_code() -> str:
 def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
     """Create a hashed email OTP request and dispatch it synchronously (single thread)."""
     from notifications.services import send_email
+    from accounts.forms import validate_real_email_domain
 
     normalized_email = email.strip().lower()
+    validate_real_email_domain(normalized_email)
     
     #rate limit check (using the email address as the key)
     rate_limit_key = f"accounts:email_otp_rate:{normalized_email}"
@@ -562,6 +564,27 @@ def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
     except ValueError:
         cache.set(rate_limit_key, 1, timeout=OTP_RATE_LIMIT_WINDOW)
 
+    existing_request = (
+        EmailOTPRequest.objects.filter(
+            email=normalized_email,
+            purpose=purpose,
+            is_used=False,
+            expires_at__gt=timezone.now()
+        )
+        .order_by("-created_at")
+        .first()
+    )
+    raw_otp_cache_key = f"accounts:raw_email_otp:{normalized_email}:{purpose}"
+    existing_code = cache.get(raw_otp_cache_key)
+
+    if existing_request and existing_code:
+        send_email(
+            email=normalized_email,
+            subject="Your Desert Star Verification Code",
+            message=f"Your verification code is: {existing_code}. It is valid for 5 minutes.",
+        )
+        return existing_request
+
     otp_code = _generate_email_otp_code()
     expires_at = timezone.now() + timedelta(seconds=settings.ACCOUNTS_OTP_EXPIRY_SECONDS)
 
@@ -571,6 +594,8 @@ def request_email_otp(*, email: str, purpose: str) -> EmailOTPRequest:
         purpose=purpose,
         expires_at=expires_at,
     )
+
+    cache.set(raw_otp_cache_key, otp_code, timeout=settings.ACCOUNTS_OTP_EXPIRY_SECONDS)
 
     send_email(
         email=normalized_email,
@@ -612,6 +637,8 @@ def verify_email_otp(*, email: str, otp_code: str, purpose: str) -> EmailOTPRequ
 
     otp_request.is_used = True
     otp_request.save(update_fields=["is_used", "updated_at"])
+    raw_otp_cache_key = f"accounts:raw_email_otp:{normalized_email}:{purpose}"
+    cache.delete(raw_otp_cache_key)
     return otp_request
 
 

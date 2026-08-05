@@ -114,8 +114,8 @@ def generate_code(length: int = CAPTCHA_LENGTH) -> str:
 
 
 def _normalize_answer(value: str) -> str:
-    """Case-insensitive compare; ignore spaces."""
-    return ''.join((value or '').split()).upper()
+    """Case-sensitive compare; ignore spaces."""
+    return ''.join((value or '').split())
 
 
 def _load_font(size: int) -> ImageFont.ImageFont:

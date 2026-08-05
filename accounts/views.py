@@ -839,6 +839,40 @@ def email_otp_verify_view(request: HttpRequest) -> HttpResponse:
     return redirect("accounts:dashboard")
 
 
+@require_POST
+def resend_email_otp_view(request: HttpRequest) -> HttpResponse:
+    """Resend email OTP directly within the verify screen without requiring captcha re-submission."""
+    data = _json_body(request) or request.POST.dict()
+    email = (data.get("email") or "").strip()
+    purpose = data.get("purpose") or OTPPurpose.LOGIN
+
+    if not email:
+        return _error_response("Email address is required.", status=400)
+
+    try:
+        request_email_otp(email=email, purpose=purpose)
+    except Exception as exc:
+        msg = getattr(exc, "messages", [str(exc)])[0] if hasattr(exc, "messages") else str(exc)
+        if _wants_json(request):
+            return _error_response(msg, status=400)
+        from django.contrib import messages
+        messages.error(request, msg)
+        from django.utils.http import urlencode
+        return redirect(f"/accounts/verify-email-otp/?{urlencode({'email': email, 'purpose': purpose})}")
+
+    if _wants_json(request):
+        return _success_response({"message": "Verification code sent successfully."})
+
+    from django.contrib import messages
+    messages.success(request, "A new verification code has been sent to your email.")
+    from django.utils.http import urlencode
+    next_url = data.get("next") or request.GET.get("next", "")
+    params = {"email": email, "purpose": purpose}
+    if next_url:
+        params["next"] = next_url
+    return redirect(f"/accounts/verify-email-otp/?{urlencode(params)}")
+
+
 @require_http_methods(["GET"])
 def customer_invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     """Render the HTML invoice for a customer order."""
