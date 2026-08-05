@@ -5895,17 +5895,59 @@ body.mobile-search-open .jm-wa-float {
 
 /* Quick-view modal mobile */
 @media (max-width: 767.98px) {
+  #jmQuickViewModal .modal-dialog {
+    max-width: 340px;
+    margin: 1rem auto;
+  }
+
+  .jm-qv__media {
+    min-height: 160px;
+    padding: 0.75rem;
+  }
+
+  .jm-qv__media img {
+    max-height: 150px;
+  }
+
   .jm-qv__body {
-    padding: 1.15rem;
+    padding: 0.85rem 1rem;
+  }
+
+  .jm-qv__badge {
+    margin-bottom: 0.4rem;
   }
 
   .jm-qv__title {
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .jm-qv__price {
     font-size: 1.05rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .jm-qv__stock {
+    margin-bottom: 0.75rem;
+  }
+
+  .jm-qv__variants {
+    margin-bottom: 0.75rem !important;
   }
 
   .jm-qv__actions {
     flex-direction: column;
     flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .jm-qv__actions .btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .jm-qv__actions .qty-stepper {
+    height: 36px;
   }
 
   .jm-qv__actions .btn,
