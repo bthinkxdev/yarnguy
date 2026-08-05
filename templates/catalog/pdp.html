@@ -178,10 +178,10 @@
 
   {# Mobile sticky CTA — single horizontal row; shown only when buy box leaves viewport #}
   <div class="jm-pdp-sticky jm-pdp-sticky--pill" aria-hidden="true">
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-2 gap-md-3" style="flex: 1 1 auto; min-width: 0;">
       {% if product.images.exists %}
       <img src="{{ product.images.first.image.url }}" alt="" class="rounded"
-        style="width: 32px; height: 42px; object-fit: cover;">
+        style="width: 32px; height: 42px; object-fit: cover; flex: 0 0 auto;">
       {% endif %}
       <div class="d-flex flex-column text-start" style="line-height: 1.2; flex: 1 1 auto; min-width: 0;">
         <span class="small fw-bold text-truncate text-uppercase" style="font-size: 0.75rem; letter-spacing: 0.5px;">{{ product.name }}</span>
@@ -194,7 +194,7 @@
     <div class="d-flex align-items-center gap-2 gap-lg-3 ms-auto" style="flex: 0 0 auto;">
       <div class="jm-pdp-sticky__price d-none d-sm-block" id="pdp-sticky-price"
         style="font-size: 0.85rem; font-weight: 500;">{% money_label price_data.price display_currency %}</div>
-      <div class="jm-pdp-sticky__actions" id="pdp-sticky-actions-group">
+      <div class="jm-pdp-sticky__actions" id="pdp-sticky-actions-group" style="flex: 0 0 auto;">
         <form id="sticky-buy-form" method="post" action="{% url 'cart:add' %}"
           class="jm-pdp-sticky__atc {% if is_in_cart %}d-none{% endif %}" hx-post="{% url 'cart:add' %}"
           hx-target="#cart-drawer-body" hx-swap="innerHTML">
