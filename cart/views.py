@@ -144,10 +144,32 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
     if product is None:
         raise Http404("Product not found.")
 
-    cart = get_or_create_cart(request=request)
-
     buy_now = request.POST.get("buy_now") == "true"
-    
+    if buy_now:
+        if not request.session.session_key:
+            request.session.create()
+        session_key = f"bn_{request.session.session_key}"[:40]
+        from core.selectors import get_default_currency
+        from cart.models import Cart
+        cart = Cart.objects.filter(session_key=session_key).first()
+        if not cart:
+            cart = Cart.objects.create(
+                session_key=session_key,
+                currency=get_default_currency(),
+            )
+        else:
+            cart.items.all().delete()
+            if cart.coupon_code:
+                from decimal import Decimal
+                cart.coupon_code = ""
+                cart.coupon_discount = Decimal("0.00")
+                cart.save(update_fields=["coupon_code", "coupon_discount", "updated_at"])
+        request.session["checkout_mode"] = "buy_now"
+        request.session["buy_now_cart_id"] = cart.pk
+    else:
+        cart = get_or_create_cart(request=request)
+        request.session["checkout_mode"] = "cart"
+
     try:
         new_item = add_to_cart(
             cart=cart,

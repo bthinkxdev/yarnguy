@@ -23,10 +23,25 @@ from payments.registry import PAYMENT_GATEWAYS
 from payments.services import process_payment
 
 
+def _get_checkout_cart(request: HttpRequest, create: bool = False):
+    if request.GET.get("mode") == "cart":
+        request.session["checkout_mode"] = "cart"
+    if request.session.get("checkout_mode") == "buy_now":
+        buy_now_cart_id = request.session.get("buy_now_cart_id")
+        if buy_now_cart_id:
+            from cart.models import Cart
+            cart = Cart.objects.filter(pk=buy_now_cart_id).first()
+            if cart:
+                return cart
+    if create:
+        return get_or_create_cart(request=request)
+    return get_cart_for_request(request=request)
+
+
 @require_POST
 def checkout_update_delivery_charge_view(request: HttpRequest) -> HttpResponse:
     """Update cart delivery charge if COD is selected and return updated summary."""
-    cart = get_cart_for_request(request=request)
+    cart = _get_checkout_cart(request=request, create=False)
     if not cart:
         return HttpResponse("")
 
@@ -50,7 +65,7 @@ def checkout_update_delivery_charge_view(request: HttpRequest) -> HttpResponse:
 @require_GET
 def checkout_view(request: HttpRequest) -> HttpResponse:
     """Multi-step checkout page with gift Order Preview partial."""
-    cart = get_or_create_cart(request=request)
+    cart = _get_checkout_cart(request=request, create=True)
     summary = get_cart_summary(cart=cart)
     if not summary.lines:
         #do not redirect,render the empty state in checkout.html
@@ -144,7 +159,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             status=200,
         )
 
-    cart = get_cart_for_request(request=request)
+    cart = _get_checkout_cart(request=request, create=False)
     if cart is None:
         raise Http404("Cart not found.")
 
@@ -364,6 +379,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
 @require_GET
 def checkout_confirmation_view(request: HttpRequest, order_id: int) -> HttpResponse:
     """Separate order confirmation / success page."""
+    request.session["checkout_mode"] = "cart"
     from orders.models import Order
     from django.shortcuts import get_object_or_404
     order = get_object_or_404(Order, pk=order_id)
@@ -530,7 +546,7 @@ def checkout_coupon_apply_view(request: HttpRequest) -> HttpResponse:
         messages.error(request, _("Enter a valid coupon code."))
         return redirect("checkout:checkout")
 
-    cart = get_cart_for_request(request=request)
+    cart = _get_checkout_cart(request=request, create=False)
     if cart is None:
         raise Http404("Cart not found.")
 
@@ -551,7 +567,7 @@ def checkout_coupon_remove_view(request: HttpRequest) -> HttpResponse:
     from django.contrib import messages
     from django.utils.translation import gettext as _
     
-    cart = get_cart_for_request(request=request)
+    cart = _get_checkout_cart(request=request, create=False)
     if cart:
         remove_coupon(cart=cart)
         messages.success(request, _("Coupon removed."))
