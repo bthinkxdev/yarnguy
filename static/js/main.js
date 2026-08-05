@@ -272,7 +272,21 @@
     }
   });
 
+  function updatePlpSidebarScroll() {
+    var sidebar = document.querySelector('.plp-filters-desktop');
+    if (!sidebar) return;
+    var rect = sidebar.getBoundingClientRect();
+    var availableHeight = window.innerHeight - rect.top - 24;
+    sidebar.style.maxHeight = Math.max(300, availableHeight) + 'px';
+  }
+
+  window.addEventListener('scroll', updatePlpSidebarScroll, { passive: true });
+  window.addEventListener('resize', updatePlpSidebarScroll, { passive: true });
+  document.addEventListener('DOMContentLoaded', updatePlpSidebarScroll);
+  updatePlpSidebarScroll();
+
   function reinitPageScripts() {
+    updatePlpSidebarScroll();
     document.querySelectorAll('.thumb-btn').forEach(function (btn) {
       if (btn.dataset.boundThumb) return;
       btn.dataset.boundThumb = '1';
@@ -328,7 +342,13 @@
       reinitPageScripts();
     }
     if (event.detail.target && event.detail.target.id === 'product-grid') {
-      event.detail.target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      var toolbar = document.querySelector('.plp-toolbar') || event.detail.target;
+      var headerOffset = 170;
+      var elementPosition = toolbar.getBoundingClientRect().top + window.scrollY;
+      var offsetPosition = Math.max(0, elementPosition - headerOffset);
+      if (window.scrollY > offsetPosition) {
+        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
+      }
       reinitPageScripts();
     }
   });

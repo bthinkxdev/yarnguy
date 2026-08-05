@@ -1086,6 +1086,10 @@ body.mobile-search-open {
   border: 1px solid var(--floward-border) !important;
   border-radius: var(--floward-radius-lg) !important;
   box-shadow: none !important;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .plp-filters-desktop {
@@ -1093,18 +1097,45 @@ body.mobile-search-open {
   top: calc(var(--jm-header-sticky-offset, 148px) + 12px);
   align-self: flex-start;
   z-index: 15;
+  display: flex;
+  flex-direction: column;
   max-height: calc(100vh - var(--jm-header-sticky-offset, 148px) - 24px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: none;
-}
-
-.plp-filters-desktop::-webkit-scrollbar {
-  display: none;
+  overflow: visible;
 }
 
 .plp-filters-desktop .plp-filters {
   margin-bottom: 0;
+  flex: 1 1 auto;
+}
+
+.plp-filters-header,
+.plp-filters-footer {
+  flex-shrink: 0;
+  background: var(--floward-white);
+}
+
+.plp-filters-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--floward-border, #d1d5db) transparent;
+  padding-right: 4px;
+}
+
+.plp-filters-body::-webkit-scrollbar {
+  width: 6px;
+  display: block !important;
+}
+
+.plp-filters-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.plp-filters-body::-webkit-scrollbar-thumb {
+  background-color: var(--floward-border, #d1d5db);
+  border-radius: 4px;
 }
 
 .plp-filters .form-label {

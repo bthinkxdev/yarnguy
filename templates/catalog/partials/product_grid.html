@@ -19,7 +19,7 @@
      href="{{ request.path }}?{% query_with page=plp.page|add:'-1' %}"
      hx-get="{{ request.path }}?{% query_with page=plp.page|add:'-1' %}"
      hx-target="#product-grid"
-     hx-swap="innerHTML show:window:top"
+     hx-swap="innerHTML"
      hx-push-url="true"
      hx-indicator="#product-grid">{% trans "Previous" %}</a>
   {% endif %}
@@ -29,7 +29,7 @@
      href="{{ request.path }}?{% query_with page=plp.page|add:'1' %}"
      hx-get="{{ request.path }}?{% query_with page=plp.page|add:'1' %}"
      hx-target="#product-grid"
-     hx-swap="innerHTML show:window:top"
+     hx-swap="innerHTML"
      hx-push-url="true"
      hx-indicator="#product-grid">{% trans "Next" %}</a>
   {% endif %}

@@ -130,8 +130,10 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
         }
     )
 
-    if request.headers.get("HX-Request"):
-        return render(request, "catalog/partials/product_grid.html", context)
+    if request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request"):
+        response = render(request, "catalog/partials/product_grid.html", context)
+        response["HX-Push-Url"] = request.get_full_path()
+        return response
     return render(request, "catalog/plp.html", context)
 
 
