@@ -133,8 +133,11 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
     if request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request"):
         response = render(request, "catalog/partials/product_grid.html", context)
         response["HX-Push-Url"] = request.get_full_path()
-        return response
-    return render(request, "catalog/plp.html", context)
+    else:
+        response = render(request, "catalog/plp.html", context)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET
@@ -229,7 +232,10 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
             ),
         }
     )
-    return render(request, "catalog/pdp.html", context)
+    response = render(request, "catalog/pdp.html", context)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET

@@ -43,6 +43,8 @@ def _cart_drawer_response(request: HttpRequest, *, error: str | None = None, err
     )
     if hx_triggers:
         response["HX-Trigger"] = json.dumps(hx_triggers)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -72,6 +74,8 @@ def _cart_page_response(
     )
     if hx_triggers:
         response["HX-Trigger"] = json.dumps(hx_triggers)
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
     return response
 
 
@@ -81,7 +85,7 @@ def cart_page_view(request: HttpRequest) -> HttpResponse:
     cart = get_or_create_cart(request=request)
     summary = get_cart_summary(cart=cart)
     from marketing.selectors import has_any_active_coupons
-    return render(
+    response = render(
         request,
         "cart/cart_page.html",
         {
@@ -90,6 +94,9 @@ def cart_page_view(request: HttpRequest) -> HttpResponse:
             "has_active_coupons": has_any_active_coupons(),
         },
     )
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @require_GET

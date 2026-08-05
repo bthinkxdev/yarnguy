@@ -176,8 +176,18 @@ def get_cart_summary(*, cart: Cart) -> CartSummary:
     item_count = 0
     has_stock_issues = False
 
+    from cart.services import _resolve_unit_price
+
     for item in items:
-        unit_price = item.unit_price_at_add
+        try:
+            unit_price = _resolve_unit_price(
+                product=item.product,
+                variant=item.variant,
+                user=cart.customer_profile.user if hasattr(cart, "customer_profile") and cart.customer_profile else None,
+                quantity=item.quantity,
+            )
+        except Exception:
+            unit_price = item.unit_price_at_add
 
         line_subtotal = unit_price * item.quantity
         subtotal += line_subtotal

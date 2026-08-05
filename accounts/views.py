@@ -649,8 +649,12 @@ def wishlist_view(request: HttpRequest) -> HttpResponse:
             request.session["guest_wishlist_id"] = view.wishlist.pk
 
     if view is None:
-        return render(request, "accounts/wishlist.html", {"items": []})
-    return render(request, "accounts/wishlist.html", {"wishlist": view.wishlist, "items": view.items})
+        response = render(request, "accounts/wishlist.html", {"items": []})
+    else:
+        response = render(request, "accounts/wishlist.html", {"wishlist": view.wishlist, "items": view.items})
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    return response
 
 
 @login_required

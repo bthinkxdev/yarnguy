@@ -890,7 +890,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }).catch(function () { });
   }
 
-  window.addEventListener('pageshow', function (e) { syncCartStatus(); if (e.persisted) window.location.reload(); });
+  window.addEventListener('pageshow', function (e) {
+    syncCartStatus();
+    var isBackForward = e.persisted ||
+      (window.performance && window.performance.getEntriesByType && window.performance.getEntriesByType('navigation').length > 0 && window.performance.getEntriesByType('navigation')[0].type === 'back_forward') ||
+      (window.performance && window.performance.navigation && window.performance.navigation.type === 2);
+    if (isBackForward) {
+      window.location.reload();
+    }
+  });
   window.addEventListener('focus', syncCartStatus);
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncCartStatus(); });
 })();
