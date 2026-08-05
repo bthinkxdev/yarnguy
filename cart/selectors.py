@@ -120,12 +120,40 @@ def get_cart_count(*, request: HttpRequest) -> int:
     return get_cart_item_count(cart=cart)
 
 
-def get_cart_product_ids(*, request: HttpRequest) -> set[int]:
-    """Return a set of product IDs currently in the persistent cart."""
+def get_cart_product_ids(*, request: HttpRequest = None, cart=None) -> set[int]:
+    """Return a set of product IDs currently in the cart where all purchasable variants are added."""
+    if not cart and request:
+        cart = get_cart_for_request(request=request)
+    if not cart:
+        return set()
+    items = list(CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id"))
+    if not items:
+        return set()
+    candidate_ids = {pid for pid, _ in items}
+    from catalog.models import ProductVariant
+    variant_map = {}
+    for pid, vid in ProductVariant.objects.filter(product_id__in=candidate_ids, stock_quantity__gt=0).values_list("product_id", "id"):
+        variant_map.setdefault(pid, set()).add(vid)
+    cart_variant_map = {}
+    for pid, vid in items:
+        if vid:
+            cart_variant_map.setdefault(pid, set()).add(vid)
+    fully_in_cart = set()
+    for pid in candidate_ids:
+        if pid in variant_map and variant_map[pid]:
+            if variant_map[pid].issubset(cart_variant_map.get(pid, set())):
+                fully_in_cart.add(pid)
+        else:
+            fully_in_cart.add(pid)
+    return fully_in_cart
+
+
+def get_cart_item_keys(*, request: HttpRequest) -> set[str]:
+    """Return a set of composite item keys ('pid_vid' or 'pid') currently in the cart."""
     cart = get_cart_for_request(request=request)
     if not cart:
         return set()
-    return set(CartItem.objects.filter(cart=cart).values_list("product_id", flat=True))
+    return {f"{pid}_{vid}" if vid else f"{pid}" for pid, vid in CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id")}
 
 
 def _wishlist_items_qs(*, request: HttpRequest):

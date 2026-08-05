@@ -592,8 +592,10 @@ def get_variant_price(
     if variant_id:
         variant = ProductVariant.objects.filter(pk=variant_id, product=product).first()
         if variant:
-            retail_price = variant.base_price
-            mrp = variant.mrp
+            if variant.base_price is not None and variant.base_price > 0:
+                retail_price = variant.base_price
+            if variant.mrp is not None and variant.mrp > 0:
+                mrp = variant.mrp
             resolved_variant_id = variant.pk
             is_in_stock = variant.stock_quantity > 0
 

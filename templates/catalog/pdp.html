@@ -92,7 +92,7 @@
           hx-select="#purchase-actions" hx-swap="outerHTML" hx-include=".pdp-variant-id-input"
           hx-trigger="pageshow from:window, cartItemAdded from:body, cartUpdated from:body">
 
-          <div id="pdp-stock-error-msg" class="text-danger small mb-2 {% if price_data.is_in_stock %}d-none{% endif %}">{% if not price_data.is_in_stock %}{% trans "Out of stock" %}{% endif %}</div>
+          <div id="pdp-stock-error-msg" class="text-danger small mb-2 d-none"></div>
 
           <div id="pdp-add-to-cart-group" class="jm-pdp-buybox__row {% if is_in_cart %}d-none{% endif %}">
             <div class="qty-stepper jm-pdp-qty" aria-label="{% trans 'Quantity' %}" {% if not price_data.is_in_stock %}style="opacity: 0.5;" {% endif %}>
@@ -101,7 +101,7 @@
                 aria-label="{% trans 'Decrease quantity' %}">&minus;</button>
               <input type="number" id="pdp-qty" class="qty-stepper__value pdp-qty-input"
                 data-max-stock="{{ price_data.stock_quantity|default_if_none:product.stock_quantity }}"
-                value="{{ cart_item.quantity|default:1 }}" min="1" readonly aria-label="{% trans 'Quantity' %}">
+                value="1" min="1" readonly aria-label="{% trans 'Quantity' %}">
               <button class="qty-stepper__btn" type="button"
                 onclick="if(window.handlePdpQtyChange) window.handlePdpQtyChange(1);"
                 aria-label="{% trans 'Increase quantity' %}">&plus;</button>
@@ -111,7 +111,7 @@
               hx-post="{% url 'cart:add' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
               {% csrf_token %}
               <input type="hidden" name="product_id" value="{{ product.pk }}">
-              <input type="hidden" name="quantity" class="pdp-qty-input" value="{{ cart_item.quantity|default:1 }}">
+              <input type="hidden" name="quantity" class="pdp-qty-input" value="1">
               <input type="hidden" name="variant_id" class="pdp-variant-id-input" value="{{ selected_variant_id }}">
               <button type="{% if price_data.is_in_stock %}submit{% else %}button{% endif %}"
                 class="btn btn-outline-floward w-100 jm-pdp-btn {% if not price_data.is_in_stock %}disabled{% endif %}" {% if not price_data.is_in_stock %}style="cursor: not-allowed; opacity: 0.6; pointer-events: auto;"
@@ -163,7 +163,7 @@
               hx-post="{% url 'cart:add' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
               {% csrf_token %}
               <input type="hidden" name="product_id" value="{{ product.pk }}">
-              <input type="hidden" name="quantity" class="pdp-qty-input" value="{{ cart_item.quantity|default:1 }}">
+              <input type="hidden" name="quantity" class="pdp-qty-input" value="1">
               <input type="hidden" name="variant_id" class="pdp-variant-id-input" value="{{ selected_variant_id }}">
               <button type="submit" name="buy_now" value="true"
                 class="btn btn-floward w-100 jm-pdp-btn jm-pdp-btn--primary" {% if not price_data.is_in_stock %}style="cursor: not-allowed;" onclick="event.preventDefault();" {% endif %}>
@@ -200,7 +200,7 @@
           hx-target="#cart-drawer-body" hx-swap="innerHTML">
           {% csrf_token %}
           <input type="hidden" name="product_id" value="{{ product.pk }}">
-          <input type="hidden" name="quantity" class="pdp-qty-input" value="{{ cart_item.quantity|default:1 }}">
+          <input type="hidden" name="quantity" class="pdp-qty-input" value="1">
           <input type="hidden" name="variant_id" class="pdp-variant-id-input" value="{{ selected_variant_id }}">
           <button type="{% if price_data.is_in_stock %}submit{% else %}button{% endif %}"
             class="btn jm-pdp-sticky__btn {% if not price_data.is_in_stock %}disabled{% endif %}" {% if not price_data.is_in_stock %}style="cursor: not-allowed; opacity: 0.6; pointer-events: auto;"
@@ -223,7 +223,7 @@
           hx-target="#cart-drawer-body" hx-swap="innerHTML">
           {% csrf_token %}
           <input type="hidden" name="product_id" value="{{ product.pk }}">
-          <input type="hidden" name="quantity" class="pdp-qty-input" value="{{ cart_item.quantity|default:1 }}">
+          <input type="hidden" name="quantity" class="pdp-qty-input" value="1">
           <input type="hidden" name="variant_id" class="pdp-variant-id-input" value="{{ selected_variant_id }}">
           <button type="submit" name="buy_now" value="true" class="btn btn-floward jm-pdp-sticky__btn" {% if not price_data.is_in_stock %}style="cursor: not-allowed;" onclick="event.preventDefault();" {% endif %}>{% trans "Buy Now" %}</button>
         </form>

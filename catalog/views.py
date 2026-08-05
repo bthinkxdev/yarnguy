@@ -297,6 +297,20 @@ def variant_price_view(request: HttpRequest, product_id: int) -> JsonResponse:
             cart_item = CartItem.objects.filter(cart=cart, product_id=product_id, variant__isnull=True).first()
     data["is_in_cart"] = cart_item is not None
 
+    from core.selectors import get_currency_by_code, get_default_currency
+    from core.templatetags.storefront_tags import money_label
+
+    session_currency = request.session.get("storefront_currency", "")
+    display_currency = (
+        get_currency_by_code(code=session_currency) if session_currency else get_default_currency()
+    )
+    if "price" in data:
+        data["formatted_price"] = money_label(data["price"], display_currency)
+    if data.get("mrp"):
+        data["formatted_mrp"] = money_label(data["mrp"], display_currency)
+    if data.get("original_price"):
+        data["formatted_original_price"] = money_label(data["original_price"], display_currency)
+
     return JsonResponse(data)
 
 

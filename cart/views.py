@@ -114,16 +114,14 @@ def cart_status_view(request: HttpRequest) -> JsonResponse:
     """JSON endpoint returning active cart count, product IDs, and item keys for JS state sync."""
     from cart.models import CartItem
     cart = get_cart_for_request(request=request)
-    product_ids = set()
     cart_item_keys = []
     count = 0
     if cart:
         for pid, vid, qty in CartItem.objects.filter(cart=cart).values_list("product_id", "variant_id", "quantity"):
-            product_ids.add(pid)
             cart_item_keys.append(f"{pid}_{vid}" if vid else f"{pid}")
             count += qty
     return JsonResponse({
-        "cart_product_ids": list(product_ids),
+        "cart_product_ids": list(get_cart_product_ids(cart=cart)),
         "cart_count": count,
         "cart_item_keys": cart_item_keys,
     })
@@ -204,7 +202,7 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
 
     return _cart_drawer_response(
         request,
-        hx_triggers={"cartItemAdded": {"product_id": product.pk}},
+        hx_triggers={"cartItemAdded": {"product_id": product.pk, "variant_id": variant.pk if variant else None}},
     )
 
 
