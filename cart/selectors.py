@@ -38,6 +38,15 @@ def get_cart_for_request(*, request: HttpRequest) -> Optional[Cart]:
         )
 
     if cart is None:
+        guest_cart_id = request.session.get("guest_cart_id")
+        if guest_cart_id:
+            cart = (
+                Cart.objects.filter(pk=guest_cart_id)
+                .select_related("currency")
+                .first()
+            )
+
+    if cart is None and session_key:
         cart = (
             Cart.objects.filter(session_key=session_key)
             .select_related("currency")
