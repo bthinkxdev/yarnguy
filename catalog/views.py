@@ -113,7 +113,7 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
     context = seo_context(
         request=request,
         obj=active_cat,
-        title=f"{title} | DESERT STAR MOBILE PHONES",
+        title=f"{title} | Yarn Guy",
         description=description,
         canonical_url=build_plp_canonical_url(request=request, category_slug=category_slug),
     )
@@ -205,8 +205,8 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
     context = seo_context(
         request=request,
         obj=product,
-        title=f"{product.name} | DESERT STAR MOBILE PHONES",
-        description=f"{product.name} — quality mobiles and accessories from Desert Star Mobile Phones, Abu Dhabi.",
+        title=f"{product.name} | Yarn Guy",
+        description=f"{product.name} — Premium gym wear and active wear from Yarn Guy",
     )
     context.update(
         {

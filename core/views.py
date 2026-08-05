@@ -44,8 +44,8 @@ def privacy_policy_view(request: HttpRequest) -> HttpResponse:
     """Render the static Privacy Policy page."""
     context = seo_context(
         request=request,
-        title=_("Privacy Policy | DESERT STAR MOBILE PHONES"),
-        description=_("Read DESERT STAR MOBILE PHONES privacy policy to learn how we collect and use your data."),
+        title=_("Privacy Policy | Yarn Guy"),
+        description=_("Read Yarn Guy privacy policy to learn how we collect and use your data."),
     )
     return render(request, "core/privacy_policy.html", context)
 
@@ -60,8 +60,8 @@ def contact_us_view(request: HttpRequest) -> HttpResponse:
 
     context = seo_context(
         request=request,
-        title=_("Contact Us | DESERT STAR MOBILE PHONES"),
-        description=_("Get in touch with DESERT STAR MOBILE PHONES customer support."),
+        title=_("Contact Us | Yarn Guy"),
+        description=_("Get in touch with Yarn Guy customer support."),
     )
     context["form"] = form
     return render(request, "core/contact_us.html", context)
@@ -114,8 +114,8 @@ def faq_view(request: HttpRequest) -> HttpResponse:
     """Render the static FAQ page."""
     context = seo_context(
         request=request,
-        title=_("FAQ | DESERT STAR MOBILE PHONES"),
-        description=_("Frequently asked questions about ordering, delivery, and payments at DESERT STAR MOBILE PHONES."),
+        title=_("FAQ | Yarn Guy"),
+        description=_("Frequently asked questions about ordering, delivery, and payments at Yarn Guy."),
     )
     
     from cms.models import FAQItem
@@ -129,7 +129,7 @@ def blog_view(request: HttpRequest) -> HttpResponse:
     """Render the storefront blog page."""
     context = seo_context(
         request=request,
-        title=_("Blog | DESERT STAR MOBILE PHONES"),
+        title=_("Blog | Yarn Guy"),
         description=_("Read our latest news and mobile technology articles."),
     )
     from cms.models import BlogPost
@@ -145,7 +145,7 @@ def page_view(request: HttpRequest, slug: str) -> HttpResponse:
     
     context = seo_context(
         request=request,
-        title=f"{page.title} | DESERT STAR MOBILE PHONES",
+        title=f"{page.title} | Yarn Guy",
         description=page.meta_description or page.title,
     )
     context["page"] = page

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load i18n %}
 
-{% block title %}{% trans "Checkout" %} | DESERT STAR MOBILE PHONES{% endblock %}
+{% block title %}{% trans "Checkout" %} | Yarn Guy{% endblock %}
 
 {% block content %}
 <div class="container page-container checkout-page jm-page" hx-get="{% url 'checkout:checkout' %}" hx-trigger="cartUpdated from:body" hx-select=".checkout-page" hx-swap="outerHTML">
