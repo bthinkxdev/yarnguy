@@ -6289,7 +6289,8 @@ body.jm-pdp-sticky-open .jm-wa-float {
     opacity: 1;
   }
 
-  .jm-product-card:hover .jm-product-card__img-main {
+  .jm-product-card:hover .jm-product-card__img-link.has-hover-img .jm-product-card__img-main,
+  .jm-product-card:hover .jm-product-card__img-link:has(.jm-product-card__img-hover) .jm-product-card__img-main {
     opacity: 0;
   }
 }

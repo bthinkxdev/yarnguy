@@ -322,7 +322,7 @@ def get_product_detail(*, slug: str) -> Optional[Product]:
         .prefetch_related(
             Prefetch(
                 "related_product__images",
-                queryset=ProductImage.objects.filter(is_primary=True).order_by("id"),
+                queryset=ProductImage.objects.order_by("-is_primary", "display_order"),
                 to_attr="primary_images",
             ),
         ),
@@ -341,7 +341,7 @@ def get_product_detail(*, slug: str) -> Optional[Product]:
         .prefetch_related(
             Prefetch(
                 "related_product__images",
-                queryset=ProductImage.objects.filter(is_primary=True).order_by("id"),
+                queryset=ProductImage.objects.order_by("-is_primary", "display_order"),
                 to_attr="primary_images",
             ),
         ),

@@ -14,9 +14,9 @@
   data-in-cart="{% if cart_product_ids and product.pk in cart_product_ids %}true{% else %}false{% endif %}">
   {# Media: only the image sits inside .ratio so Bootstrap does not stretch badge/actions into a full-bleed blocker. #}
   <div class="jm-product-card__media">
-    <a href="{% url 'catalog:pdp' slug=product.slug %}" class="jm-product-card__img-link ratio ratio-1x1" tabindex="-1"
+    {% with img_main=product.primary_images.0 img_hover=product.primary_images.1 %}
+    <a href="{% url 'catalog:pdp' slug=product.slug %}" class="jm-product-card__img-link ratio ratio-1x1 {% if img_hover and img_hover.image %}has-hover-img{% endif %}" tabindex="-1"
       aria-hidden="true">
-      {% with img_main=product.primary_images.0 img_hover=product.primary_images.1 %}
       {% if img_main and img_main.image %}
       <img src="{{ img_main.image.url }}" alt="{{ img_main.alt_text|default:product.name }}"
         class="object-fit-contain jm-product-card__img-main" width="400" height="400" loading="lazy"
@@ -29,8 +29,8 @@
       <img src="{% static 'img/product-placeholder.svg' %}" alt="{{ product.name }}"
         class="object-fit-contain product-card-img--placeholder" width="400" height="400" loading="lazy">
       {% endif %}
-      {% endwith %}
     </a>
+    {% endwith %}
 
     <div class="jm-product-card__badges">
       {% if product.is_flash_sale %}
