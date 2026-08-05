@@ -390,6 +390,8 @@ def update_address(
     line1: str,
     line2: str,
     city: str,
+    state: str = "",
+    pincode: str = "",
     is_default: bool = False,
 ) -> Address:
     """
@@ -402,6 +404,8 @@ def update_address(
         line1: Primary address line.
         line2: Secondary address line.
         city: City name.
+        state: State or province.
+        pincode: Postal or PIN code.
         is_default: When True, demotes other defaults atomically.
     Returns:
         Updated Address instance.
@@ -411,7 +415,9 @@ def update_address(
     address.line1 = line1
     address.line2 = line2
     address.city = city
-    address.save(update_fields=["label", "line1", "line2", "city", "updated_at"])
+    address.state = state
+    address.pincode = pincode
+    address.save(update_fields=["label", "line1", "line2", "city", "state", "pincode", "updated_at"])
     if is_default:
         return set_default_address(customer_profile=customer_profile, address_id=address.pk)
     return address
@@ -425,6 +431,8 @@ def create_address(
     line1: str,
     line2: str,
     city: str,
+    state: str = "",
+    pincode: str = "",
     is_default: bool = False,
 ) -> Address:
     """
@@ -436,6 +444,8 @@ def create_address(
         line1: Primary address line.
         line2: Secondary address line.
         city: City name.
+        state: State or province.
+        pincode: Postal or PIN code.
         is_default: When True, demotes other defaults atomically.
     Returns:
         Created Address instance.
@@ -446,6 +456,8 @@ def create_address(
         line1=line1,
         line2=line2,
         city=city,
+        state=state,
+        pincode=pincode,
         is_default=False,
     )
     if is_default:
@@ -650,11 +662,14 @@ def login_or_create_customer_by_email(*, email: str, name: str = "") -> Customer
     #check if a profile exists
     profile = CustomerProfile.objects.filter(user__email=normalized_email).select_related("user").first()
     if profile is not None:
-        if name and not profile.user.first_name and not profile.user.last_name:
+        if name:
             name_parts = name.strip().split(" ", 1)
-            profile.user.first_name = name_parts[0]
-            profile.user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-            profile.user.save(update_fields=["first_name", "last_name"])
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            if profile.user.first_name != first_name or profile.user.last_name != last_name:
+                profile.user.first_name = first_name
+                profile.user.last_name = last_name
+                profile.user.save(update_fields=["first_name", "last_name"])
         return profile
 
     currency = get_default_currency()
@@ -672,11 +687,14 @@ def login_or_create_customer_by_email(*, email: str, name: str = "") -> Customer
         user.set_unusable_password()
         user.save()
     else:
-        if name and not user.first_name and not user.last_name:
+        if name:
             name_parts = name.strip().split(" ", 1)
-            user.first_name = name_parts[0]
-            user.last_name = name_parts[1] if len(name_parts) > 1 else ""
-            user.save(update_fields=["first_name", "last_name"])
+            first_name = name_parts[0]
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+            if user.first_name != first_name or user.last_name != last_name:
+                user.first_name = first_name
+                user.last_name = last_name
+                user.save(update_fields=["first_name", "last_name"])
 
     #create customerprofile
     profile, created = CustomerProfile.objects.get_or_create(

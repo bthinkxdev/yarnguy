@@ -25,7 +25,7 @@
         {% endif %}
         {% if dashboard.default_address %}
         <p class="small mb-0"><strong>{% trans "Address" %}:</strong>
-          {{ dashboard.default_address.line1 }}{% if dashboard.default_address.line2 %}, {{ dashboard.default_address.line2 }}{% endif %}, {{ dashboard.default_address.city.name }}
+          {{ dashboard.default_address.line1 }}{% if dashboard.default_address.line2 %}, {{ dashboard.default_address.line2 }}{% endif %}, {{ dashboard.default_address.city }}{% if dashboard.default_address.state %}, {{ dashboard.default_address.state }}{% endif %}{% if dashboard.default_address.pincode %} - {{ dashboard.default_address.pincode }}{% endif %}
         </p>
         {% else %}
         <p class="small mb-0 text-muted"><strong>{% trans "Address" %}:</strong> {% trans "No default address set." %}

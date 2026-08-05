@@ -4,7 +4,7 @@
   <ul class="mb-0 mt-2">
     {% for field, messages in errors.items %}
       {% for msg in messages %}
-      <li>{{ field }}: {{ msg }}</li>
+      <li>{{ msg }}</li>
       {% endfor %}
     {% endfor %}
   </ul>
@@ -22,4 +22,13 @@
 <div id="error-delivery_date" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.delivery_date %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
 <div id="error-delivery_slot_id" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.delivery_slot_id %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
 <div id="error-gateway_key" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.gateway_key %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+
+<script>
+  (function() {
+    var overlay = document.getElementById('order-processing-overlay');
+    if (overlay) {
+      overlay.classList.add('d-none');
+    }
+  })();
+</script>
 

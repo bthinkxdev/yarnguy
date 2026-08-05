@@ -86,12 +86,12 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
 
     addresses = []
     if profile:
-        from accounts.models import Address
-        dashboard_address = profile.default_address
-        if not dashboard_address:
-            dashboard_address = Address.objects.filter(customer_profile=profile).first()
-        if dashboard_address:
-            addresses = [dashboard_address]
+        if profile.default_address:
+            addresses = [profile.default_address]
+        else:
+            saved_list = list(get_saved_addresses(customer_profile=profile, page_size=1)["results"])
+            if saved_list:
+                addresses = [saved_list[0]]
             
     from delivery.models import City
     active_cities = City.objects.filter(is_active=True)
@@ -180,131 +180,141 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
         )
         if address:
             update_checkout_session(checkout_session=session, address=address)
+            from accounts.services import set_default_address
+            set_default_address(customer_profile=profile, address_id=address.pk)
+
+    guest_name = request.POST.get("guest_name", "").strip()
+    guest_email = request.POST.get("guest_email", "").strip()
+    guest_phone = request.POST.get("guest_phone", "").strip()
+
+    errors = {}
+    if not guest_name:
+        errors["guest_name"] = ["Name is required."]
+
+    if not guest_email:
+        errors["guest_email"] = ["Email is required."]
+    else:
+        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", guest_email) or "@." in guest_email:
+            errors["guest_email"] = ["Enter a valid email address."]
+        else:
+            try:
+                validate_email(guest_email)
+            except ValidationError:
+                errors["guest_email"] = ["Enter a valid email address."]
+
+    if not guest_phone:
+        errors["guest_phone"] = ["Phone is required."]
+    else:
+        if not re.match(r'^\+?\d+$', guest_phone):
+            errors["guest_phone"] = ["Phone number can only contain numbers."]
+        elif not re.match(r'^\+?\d{10,15}$', guest_phone):
+            errors["guest_phone"] = ["Enter a valid phone number."]
 
     if not address:
-        if not request.user.is_authenticated:
-            guest_name = request.POST.get("guest_name", "").strip()
-            guest_email = request.POST.get("guest_email", "").strip()
-            guest_phone = request.POST.get("guest_phone", "").strip()
-            guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
-            guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
-            guest_city = request.POST.get("guest_city", "").strip()
-            guest_state = request.POST.get("guest_state", "").strip()
-            guest_pincode = request.POST.get("guest_pincode", "").strip()
+        guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
+        guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
+        guest_city = request.POST.get("guest_city", "").strip()
+        guest_state = request.POST.get("guest_state", "").strip()
+        guest_pincode = request.POST.get("guest_pincode", "").strip()
 
-            errors = {}
-            if not guest_name: 
-                errors["guest_name"] = ["Name is required."]
-            
-            if not guest_email: 
-                errors["guest_email"] = ["Email is required."]
-            else:
-                try:
-                    validate_email(guest_email)
-                except ValidationError:
-                    errors["guest_email"] = ["Enter a valid email address."]
+        if not guest_address_line1:
+            errors["guest_address_line1"] = ["Address Line 1 is required."]
+        elif re.fullmatch(r"^\d+$", guest_address_line1):
+            errors["guest_address_line1"] = ["Address cannot consist of numbers only."]
+        elif re.fullmatch(r"^[^a-zA-Z0-9]+$", guest_address_line1):
+            errors["guest_address_line1"] = ["Address cannot consist of special characters only."]
+        elif not re.search(r"[a-zA-Z]", guest_address_line1):
+            errors["guest_address_line1"] = ["Enter a valid address containing letters."]
 
-            if not guest_phone: 
-                errors["guest_phone"] = ["Phone is required."]
-            else:
-                if not re.match(r'^\+?\d+$', guest_phone):
-                    errors["guest_phone"] = ["Phone number can only contain numbers."]
-                elif not re.match(r'^\+?\d{10,15}$', guest_phone):
-                    errors["guest_phone"] = ["Enter a valid phone number."]
+        if not guest_city:
+            errors["guest_city"] = ["City is required."]
+        elif re.fullmatch(r"^\d+$", guest_city):
+            errors["guest_city"] = ["City cannot consist of numbers only."]
+        elif re.fullmatch(r"^[^a-zA-Z0-9]+$", guest_city):
+            errors["guest_city"] = ["City cannot consist of special characters only."]
+        elif not re.search(r"[a-zA-Z]", guest_city):
+            errors["guest_city"] = ["Enter a valid city containing letters."]
 
-            if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
-            if not guest_city: errors["guest_city"] = ["City is required."]
-            if not guest_state: errors["guest_state"] = ["State / Province is required."]
-            if not guest_pincode: errors["guest_pincode"] = ["PIN / Postal Code is required."]
+        if not guest_state:
+            errors["guest_state"] = ["State / Province is required."]
+        elif re.fullmatch(r"^\d+$", guest_state):
+            errors["guest_state"] = ["State cannot consist of numbers only."]
+        elif re.fullmatch(r"^[^a-zA-Z0-9]+$", guest_state):
+            errors["guest_state"] = ["State cannot consist of special characters only."]
+        elif not re.search(r"[a-zA-Z]", guest_state):
+            errors["guest_state"] = ["Enter a valid state containing letters."]
 
-            if errors:
-                return render(
-                    request,
-                    "checkout/partials/errors.html",
-                    {"errors": errors},
-                    status=200,
-                )
+        if not guest_pincode:
+            errors["guest_pincode"] = ["PIN / Postal Code is required."]
+        elif re.fullmatch(r"^[a-zA-Z\s]+$", guest_pincode):
+            errors["guest_pincode"] = ["Postal code cannot contain alphabets only."]
+        elif re.fullmatch(r"^[^a-zA-Z0-9]+$", guest_pincode):
+            errors["guest_pincode"] = ["Postal code cannot contain special characters only."]
+        elif not guest_pincode.isdigit():
+            errors["guest_pincode"] = ["Postal code can only contain numbers."]
+        elif len(guest_pincode) < 3:
+            errors["guest_pincode"] = ["Enter a valid postal code."]
 
-            from accounts.services import login_or_create_customer_by_email
-            from accounts.models import Address
+    if errors:
+        return render(
+            request,
+            "checkout/partials/errors.html",
+            {"errors": errors},
+            status=200,
+        )
 
-            profile = login_or_create_customer_by_email(email=guest_email, name=guest_name)
-            if guest_phone:
-                profile.phone = guest_phone
-                profile.save(update_fields=["phone", "updated_at"])
+    if not profile and not request.user.is_authenticated and guest_email:
+        from accounts.services import login_or_create_customer_by_email
+        profile = login_or_create_customer_by_email(email=guest_email, name=guest_name)
 
-            address = Address.objects.filter(
+    if profile:
+        if guest_phone and profile.phone != guest_phone:
+            profile.phone = guest_phone
+            profile.save(update_fields=["phone", "updated_at"])
+        if guest_name:
+            parts = guest_name.split(" ", 1)
+            first_name = parts[0]
+            last_name = parts[1] if len(parts) > 1 else ""
+            if profile.user.first_name != first_name or profile.user.last_name != last_name:
+                profile.user.first_name = first_name
+                profile.user.last_name = last_name
+                profile.user.save(update_fields=["first_name", "last_name"])
+
+    if not address:
+        from accounts.models import Address
+        address = Address.objects.filter(
+            customer_profile=profile,
+            line1=guest_address_line1,
+            line2=guest_address_line2,
+            city=guest_city,
+            pincode=guest_pincode,
+        ).first()
+        if not address and profile:
+            address = Address.objects.create(
                 customer_profile=profile,
                 line1=guest_address_line1,
                 line2=guest_address_line2,
                 city=guest_city,
+                state=guest_state,
                 pincode=guest_pincode,
-            ).first()
-            if not address:
-                address = Address.objects.create(
-                    customer_profile=profile,
-                    line1=guest_address_line1,
-                    line2=guest_address_line2,
-                    city=guest_city,
-                    state=guest_state,
-                    pincode=guest_pincode,
-                    label="Delivery Address"
-                )
-                
-            if profile.default_address is None:
-                from accounts.services import set_default_address
-                set_default_address(customer_profile=profile, address_id=address.pk)
-                
+                label="Delivery Address"
+            )
+        elif address and profile:
+            if getattr(address, "state", "") != guest_state or getattr(address, "pincode", "") != guest_pincode:
+                address.state = guest_state
+                address.pincode = guest_pincode
+                address.save(update_fields=["state", "pincode", "updated_at"])
+            
+        if profile and address:
+            from accounts.services import set_default_address
+            set_default_address(customer_profile=profile, address_id=address.pk)
+            
+        if address:
             update_checkout_session(checkout_session=session, address=address)
             
-            #update session customer profile
+        if session.customer_profile != profile:
             session.customer_profile = profile
             session.save(update_fields=["customer_profile", "updated_at"])
-        else:
-            guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
-            guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
-            guest_city = request.POST.get("guest_city", "").strip()
-            guest_state = request.POST.get("guest_state", "").strip()
-            guest_pincode = request.POST.get("guest_pincode", "").strip()
-
-            errors = {}
-            if not guest_address_line1: errors["guest_address_line1"] = ["Address Line 1 is required."]
-            if not guest_city: errors["guest_city"] = ["City is required."]
-            if not guest_state: errors["guest_state"] = ["State / Province is required."]
-            if not guest_pincode: errors["guest_pincode"] = ["PIN / Postal Code is required."]
-
-            if errors:
-                return render(
-                    request,
-                    "checkout/partials/errors.html",
-                    {"errors": errors},
-                    status=200,
-                )
-
-            from accounts.models import Address
-            address = Address.objects.filter(
-                customer_profile=profile,
-                line1=guest_address_line1,
-                line2=guest_address_line2,
-                city=guest_city,
-                pincode=guest_pincode,
-            ).first()
-            if not address:
-                address = Address.objects.create(
-                    customer_profile=profile,
-                    line1=guest_address_line1,
-                    line2=guest_address_line2,
-                    city=guest_city,
-                    state=guest_state,
-                    pincode=guest_pincode,
-                    label="Delivery Address"
-                )
-            
-            if profile.default_address is None:
-                from accounts.services import set_default_address
-                set_default_address(customer_profile=profile, address_id=address.pk)
-                
-            update_checkout_session(checkout_session=session, address=address)
 
     delivery_form = CheckoutDeliveryForm(request.POST)
     if delivery_form.is_valid():

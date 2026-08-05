@@ -21,7 +21,28 @@
         {% csrf_token %}
         <input type="hidden" name="idempotency_key" value="{{ checkout_session.pk }}-{{ summary.grand_total }}-{{ summary.lines|length }}-{{ request.user.pk|default:'guest' }}">
 
-        <div class="checkout-step">
+        <div class="checkout-step mb-4">
+          <h2>{% trans "Contact Information" %}</h2>
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small">{% trans "Full Name" %} <span class="text-danger">*</span></label>
+              <input type="text" name="guest_name" class="form-control form-control-sm" value="{% if checkout_session.customer_profile %}{{ checkout_session.customer_profile.user.get_full_name|default:checkout_session.customer_profile.user.first_name|default:checkout_session.customer_profile.user.username }}{% elif request.user.is_authenticated %}{{ request.user.get_full_name|default:request.user.first_name|default:request.user.username }}{% endif %}">
+              <div id="error-guest_name" class="text-danger small mt-1"></div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small">{% trans "Email Address" %} <span class="text-danger">*</span></label>
+              <input type="email" name="guest_email" class="form-control form-control-sm" value="{% if checkout_session.customer_profile %}{{ checkout_session.customer_profile.user.email }}{% elif request.user.is_authenticated %}{{ request.user.email }}{% endif %}">
+              <div id="error-guest_email" class="text-danger small mt-1"></div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small">{% trans "Phone Number" %} <span class="text-danger">*</span></label>
+            <input type="tel" name="guest_phone" class="form-control form-control-sm" value="{{ checkout_session.customer_profile.phone|default:'' }}">
+            <div id="error-guest_phone" class="text-danger small mt-1"></div>
+          </div>
+        </div>
+
+        <div class="checkout-step mb-4">
           <h2>{% trans "Delivery Address" %}</h2>
 
           {% if addresses %}
@@ -29,62 +50,43 @@
             <label class="form-label small fw-bold">{% trans "Choose a saved address:" %}</label>
             {% for address in addresses %}
             <div class="form-check mb-2">
-              <input class="form-check-input" type="radio" name="address_id" value="{{ address.pk }}"
+              <input class="form-check-input address-radio" type="radio" name="address_id" value="{{ address.pk }}"
                 id="addr-{{ address.pk }}" {% if forloop.first %}checked{% endif %}>
-              <label class="form-check-label small" for="addr-{{ address.pk }}">{{ address.label }} — {{ address.line1 }}, {{ address.city.name }}</label>
+              <label class="form-check-label small" for="addr-{{ address.pk }}">{{ address.label }} — {{ address.line1 }}, {{ address.city }}{% if address.pincode %} - {{ address.pincode }}{% endif %}</label>
             </div>
             {% endfor %}
+            <div class="form-check mb-2">
+              <input class="form-check-input address-radio" type="radio" name="address_id" value="" id="addr-new">
+              <label class="form-check-label small fw-bold text-floward" for="addr-new">+ {% trans "Add a new address" %}</label>
+            </div>
           </div>
-
-          <div class="text-center my-3"><span class="bg-white px-2 small text-muted">{% trans "— OR —" %}</span></div>
           {% endif %}
 
-          <div id="new-address-form-fields" class="mt-2">
-            <label class="form-label small fw-bold mb-3">{% trans "Enter Delivery Details:" %}</label>
-
-            {% if not request.user.is_authenticated %}
-            <div class="row g-2 mb-3">
-              <div class="col-md-6">
-                <label class="form-label small">{% trans "Full Name" %} <span class="text-danger">*</span></label>
-                <input type="text" name="guest_name" class="form-control form-control-sm" value="{{ checkout_session.customer_profile.user.first_name|default:'' }}">
-                <div id="error-guest_name" class="text-danger small mt-1"></div>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label small">{% trans "Email Address" %} <span class="text-danger">*</span></label>
-                <input type="email" name="guest_email" class="form-control form-control-sm" value="{{ checkout_session.customer_profile.user.email|default:'' }}">
-                <div id="error-guest_email" class="text-danger small mt-1"></div>
-              </div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label small">{% trans "Phone Number" %} <span class="text-danger">*</span></label>
-              <input type="tel" name="guest_phone" class="form-control form-control-sm" value="{{ checkout_session.customer_profile.phone|default:'' }}">
-              <div id="error-guest_phone" class="text-danger small mt-1"></div>
-            </div>
-            {% endif %}
-
+          <div id="new-address-form-fields" class="mt-2" {% if addresses %}style="display: none;"{% endif %}>
+            <label class="form-label small fw-bold mb-3">{% trans "Enter Delivery Address Details:" %}</label>
             <div class="mb-3">
               <label class="form-label small">{% trans "Address Line 1" %} <span class="text-danger">*</span></label>
-              <input type="text" name="guest_address_line1" class="form-control form-control-sm" value="{{ checkout_session.address.line1|default:'' }}">
+              <input type="text" name="guest_address_line1" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.line1|default:'' }}{% endif %}">
               <div id="error-guest_address_line1" class="text-danger small mt-1"></div>
             </div>
             <div class="mb-3">
               <label class="form-label small">{% trans "Address Line 2 (Optional)" %}</label>
-              <input type="text" name="guest_address_line2" class="form-control form-control-sm" value="{{ checkout_session.address.line2|default:'' }}">
+              <input type="text" name="guest_address_line2" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
             </div>
             <div class="mb-3">
               <label class="form-label small">{% trans "City" %} <span class="text-danger">*</span></label>
-              <input type="text" name="guest_city" class="form-control form-control-sm" value="{{ checkout_session.address.city|default:'' }}">
+              <input type="text" name="guest_city" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.city|default:'' }}{% endif %}">
               <div id="error-guest_city" class="text-danger small mt-1"></div>
             </div>
             <div class="row g-2 mb-3">
               <div class="col-md-6">
                 <label class="form-label small">{% trans "State" %} <span class="text-danger">*</span></label>
-                <input type="text" name="guest_state" class="form-control form-control-sm" value="{{ checkout_session.address.state|default:'' }}">
+                <input type="text" name="guest_state" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.state|default:'' }}{% endif %}">
                 <div id="error-guest_state" class="text-danger small mt-1"></div>
               </div>
               <div class="col-md-6">
                 <label class="form-label small">{% trans "PIN / Postal Code" %} <span class="text-danger">*</span></label>
-                <input type="text" name="guest_pincode" class="form-control form-control-sm" value="{{ checkout_session.address.pincode|default:'' }}">
+                <input type="text" name="guest_pincode" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.pincode|default:'' }}{% endif %}">
                 <div id="error-guest_pincode" class="text-danger small mt-1"></div>
               </div>
             </div>
@@ -220,16 +222,147 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {
+    var addressRadios = document.querySelectorAll('.address-radio');
+    var newAddressFields = document.getElementById('new-address-form-fields');
+    if (addressRadios.length > 0 && newAddressFields) {
+      addressRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+          if (document.getElementById('addr-new') && document.getElementById('addr-new').checked) {
+            newAddressFields.style.display = 'block';
+          } else {
+            newAddressFields.style.display = 'none';
+          }
+        });
+      });
+    }
+
     var checkoutForm = document.getElementById('checkout-form');
     if (checkoutForm) {
-      checkoutForm.addEventListener('htmx:beforeSend', function(event) {
+      function validateCheckoutForm() {
+        var isValid = true;
+        var guestNameEl = checkoutForm.querySelector('input[name="guest_name"]');
+        var guestEmailEl = checkoutForm.querySelector('input[name="guest_email"]');
+        var guestPhoneEl = checkoutForm.querySelector('input[name="guest_phone"]');
+        
+        var guestName = guestNameEl ? guestNameEl.value.trim() : '';
+        var guestEmail = guestEmailEl ? guestEmailEl.value.trim() : '';
+        var guestPhone = guestPhoneEl ? guestPhoneEl.value.trim() : '';
+        
+        var errorIds = ['error-guest_name', 'error-guest_email', 'error-guest_phone', 'error-guest_address_line1', 'error-guest_city', 'error-guest_state', 'error-guest_pincode'];
+        errorIds.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.innerText = '';
+        });
+
+        if (!guestName) {
+          document.getElementById('error-guest_name').innerText = 'Name is required.';
+          isValid = false;
+        }
+
+        if (!guestEmail) {
+          document.getElementById('error-guest_email').innerText = 'Email is required.';
+          isValid = false;
+        } else if (!/^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/.test(guestEmail) || guestEmail.includes('@.')) {
+          document.getElementById('error-guest_email').innerText = 'Enter a valid email address.';
+          isValid = false;
+        }
+
+        if (!guestPhone) {
+          document.getElementById('error-guest_phone').innerText = 'Phone is required.';
+          isValid = false;
+        } else if (!/^\+?\d+$/.test(guestPhone)) {
+          document.getElementById('error-guest_phone').innerText = 'Phone number can only contain numbers.';
+          isValid = false;
+        } else if (!/^\+?\d{10,15}$/.test(guestPhone)) {
+          document.getElementById('error-guest_phone').innerText = 'Enter a valid phone number.';
+          isValid = false;
+        }
+
+        var selectedAddr = document.querySelector('input[name="address_id"]:checked');
+        var usingNewAddress = !selectedAddr || selectedAddr.value === '';
+
+        if (usingNewAddress) {
+          var line1 = checkoutForm.querySelector('input[name="guest_address_line1"]')?.value.trim() || '';
+          var city = checkoutForm.querySelector('input[name="guest_city"]')?.value.trim() || '';
+          var state = checkoutForm.querySelector('input[name="guest_state"]')?.value.trim() || '';
+          var pincode = checkoutForm.querySelector('input[name="guest_pincode"]')?.value.trim() || '';
+
+          if (!line1) {
+            document.getElementById('error-guest_address_line1').innerText = 'Address Line 1 is required.';
+            isValid = false;
+          } else if (/^\d+$/.test(line1)) {
+            document.getElementById('error-guest_address_line1').innerText = 'Address cannot consist of numbers only.';
+            isValid = false;
+          } else if (/^[^a-zA-Z0-9]+$/.test(line1)) {
+            document.getElementById('error-guest_address_line1').innerText = 'Address cannot consist of special characters only.';
+            isValid = false;
+          } else if (!/[a-zA-Z]/.test(line1)) {
+            document.getElementById('error-guest_address_line1').innerText = 'Enter a valid address containing letters.';
+            isValid = false;
+          }
+
+          if (!city) {
+            document.getElementById('error-guest_city').innerText = 'City is required.';
+            isValid = false;
+          } else if (/^\d+$/.test(city)) {
+            document.getElementById('error-guest_city').innerText = 'City cannot consist of numbers only.';
+            isValid = false;
+          } else if (/^[^a-zA-Z0-9]+$/.test(city)) {
+            document.getElementById('error-guest_city').innerText = 'City cannot consist of special characters only.';
+            isValid = false;
+          } else if (!/[a-zA-Z]/.test(city)) {
+            document.getElementById('error-guest_city').innerText = 'Enter a valid city containing letters.';
+            isValid = false;
+          }
+
+          if (!state) {
+            document.getElementById('error-guest_state').innerText = 'State is required.';
+            isValid = false;
+          } else if (/^\d+$/.test(state)) {
+            document.getElementById('error-guest_state').innerText = 'State cannot consist of numbers only.';
+            isValid = false;
+          } else if (/^[^a-zA-Z0-9]+$/.test(state)) {
+            document.getElementById('error-guest_state').innerText = 'State cannot consist of special characters only.';
+            isValid = false;
+          } else if (!/[a-zA-Z]/.test(state)) {
+            document.getElementById('error-guest_state').innerText = 'Enter a valid state containing letters.';
+            isValid = false;
+          }
+
+          if (!pincode) {
+            document.getElementById('error-guest_pincode').innerText = 'PIN / Postal Code is required.';
+            isValid = false;
+          } else if (/^[a-zA-Z\s]+$/.test(pincode)) {
+            document.getElementById('error-guest_pincode').innerText = 'Postal code cannot contain alphabets only.';
+            isValid = false;
+          } else if (/^[^a-zA-Z0-9]+$/.test(pincode)) {
+            document.getElementById('error-guest_pincode').innerText = 'Postal code cannot contain special characters only.';
+            isValid = false;
+          } else if (!/^\d+$/.test(pincode)) {
+            document.getElementById('error-guest_pincode').innerText = 'Postal code can only contain numbers.';
+            isValid = false;
+          } else if (pincode.length < 3) {
+            document.getElementById('error-guest_pincode').innerText = 'Enter a valid postal code.';
+            isValid = false;
+          }
+        }
+        return isValid;
+      }
+
+      checkoutForm.addEventListener('htmx:beforeRequest', function(event) {
         if (event.detail.elt === checkoutForm) {
+          if (!validateCheckoutForm()) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+          }
           var selectedGateway = document.querySelector('input[name="gateway_key"]:checked');
           if (selectedGateway && selectedGateway.value === 'cod') {
             document.getElementById('order-processing-overlay').classList.remove('d-none');
           }
         }
       });
+
       checkoutForm.addEventListener('htmx:afterSwap', function(event) {
         if (event.detail.elt === checkoutForm) {
           document.getElementById('order-processing-overlay').classList.add('d-none');
@@ -243,22 +376,47 @@
       });
     }
 
-    var phoneInput = document.querySelector('input[name="guest_phone"]');
-    if (phoneInput) {
-      phoneInput.addEventListener('input', function(e) {
-        var val = e.target.value;
-        var errorDiv = document.getElementById('error-guest_phone');
-        if (val.length === 0) {
-          errorDiv.innerText = '';
-          return;
-        }
-        if (!/^\+?\d*$/.test(val)) {
-          errorDiv.innerText = "Phone number can only contain numbers.";
-        } else {
-          errorDiv.innerText = "";
-        }
-      });
+    function setupInputListener(selector, errorId, checkFn) {
+      var input = document.querySelector(selector);
+      if (input) {
+        input.addEventListener('input', function(e) {
+          var val = e.target.value;
+          var errorDiv = document.getElementById(errorId);
+          if (val.length === 0) {
+            errorDiv.innerText = '';
+            return;
+          }
+          var errMsg = checkFn(val.trim());
+          errorDiv.innerText = errMsg || '';
+        });
+      }
     }
+
+    setupInputListener('input[name="guest_phone"]', 'error-guest_phone', function(val) {
+      if (!/^\+?\d*$/.test(val)) return "Phone number can only contain numbers.";
+      return "";
+    });
+    setupInputListener('input[name="guest_address_line1"]', 'error-guest_address_line1', function(val) {
+      if (/^\d+$/.test(val)) return "Address cannot consist of numbers only.";
+      if (/^[^a-zA-Z0-9]+$/.test(val)) return "Address cannot consist of special characters only.";
+      return "";
+    });
+    setupInputListener('input[name="guest_city"]', 'error-guest_city', function(val) {
+      if (/^\d+$/.test(val)) return "City cannot consist of numbers only.";
+      if (/^[^a-zA-Z0-9]+$/.test(val)) return "City cannot consist of special characters only.";
+      return "";
+    });
+    setupInputListener('input[name="guest_state"]', 'error-guest_state', function(val) {
+      if (/^\d+$/.test(val)) return "State cannot consist of numbers only.";
+      if (/^[^a-zA-Z0-9]+$/.test(val)) return "State cannot consist of special characters only.";
+      return "";
+    });
+    setupInputListener('input[name="guest_pincode"]', 'error-guest_pincode', function(val) {
+      if (/^[a-zA-Z\s]+$/.test(val)) return "Postal code cannot contain alphabets only.";
+      if (/^[^a-zA-Z0-9]+$/.test(val)) return "Postal code cannot contain special characters only.";
+      if (!/^\d+$/.test(val)) return "Postal code can only contain numbers.";
+      return "";
+    });
   });
 </script>
 {% endblock %}

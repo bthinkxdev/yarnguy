@@ -60,12 +60,29 @@
               {% endif %}
             </div>
             
-            <div class="mb-4">
+            <div class="mb-3">
               <label for="{{ form.city.id_for_label }}" class="form-label small fw-semibold">{% trans "City" %}</label>
               {{ form.city }}
               {% if form.city.errors %}
               <div class="text-danger small mt-1">{{ form.city.errors.0 }}</div>
               {% endif %}
+            </div>
+
+            <div class="row g-2 mb-4">
+              <div class="col-md-6">
+                <label for="{{ form.state.id_for_label }}" class="form-label small fw-semibold">{% trans "State / Province" %}</label>
+                {{ form.state }}
+                {% if form.state.errors %}
+                <div class="text-danger small mt-1">{{ form.state.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div class="col-md-6">
+                <label for="{{ form.pincode.id_for_label }}" class="form-label small fw-semibold">{% trans "PIN / Postal Code" %}</label>
+                {{ form.pincode }}
+                {% if form.pincode.errors %}
+                <div class="text-danger small mt-1">{{ form.pincode.errors.0 }}</div>
+                {% endif %}
+              </div>
             </div>
 
             <div class="d-grid mt-4">
