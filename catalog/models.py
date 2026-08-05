@@ -309,6 +309,20 @@ class ProductVariant(TimeStampedModel):
     def __str__(self) -> str:
         return f"{self.product.sku}-{self.sku_suffix}"
 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.product_id:
+            total = self.product.variants.aggregate(total=models.Sum("stock_quantity"))["total"] or 0
+            Product.objects.filter(pk=self.product_id).update(stock_quantity=total)
+
+    def delete(self, *args, **kwargs):
+        product_id = self.product_id
+        res = super().delete(*args, **kwargs)
+        if product_id:
+            total = ProductVariant.objects.filter(product_id=product_id).aggregate(total=models.Sum("stock_quantity"))["total"] or 0
+            Product.objects.filter(pk=product_id).update(stock_quantity=total)
+        return res
+
 
 class ProductImage(TimeStampedModel):
     """Gallery image for a product."""
