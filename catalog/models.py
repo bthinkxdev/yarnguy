@@ -252,16 +252,22 @@ class Product(TimeStampedModel):
         variants = self.variant_list if hasattr(self, "variant_list") else list(self.variants.all())
         if not variants:
             return ""
-        data = [
-            {
+        data = []
+        for v in variants:
+            eff_price = v.base_price if (v.base_price is not None and v.base_price > 0) else self.effective_base_price
+            eff_mrp = v.mrp if (v.mrp is not None and v.mrp > 0) else self.effective_mrp
+            discount = 0
+            if eff_mrp and eff_mrp > eff_price:
+                discount = int(((eff_mrp - eff_price) / eff_mrp) * 100)
+            data.append({
                 "id": str(v.pk),
                 "name": v.name,
                 "stock": v.stock_quantity,
                 "thresh": getattr(v, "low_stock_threshold", self.low_stock_threshold),
-                "price": str(v.base_price if (v.base_price is not None and v.base_price > 0) else self.effective_base_price),
-            }
-            for v in variants
-        ]
+                "price": str(eff_price),
+                "mrp": str(eff_mrp) if (eff_mrp and eff_mrp > eff_price) else "",
+                "discount": discount,
+            })
         return json.dumps(data)
 
 

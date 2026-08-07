@@ -809,6 +809,8 @@ document.addEventListener('DOMContentLoaded', () => {
     var img = document.getElementById('jm-qv-image');
     var title = document.getElementById('jmQuickViewTitle');
     var price = document.getElementById('jm-qv-price');
+    var mrp = document.getElementById('jm-qv-mrp');
+    var discount = document.getElementById('jm-qv-discount');
     var stock = document.getElementById('jm-qv-stock');
     var badge = document.getElementById('jm-qv-badge');
     var pdp = document.getElementById('jm-qv-pdp');
@@ -835,6 +837,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (title) title.textContent = card.dataset.productName || '';
     if (price) price.textContent = card.dataset.productPrice || '';
+    if (mrp) mrp.classList.add('d-none');
+    if (discount) discount.classList.add('d-none');
     if (stock) {
       stock.innerHTML = card.dataset.productStock || '';
       var cardStockEl = card.querySelector('.jm-product-card__stock');
@@ -900,6 +904,8 @@ document.addEventListener('DOMContentLoaded', () => {
           radio.value = vidStr;
           radio.autocomplete = 'off';
           radio.dataset.price = v.price || '';
+          radio.dataset.mrp = v.mrp || '';
+          radio.dataset.discount = v.discount || '0';
           radio.dataset.stock = String(v.stock !== undefined ? v.stock : 0);
           radio.dataset.thresh = String(v.thresh !== undefined ? v.thresh : 5);
           if (vidStr === selectedVid) {
@@ -923,13 +929,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
           radio.addEventListener('change', function () {
             if (variantId) variantId.value = this.value;
+            var curSymbol = '';
+            if (price && price.textContent) {
+              var match = price.textContent.match(/^[^\d.,]+/);
+              if (match) curSymbol = match[0].trim() + ' ';
+            }
             if (this.dataset.price && price) {
-              var curSymbol = '';
-              if (price.textContent) {
-                var match = price.textContent.match(/^[^\d.,]+/);
-                if (match) curSymbol = match[0].trim() + ' ';
-              }
               price.textContent = curSymbol + parseFloat(this.dataset.price).toFixed(2).replace(/\.00$/, '');
+            }
+            if (mrp && this.dataset.mrp) {
+              mrp.textContent = curSymbol + parseFloat(this.dataset.mrp).toFixed(2).replace(/\.00$/, '');
+              mrp.classList.remove('d-none');
+            } else if (mrp) {
+              mrp.classList.add('d-none');
+            }
+            if (discount && parseInt(this.dataset.discount) > 0) {
+              discount.textContent = this.dataset.discount + '% OFF';
+              discount.classList.remove('d-none');
+            } else if (discount) {
+              discount.classList.add('d-none');
             }
             updateQvState(productId ? productId.value : '', this.value, null);
           });
@@ -941,6 +959,9 @@ document.addEventListener('DOMContentLoaded', () => {
         var checked = variantsGroup.querySelector('.qv-variant-radio:checked');
         var initVid = checked ? checked.value : selectedVid;
         if (variantId) variantId.value = initVid;
+        if (checked) {
+          checked.dispatchEvent(new Event('change'));
+        }
         updateQvState(productId ? productId.value : '', initVid, card);
       }
     } else {
@@ -1016,7 +1037,318 @@ document.addEventListener('DOMContentLoaded', () => {
       var card = qvBtn.closest('.jm-product-card');
       if (card) openQuickView(card);
     }
+
+    var atcBtn = event.target.closest('[data-jm-add-to-cart]');
+    if (atcBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      var card = atcBtn.closest('.jm-product-card');
+      if (card) openAddToCartModal(card);
+    }
   });
+
+  window.handleAtcQtyChange = function (delta) {
+    var qtyInput = document.getElementById('jm-atc-qty');
+    if (!qtyInput) return;
+    var maxStock = parseInt(qtyInput.getAttribute('data-max-stock'), 10);
+    var currQty = parseInt(qtyInput.value, 10) || 1;
+    var errorMsg = document.getElementById('jm-atc-stock-error-msg');
+
+    if (delta > 0 && !isNaN(maxStock) && currQty >= maxStock) {
+      if (errorMsg) {
+        errorMsg.textContent = maxStock <= 0 ? 'Out of stock' : 'Only ' + maxStock + ' items available in stock.';
+        errorMsg.classList.remove('d-none');
+      }
+      return;
+    }
+
+    var newQty = currQty + delta;
+    if (newQty < 1) newQty = 1;
+    qtyInput.value = newQty;
+
+    if (errorMsg) {
+      errorMsg.classList.add('d-none');
+      errorMsg.textContent = '';
+    }
+  };
+
+  function updateAtcState(pid, vid, card) {
+    if (!pid) return;
+    var itemKey = vid ? (pid + '_' + vid) : pid;
+    var inCart = false;
+    if (window.jmCartItemKeys && window.jmCartItemKeys.size > 0) {
+      inCart = window.jmCartItemKeys.has(itemKey);
+    } else if (card) {
+      inCart = card.dataset.inCart === 'true';
+    }
+    var isOut = card ? (card.dataset.isOutOfStock === 'true') : false;
+    var checkedRadio = document.querySelector('.atc-variant-radio:checked');
+    var stockEl = document.getElementById('jm-atc-stock');
+    var qtyInput = document.getElementById('jm-atc-qty');
+    var errorMsg = document.getElementById('jm-atc-stock-error-msg');
+    
+    if (checkedRadio && checkedRadio.dataset.stock !== undefined && checkedRadio.dataset.stock !== '') {
+      var st = parseInt(checkedRadio.dataset.stock, 10);
+      var th = parseInt(checkedRadio.dataset.thresh || '5', 10);
+      isOut = st <= 0;
+      if (qtyInput) {
+        qtyInput.setAttribute('data-max-stock', String(st));
+        if (parseInt(qtyInput.value, 10) > st && st > 0) {
+          qtyInput.value = String(st);
+        }
+      }
+      if (errorMsg) {
+        errorMsg.textContent = '';
+        errorMsg.classList.add('d-none');
+      }
+      if (stockEl) {
+        if (isOut) {
+          stockEl.textContent = 'Out of Stock';
+          stockEl.className = 'jm-atc__stock is-out text-danger';
+        } else if (st <= th) {
+          stockEl.textContent = 'Only ' + st + ' left';
+          stockEl.className = 'jm-atc__stock is-low text-warning';
+        } else {
+          stockEl.innerHTML = 'In Stock' + (st ? ' &bull; ' + st : '');
+          stockEl.className = 'jm-atc__stock is-in text-success';
+        }
+      }
+    }
+    
+    var atcCartForm = document.getElementById('jm-atc-cart');
+    var atcViewCart = document.getElementById('jm-atc-view-cart');
+    var atcAddBtn = document.getElementById('jm-atc-add-btn');
+    var qtyGroup = document.getElementById('jm-atc-qty-group');
+
+    if (atcCartForm && atcViewCart) {
+      if (inCart) {
+        atcCartForm.classList.add('d-none');
+        atcViewCart.classList.remove('d-none');
+      } else {
+        atcCartForm.classList.remove('d-none');
+        atcViewCart.classList.add('d-none');
+      }
+    }
+    if (qtyGroup) {
+      qtyGroup.style.opacity = isOut ? '0.5' : '1';
+      qtyGroup.style.pointerEvents = isOut ? 'none' : 'auto';
+    }
+    if (atcAddBtn) {
+      if (isOut) {
+        atcAddBtn.type = 'button';
+        atcAddBtn.disabled = true;
+        atcAddBtn.classList.add('disabled');
+        atcAddBtn.textContent = 'Sold out';
+        atcAddBtn.style.cursor = 'not-allowed';
+      } else {
+        atcAddBtn.type = 'submit';
+        atcAddBtn.disabled = false;
+        atcAddBtn.classList.remove('disabled');
+        atcAddBtn.textContent = 'Add';
+        atcAddBtn.style.cursor = 'pointer';
+      }
+    }
+    
+  }
+
+  function openAddToCartModal(card) {
+    var modalEl = document.getElementById('jmAddToCartModal');
+    if (!modalEl || !window.bootstrap) return;
+
+    var variantsData = [];
+    try {
+      if (card.dataset.productVariants) {
+        variantsData = JSON.parse(card.dataset.productVariants);
+      }
+    } catch (e) { }
+
+    if (variantsData.length <= 1) {
+      var selectedVid = variantsData.length === 1 ? String(variantsData[0].id) : (card.dataset.variantId || '');
+      var form = document.getElementById('jm-atc-cart');
+      if (form && window.htmx) {
+        var pidInput = document.getElementById('jm-atc-product-id');
+        var vidInput = document.getElementById('jm-atc-variant-id');
+        var qtyInput = document.getElementById('jm-atc-qty');
+        
+        if (pidInput) pidInput.value = card.dataset.productId || '';
+        if (vidInput) vidInput.value = selectedVid;
+        if (qtyInput) qtyInput.value = '1';
+        
+        htmx.trigger(form, 'submit');
+      }
+      return;
+    }
+
+    var title = document.getElementById('jmAddToCartTitle');
+    var pName = document.getElementById('jm-atc-product-name');
+    var price = document.getElementById('jm-atc-price');
+    var mrp = document.getElementById('jm-atc-mrp');
+    var discount = document.getElementById('jm-atc-discount');
+    var stock = document.getElementById('jm-atc-stock');
+    var selVariantName = document.getElementById('jm-atc-selected-variant-name');
+    
+    var productId = document.getElementById('jm-atc-product-id');
+    var variantId = document.getElementById('jm-atc-variant-id');
+    var isOut = card.dataset.isOutOfStock === 'true';
+
+    var qtyInput = document.getElementById('jm-atc-qty');
+    var errorMsg = document.getElementById('jm-atc-stock-error-msg');
+    
+    if (qtyInput) {
+      qtyInput.value = '1';
+      qtyInput.setAttribute('data-max-stock', card.dataset.stockQuantity || '0');
+    }
+    if (errorMsg) {
+      errorMsg.textContent = '';
+      errorMsg.classList.add('d-none');
+    }
+
+    if (pName) pName.textContent = card.dataset.productName || '';
+    if (price) price.textContent = card.dataset.productPrice || '';
+    if (mrp) mrp.classList.add('d-none');
+    if (discount) discount.classList.add('d-none');
+    if (selVariantName) selVariantName.hidden = true;
+    
+    if (stock) {
+      stock.innerHTML = card.dataset.productStock || '';
+      var cardStockEl = card.querySelector('.jm-product-card__stock');
+      if (cardStockEl && cardStockEl.classList.contains('is-low')) {
+        stock.className = 'jm-atc__stock is-low text-warning';
+      } else if (isOut || (cardStockEl && cardStockEl.classList.contains('is-out'))) {
+        stock.className = 'jm-atc__stock is-out text-danger';
+      } else {
+        stock.className = 'jm-atc__stock is-in text-success';
+      }
+    }
+    if (productId) productId.value = card.dataset.productId || '';
+
+    if (modalEl.dataset.cartItemKeys !== undefined && !window.jmCartItemKeys) {
+      window.jmCartItemKeys = new Set(modalEl.dataset.cartItemKeys.split(',').filter(Boolean));
+    }
+    if (!window.jmCartItemKeys) window.jmCartItemKeys = new Set();
+
+    var variantsWrap = document.getElementById('jm-atc-variants-wrap');
+    var variantsGroup = document.getElementById('jm-atc-variants-group');
+
+    var selectedVid = card.dataset.variantId || '';
+
+    if (variantsWrap && variantsGroup) {
+      if (!variantsData || !variantsData.length) {
+        variantsWrap.classList.add('d-none');
+        variantsGroup.innerHTML = '';
+        if (title) title.textContent = 'Select quantity';
+        if (variantId) variantId.value = selectedVid;
+        updateAtcState(productId ? productId.value : '', selectedVid, card);
+      } else {
+        variantsWrap.classList.remove('d-none');
+        variantsGroup.innerHTML = '';
+        if (title) title.textContent = 'Select variant';
+
+        if (!selectedVid && variantsData.length > 0) {
+          selectedVid = String(variantsData[0].id);
+        }
+
+        variantsData.forEach(function (v) {
+          var vidStr = String(v.id);
+          var isOutVariant = v.stock <= 0;
+          var inputId = 'atc_variant_' + vidStr;
+
+          var radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.className = 'btn-check atc-variant-radio';
+          radio.name = 'atc_variant_option';
+          radio.id = inputId;
+          radio.value = vidStr;
+          radio.autocomplete = 'off';
+          radio.dataset.price = v.price || '';
+          radio.dataset.mrp = v.mrp || '';
+          radio.dataset.discount = v.discount || '0';
+          radio.dataset.stock = String(v.stock !== undefined ? v.stock : 0);
+          radio.dataset.thresh = String(v.thresh !== undefined ? v.thresh : 5);
+          if (vidStr === selectedVid) {
+            radio.checked = true;
+          }
+
+          var label = document.createElement('label');
+          label.className = 'd-block position-relative border rounded-3 p-2 cursor-pointer';
+          label.style.minWidth = '100px';
+          label.setAttribute('for', inputId);
+          if (isOutVariant) {
+            label.style.opacity = '0.5';
+          }
+          
+          var curSymbol = '';
+          if (card.dataset.productPrice) {
+            var match = card.dataset.productPrice.match(/^[^\d.,]+/);
+            if (match) curSymbol = match[0].trim() + ' ';
+          }
+          var formattedPrice = curSymbol + parseFloat(v.price || 0).toFixed(2).replace(/\.00$/, '');
+          var formattedMrp = v.mrp ? (curSymbol + parseFloat(v.mrp).toFixed(2).replace(/\.00$/, '')) : '';
+
+          label.innerHTML = `
+            <div class="fw-bold text-dark fs-6">${v.name}</div>
+            ${parseInt(v.discount) > 0 ? `<div class="small fw-bold text-success mb-1">${v.discount}% OFF</div>` : ''}
+            <div class="fw-bold mt-1" style="font-size:0.9rem;">
+              ${formattedPrice}
+              ${formattedMrp ? `<span class="text-muted text-decoration-line-through small fw-normal ms-1">${formattedMrp}</span>` : ''}
+            </div>
+            ${isOutVariant ? `<div class="small text-danger mt-1">Out of stock</div>` : ''}
+          `;
+
+          radio.addEventListener('change', function () {
+            if (variantId) variantId.value = this.value;
+            if (selVariantName) {
+              selVariantName.hidden = false;
+              selVariantName.textContent = 'Quantity: ' + v.name;
+            }
+            if (price) {
+              price.textContent = curSymbol + parseFloat(this.dataset.price).toFixed(2).replace(/\.00$/, '');
+            }
+            if (mrp && this.dataset.mrp) {
+              mrp.textContent = curSymbol + parseFloat(this.dataset.mrp).toFixed(2).replace(/\.00$/, '');
+              mrp.classList.remove('d-none');
+            } else if (mrp) {
+              mrp.classList.add('d-none');
+            }
+            if (discount && parseInt(this.dataset.discount) > 0) {
+              discount.textContent = this.dataset.discount + '% OFF';
+              discount.classList.remove('d-none');
+            } else if (discount) {
+              discount.classList.add('d-none');
+            }
+            
+            // update border color of selected label
+            variantsGroup.querySelectorAll('label').forEach(l => {
+              l.classList.remove('border-primary');
+              l.style.borderWidth = '1px';
+            });
+            label.classList.add('border-primary');
+            label.style.borderWidth = '2px';
+            
+            updateAtcState(productId ? productId.value : '', this.value, null);
+          });
+
+          variantsGroup.appendChild(radio);
+          variantsGroup.appendChild(label);
+        });
+
+        var checked = variantsGroup.querySelector('.atc-variant-radio:checked');
+        var initVid = checked ? checked.value : selectedVid;
+        if (variantId) variantId.value = initVid;
+        
+        // trigger change event to style the initially checked radio
+        if (checked) {
+          checked.dispatchEvent(new Event('change'));
+        }
+      }
+    } else {
+      if (variantId) variantId.value = selectedVid;
+      if (title) title.textContent = 'Select quantity';
+      updateAtcState(productId ? productId.value : '', selectedVid, card);
+    }
+
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  }
 
   document.addEventListener('DOMContentLoaded', function () {
     initRailArrows(document);

@@ -284,7 +284,11 @@
         <div class="jm-qv__body">
           <p class="jm-qv__badge" id="jm-qv-badge" hidden></p>
           <h3 class="jm-qv__title" id="jmQuickViewTitle"></h3>
-          <p class="jm-qv__price" id="jm-qv-price"></p>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="text-success small fw-bold d-none" id="jm-qv-discount"></span>
+            <p class="jm-qv__price mb-0" id="jm-qv-price"></p>
+            <span class="text-muted small text-decoration-line-through d-none" id="jm-qv-mrp"></span>
+          </div>
           <p class="jm-qv__stock" id="jm-qv-stock"></p>
           <div id="jm-qv-variants-wrap" class="jm-qv__variants mb-3 d-none">
             <label class="small fw-bold mb-2">{% trans "Size" %}</label>
@@ -312,6 +316,60 @@
                 aria-label="{% trans 'Increase quantity' %}">&plus;</button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="jmAddToCartModal" tabindex="-1" aria-labelledby="jmAddToCartTitle" aria-hidden="true"
+  data-cart-item-keys="{{ cart_item_keys|join:',' }}">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-bottom-mobile">
+    <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+      <div class="modal-header border-0 pb-1">
+        <h5 class="modal-title fw-bold" id="jmAddToCartTitle">{% trans "Select variant" %}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{% trans 'Close' %}"></button>
+      </div>
+      <div class="modal-body pt-0 pb-4 px-4">
+        <p class="text-muted small mb-3" id="jm-atc-selected-variant-name" hidden></p>
+        
+        <div id="jm-atc-variants-wrap" class="mb-4 d-none">
+          <div id="jm-atc-variants-group" class="d-flex flex-wrap gap-2"></div>
+        </div>
+
+        <div class="d-flex align-items-center mb-1">
+          <h6 class="mb-0 fw-bold" id="jm-atc-product-name"></h6>
+        </div>
+
+        <div class="d-flex align-items-center gap-2 mb-1" id="jm-atc-price-wrap">
+          <span class="text-success small fw-bold d-none" id="jm-atc-discount"></span>
+          <p class="jm-atc__price fs-4 fw-bold text-dark mb-0" id="jm-atc-price"></p>
+          <span class="text-muted small text-decoration-line-through d-none" id="jm-atc-mrp"></span>
+        </div>
+        <p class="jm-atc__stock small mb-4" id="jm-atc-stock"></p>
+        
+        <div id="jm-atc-stock-error-msg" class="text-danger small mb-2 d-none"></div>
+        
+        <div class="jm-atc__actions d-flex align-items-center gap-3">
+          <form id="jm-atc-cart" method="post" action="{% url 'cart:add' %}" hx-post="{% url 'cart:add' %}"
+            hx-target="#cart-drawer-body" hx-swap="innerHTML" class="mb-0 w-100 d-flex gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" id="jm-atc-product-id" value="">
+            <input type="hidden" name="variant_id" id="jm-atc-variant-id" value="">
+            
+            <div id="jm-atc-qty-group" class="qty-stepper jm-pdp-qty flex-shrink-0">
+              <button class="qty-stepper__btn px-3" type="button"
+                onclick="if(window.handleAtcQtyChange) window.handleAtcQtyChange(-1);"
+                aria-label="{% trans 'Decrease quantity' %}">&minus;</button>
+              <input type="number" name="quantity" id="jm-atc-qty" class="qty-stepper__value border-0 fw-bold fs-5" data-max-stock="" value="1" min="1" readonly aria-label="{% trans 'Quantity' %}" style="width: 3rem; text-align: center;">
+              <button class="qty-stepper__btn px-3" type="button"
+                onclick="if(window.handleAtcQtyChange) window.handleAtcQtyChange(1);"
+                aria-label="{% trans 'Increase quantity' %}">&plus;</button>
+            </div>
+            
+            <button type="submit" id="jm-atc-add-btn" class="btn btn-floward btn-lg flex-grow-1 fw-bold rounded-3" data-bs-dismiss="modal">{% trans "Add" %}</button>
+          </form>
+          <a id="jm-atc-view-cart" href="{% url 'cart:page' %}" class="btn btn-outline-floward btn-lg w-100 fw-bold rounded-3 d-none">{% trans "View Cart" %}</a>
         </div>
       </div>
     </div>
