@@ -273,20 +273,23 @@
   });
 
   function updatePlpSidebarScroll() {
+    // Disabled to prevent scroll glitching: max-height is handled purely via CSS calc()
+    /*
     var sidebar = document.querySelector('.plp-filters-desktop');
     if (!sidebar) return;
     var rect = sidebar.getBoundingClientRect();
     var availableHeight = window.innerHeight - rect.top - 24;
     sidebar.style.maxHeight = Math.max(300, availableHeight) + 'px';
+    */
   }
 
-  window.addEventListener('scroll', updatePlpSidebarScroll, { passive: true });
-  window.addEventListener('resize', updatePlpSidebarScroll, { passive: true });
-  document.addEventListener('DOMContentLoaded', updatePlpSidebarScroll);
-  updatePlpSidebarScroll();
+  // window.addEventListener('scroll', updatePlpSidebarScroll, { passive: true });
+  // window.addEventListener('resize', updatePlpSidebarScroll, { passive: true });
+  // document.addEventListener('DOMContentLoaded', updatePlpSidebarScroll);
+  // updatePlpSidebarScroll();
 
   function reinitPageScripts() {
-    updatePlpSidebarScroll();
+    // updatePlpSidebarScroll();
     document.querySelectorAll('.thumb-btn').forEach(function (btn) {
       if (btn.dataset.boundThumb) return;
       btn.dataset.boundThumb = '1';
@@ -1573,6 +1576,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (height > 0) {
       document.documentElement.style.setProperty('--jm-header-sticky-offset', height + 'px');
     }
+    var plpToolbar = document.querySelector('.jm-plp-toolbar');
+    var toolbarHeight = 0;
+    if (plpToolbar && window.matchMedia('(min-width: 992px)').matches) {
+      toolbarHeight = Math.ceil(plpToolbar.getBoundingClientRect().height);
+    }
+    document.documentElement.style.setProperty('--jm-plp-toolbar-height', toolbarHeight + 'px');
   }
 
   function initTrustAutoSlide(root) {

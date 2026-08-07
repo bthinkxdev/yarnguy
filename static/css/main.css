@@ -1094,12 +1094,12 @@ body.mobile-search-open {
 
 .plp-filters-desktop {
   position: sticky;
-  top: calc(var(--jm-header-sticky-offset, 148px) + 12px);
+  top: calc(var(--jm-header-sticky-offset, 148px) + var(--jm-plp-toolbar-height, 0px) + 12px);
   align-self: flex-start;
   z-index: 15;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - var(--jm-header-sticky-offset, 148px) - 24px);
+  max-height: calc(100vh - var(--jm-header-sticky-offset, 148px) - var(--jm-plp-toolbar-height, 0px) - 24px);
   overflow: visible;
 }
 
