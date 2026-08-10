@@ -5837,6 +5837,10 @@ button.jm-product-card__atc--in-cart:hover {
     max-width: min(100vw, 400px);
   }
 
+  .offcanvas.offcanvas-bottom {
+    max-width: 100vw;
+  }
+
   .cart-line {
     padding: 0.7rem 0;
     gap: 0.65rem;
