@@ -741,7 +741,7 @@ document.addEventListener('DOMContentLoaded', () => {
           stockEl.textContent = 'Only ' + st + ' left';
           stockEl.className = 'jm-qv__stock is-low';
         } else {
-          stockEl.innerHTML = 'In Stock' + (st ? ' &bull; ' + st : '');
+          stockEl.innerHTML = 'In Stock';
           stockEl.className = 'jm-qv__stock is-in';
         }
       }
@@ -791,7 +791,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stockEl.textContent = 'Only ' + data.stock_quantity + ' left';
             stockEl.className = 'jm-qv__stock is-low';
           } else {
-            stockEl.innerHTML = 'In Stock' + (data.stock_quantity ? ' &bull; ' + data.stock_quantity : '');
+            stockEl.innerHTML = 'In Stock';
             stockEl.className = 'jm-qv__stock is-in';
           }
         }
@@ -1112,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
           stockEl.textContent = 'Only ' + st + ' left';
           stockEl.className = 'jm-atc__stock is-low text-warning';
         } else {
-          stockEl.innerHTML = 'In Stock' + (st ? ' &bull; ' + st : '');
+          stockEl.innerHTML = 'In Stock';
           stockEl.className = 'jm-atc__stock is-in text-success';
         }
       }

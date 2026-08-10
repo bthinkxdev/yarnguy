@@ -156,7 +156,7 @@
                   } else {
                     stockText.classList.remove('is-low');
                     stockText.classList.add('is-in');
-                    stockText.innerHTML = 'In stock' + (data.stock_quantity ? ' &bull; ' + data.stock_quantity : '');
+                    stockText.innerHTML = 'In stock';
                   }
                 } else {
                   stockText.classList.remove('is-in');

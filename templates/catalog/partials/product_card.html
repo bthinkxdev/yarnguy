@@ -4,7 +4,7 @@
 <article class="jm-product-card card h-100" data-product-id="{{ product.pk }}" data-product-name="{{ product.name }}"
   data-product-url="{% url 'catalog:pdp' slug=product.slug %}"
   data-product-price="{% money_label eff_price display_currency %}"
-  data-product-stock="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %} &bull; {{ eff_stock }}{% endif %}"
+  data-product-stock="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %}{% endif %}"
   data-product-badge="{% if product.is_featured %}{% trans 'Featured' %}{% elif product.is_bestseller %}{% trans 'Bestseller' %}{% elif product.is_new_arrival %}{% trans 'New' %}{% endif %}"
   {% with img=product.primary_images.0 %}
   data-product-image="{% if img and img.image %}{{ img.image.url }}{% else %}{% static 'img/product-placeholder.svg' %}{% endif %}"
@@ -103,8 +103,8 @@
       <span class="jm-product-card__rating jm-product-card__rating--muted">{% trans "New" %}</span>
       {% endif %}
       <span class="jm-product-card__stock {% if eff_stock <= 0 %}is-out{% elif eff_stock <= eff_thresh %}is-low{% else %}is-in{% endif %}"
-        title="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %} &bull; {{ eff_stock }}{% endif %}">
-        {% if eff_stock <= 0 %}{% trans "Out of Stock" %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans "In Stock" %} &bull; {{ eff_stock }}{% endif %}
+        title="{% if eff_stock <= 0 %}{% trans 'Out of Stock' %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans 'In Stock' %}{% endif %}">
+        {% if eff_stock <= 0 %}{% trans "Out of Stock" %}{% elif eff_stock <= eff_thresh %}{% blocktrans with count=eff_stock %}Only {{ count }} left{% endblocktrans %}{% else %}{% trans "In Stock" %}{% endif %}
       </span>
     </div>
 

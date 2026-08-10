@@ -45,7 +45,7 @@
           {% elif price_data.stock_quantity <= price_data.low_stock_threshold %}
           Only {{ price_data.stock_quantity }} left
           {% else %}
-          {% trans "In stock" %}{% if price_data.stock_quantity %} · {{ price_data.stock_quantity }}{% endif %}
+          {% trans "In stock" %}
           {% endif %}
         </p>
       </div>
