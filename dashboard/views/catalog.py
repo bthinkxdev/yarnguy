@@ -45,7 +45,12 @@ class ProductListView(DashboardListView):
             qs = qs.filter(stock_quantity=0)
         category = self.request.GET.get("category", "")
         if category.isdigit():
-            qs = qs.filter(category_id=int(category))
+            category_id = int(category)
+            category_ids = [category_id]
+            category_ids.extend(
+                Category.objects.filter(parent_id=category_id).values_list("id", flat=True)
+            )
+            qs = qs.filter(category_id__in=category_ids)
             
         #sort pinned products to the top, toggled-off to the bottom
         qs = qs.order_by(
