@@ -168,14 +168,8 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
     #reload summary after potential delivery charge update
     summary = get_cart_summary(cart=cart)
 
-    INDIAN_STATES = [
-        "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
-        "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
-        "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
-        "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
-        "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
-        "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
-    ]
+    from core.models import State
+    INDIAN_STATES = list(State.objects.filter(is_active=True).values_list('name', flat=True))
 
     from marketing.selectors import has_any_active_coupons
     return render(

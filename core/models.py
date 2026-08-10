@@ -142,6 +142,20 @@ class SEOModel(models.Model):
         return models.SlugField(**defaults)
 
 
+class State(TimeStampedModel):
+    """Stores a list of states/provinces for checkout dropdown."""
+    
+    name = models.CharField(max_length=255, unique=True, verbose_name="State Name")
+    is_active = models.BooleanField(default=True, help_text="Is this state active for delivery?")
+
+    class Meta:
+        verbose_name = "State"
+        verbose_name_plural = "States"
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return self.name
+
 class Currency(TimeStampedModel):
     """Supported storefront currency with exchange rate relative to the base unit."""
 
