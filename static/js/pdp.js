@@ -285,4 +285,27 @@
   };
 
   if (window.validatePdpStock) window.validatePdpStock();
+  var galleryModal = document.getElementById('pdpGalleryModal');
+  if (galleryModal) {
+    galleryModal.addEventListener('show.bs.modal', function () {
+      var carouselEl = document.getElementById('pdpGalleryCarousel');
+      if (carouselEl) {
+        var bsCarousel = bootstrap.Carousel.getInstance(carouselEl);
+        if (!bsCarousel && window.bootstrap) {
+          bsCarousel = new bootstrap.Carousel(carouselEl);
+        }
+        if (bsCarousel) {
+          var activeThumb = document.querySelector('.jm-pdp-gallery__thumb.is-active');
+          if (activeThumb) {
+            var thumbs = Array.from(document.querySelectorAll('.jm-pdp-gallery__thumb'));
+            var activeIndex = thumbs.indexOf(activeThumb);
+            if (activeIndex > -1) {
+              bsCarousel.to(activeIndex);
+            }
+          }
+        }
+      }
+    });
+  }
+
 })();

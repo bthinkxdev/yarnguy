@@ -1,6 +1,6 @@
 {% load i18n %}
 <div class="jm-pdp-gallery" data-jm-pdp-gallery>
-  <div class="jm-pdp-gallery__stage ratio ratio-1x1 zoom-container">
+  <div class="jm-pdp-gallery__stage ratio ratio-1x1 zoom-container" data-bs-toggle="modal" data-bs-target="#pdpGalleryModal" style="cursor: pointer;">
     {% with primary=product.images.first %}
     {% if primary %}
     <img id="main-pdp-image"
@@ -41,4 +41,40 @@
     {% endfor %}
   </div>
   {% endif %}
+</div>
+
+<!-- gallery modal -->
+<div class="modal fade" id="pdpGalleryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-fullscreen modal-dialog-centered">
+    <div class="modal-content bg-black">
+      <button type="button" class="btn btn-dark rounded-circle position-absolute top-0 end-0 m-3 d-flex align-items-center justify-content-center shadow" data-bs-dismiss="modal" aria-label="Close" style="width: 44px; height: 44px; z-index: 1060; opacity: 0.9;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-x-lg" viewBox="0 0 16 16">
+          <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/>
+        </svg>
+      </button>
+      <div class="modal-body d-flex align-items-center justify-content-center p-0">
+        <div id="pdpGalleryCarousel" class="carousel slide w-100 h-100" data-bs-ride="false" data-bs-interval="false">
+          <div class="carousel-inner h-100">
+            {% for image in product.images.all %}
+            <div class="carousel-item h-100 {% if forloop.first %}active{% endif %}">
+              <div class="d-flex align-items-center justify-content-center h-100">
+                <img src="{{ image.image.url }}" class="img-fluid" alt="{{ image.alt_text|default:product.name }}" style="max-height: 95vh; object-fit: contain;">
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% if product.images.all|length > 1 %}
+          <button class="carousel-control-prev" type="button" data-bs-target="#pdpGalleryCarousel" data-bs-slide="prev" style="width: 10%;">
+            <span class="carousel-control-prev-icon p-3 bg-dark rounded-circle" aria-hidden="true" style="background-size: 50%;"></span>
+            <span class="visually-hidden">Previous</span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#pdpGalleryCarousel" data-bs-slide="next" style="width: 10%;">
+            <span class="carousel-control-next-icon p-3 bg-dark rounded-circle" aria-hidden="true" style="background-size: 50%;"></span>
+            <span class="visually-hidden">Next</span>
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
