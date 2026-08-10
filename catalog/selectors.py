@@ -7,7 +7,7 @@ from typing import Any, Optional
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Avg, Count, Prefetch, Q, QuerySet
+from django.db.models import Avg, Count, F, Prefetch, Q, QuerySet, Case, When, Value, IntegerField
 
 from catalog.models import (
     ModerationStatus,
@@ -79,7 +79,7 @@ def _variants_prefetch() -> Prefetch:
     )
 
 
-def _homepage_rail_queryset(*, filters: Q) -> QuerySet[Product]:
+def _homepage_rail_queryset(*, filters: Q, ordering: tuple = ("-created_at",)) -> QuerySet[Product]:
     """Base queryset for a single homepage rail with shared optimizations."""
     approved = Q(reviews__moderation_status=ModerationStatus.APPROVED)
     return (
@@ -92,7 +92,7 @@ def _homepage_rail_queryset(*, filters: Q) -> QuerySet[Product]:
             average_rating=Avg("reviews__rating", filter=approved),
             review_count=Count("reviews", filter=approved),
         )
-        .order_by("-created_at")[:HOMEPAGE_RAIL_LIMIT]
+        .order_by(*ordering)[:HOMEPAGE_RAIL_LIMIT]
     )
 
 
@@ -106,7 +106,26 @@ def get_homepage_product_rails() -> dict[str, list[Product]]:
     """
     bestseller_rail = list(_homepage_rail_queryset(filters=Q(is_bestseller=True)))
     new_arrivals = list(_homepage_rail_queryset(filters=Q(is_new_arrival=True)))
-    featured = list(_homepage_rail_queryset(filters=Q(is_featured=True)))
+    featured = list(_homepage_rail_queryset(
+        filters=Q(),
+        ordering=(
+            Case(
+                When(homepage_featured__is_shown=True, then=Value(1)),
+                When(homepage_featured__is_shown=False, then=Value(-1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ).desc(),
+            Case(
+                When(homepage_featured__is_shown=True, then=F("homepage_featured__updated_at")),
+                default=None
+            ).desc(nulls_last=True),
+            Case(
+                When(homepage_featured__is_shown=False, then=F("homepage_featured__updated_at")),
+                default=None
+            ).asc(nulls_last=True),
+            "-created_at"
+        )
+    ))
     rails = {
         "trending": bestseller_rail,
         "bestsellers": bestseller_rail,
@@ -132,7 +151,23 @@ def get_products_by_category_slug(slug: str, limit: int | None = None) -> list[P
             average_rating=Avg("reviews__rating", filter=approved),
             review_count=Count("reviews", filter=approved),
         )
-        .order_by("-created_at")
+        .order_by(
+            Case(
+                When(homepage_featured__is_shown=True, then=Value(1)),
+                When(homepage_featured__is_shown=False, then=Value(-1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ).desc(),
+            Case(
+                When(homepage_featured__is_shown=True, then=F("homepage_featured__updated_at")),
+                default=None
+            ).desc(nulls_last=True),
+            Case(
+                When(homepage_featured__is_shown=False, then=F("homepage_featured__updated_at")),
+                default=None
+            ).asc(nulls_last=True),
+            "-created_at"
+        )
     )
     if limit:
         qs = qs[:limit]
@@ -210,7 +245,24 @@ def _apply_plp_sort(queryset: QuerySet[Product], sort: str) -> QuerySet[Product]
         "rating": "-average_rating",
         "name": "name",
     }
-    return queryset.order_by(sort_map.get(sort, "-created_at"))
+    primary_sort = sort_map.get(sort, "-created_at")
+    return queryset.order_by(
+        Case(
+            When(homepage_featured__is_shown=True, then=Value(1)),
+            When(homepage_featured__is_shown=False, then=Value(-1)),
+            default=Value(0),
+            output_field=IntegerField()
+        ).desc(),
+        Case(
+            When(homepage_featured__is_shown=True, then=F("homepage_featured__updated_at")),
+            default=None
+        ).desc(nulls_last=True),
+        Case(
+            When(homepage_featured__is_shown=False, then=F("homepage_featured__updated_at")),
+            default=None
+        ).asc(nulls_last=True),
+        primary_sort
+    )
 
 
 def get_plp_products(

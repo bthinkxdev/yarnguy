@@ -3,7 +3,8 @@
 
 {% block title %}Products{% endblock %}
 {% block page_title %}Products{% endblock %}
-{% block breadcrumbs %}<p class="mb-0 text-secondary">{{ paginator.count }} product{{ paginator.count|pluralize }} in your catalog</p>{% endblock %}
+{% block breadcrumbs %}<p class="mb-0 text-secondary">{{ paginator.count }} product{{ paginator.count|pluralize }} in
+  your catalog</p>{% endblock %}
 
 {% block page_actions %}
 <a href="{{ create_url }}" class="btn btn-primary"><i class="ti ti-plus me-1"></i>Add Product</a>
@@ -17,7 +18,7 @@
         <div class="input-group">
           <span class="input-group-text bg-transparent border-end-0"><i class="ti ti-search text-secondary"></i></span>
           <input type="text" name="q" value="{{ search_query }}" class="form-control border-start-0 ps-0"
-                 placeholder="Search by name or SKU..." />
+            placeholder="Search by name or SKU..." />
         </div>
       </div>
       <div class="col-6 col-md-auto">
@@ -56,6 +57,7 @@
         <th>Category</th>
         <th>Stock</th>
         <th>Status</th>
+        <th>Pinned</th>
         <th class="text-end">Actions</th>
       </tr>
     </thead>
@@ -78,23 +80,35 @@
           </div>
         </td>
         <td class="text-nowrap"><span class="text-secondary">{{ obj.sku }}</span></td>
-        <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span class="text-secondary">—</span>{% endif %}</td>
+        <td>{% if obj.category_id %}<span class="pill pill-gray">{{ obj.category.name }}</span>{% else %}<span
+            class="text-secondary">—</span>{% endif %}</td>
         <td>
           {% if obj.stock_quantity == 0 %}
-            <span class="pill pill-red">Out of stock</span>
-          {% elif obj.stock_quantity <= obj.low_stock_threshold %}
-            <span class="pill pill-amber">{{ obj.stock_quantity }} left</span>
-          {% else %}
+          <span class="pill pill-red">Out of stock</span>
+          {% elif obj.stock_quantity <= obj.low_stock_threshold %} <span class="pill pill-amber">{{ obj.stock_quantity }} left</span>
+            {% else %}
             <span class="pill pill-green">{{ obj.stock_quantity }} in stock</span>
-          {% endif %}
+            {% endif %}
         </td>
         <td>
-          {% if obj.is_active %}<span class="pill pill-green">Active</span>{% else %}<span class="pill pill-gray">Inactive</span>{% endif %}
+          {% if obj.is_active %}<span class="pill pill-green">Active</span>{% else %}<span
+            class="pill pill-gray">Inactive</span>{% endif %}
+        </td>
+        <td>
+          <form action="{% url 'dashboard:product-home-toggle' obj.pk %}" method="post"
+            class="m-0 p-0 d-inline-flex align-items-center">
+            {% csrf_token %}
+            <div class="form-check form-switch mb-0" title="Toggle Pinned to Top">
+              <input class="form-check-input" type="checkbox" role="switch" onchange="this.form.submit()" {% if obj.homepage_featured.is_shown %}checked{% endif %}>
+            </div>
+          </form>
         </td>
         <td class="text-end">
-          <div class="d-inline-flex gap-1">
-            <a href="{% url 'dashboard:product-update' obj.pk %}" class="btn btn-icon btn-sm btn-light" title="Edit"><i class="ti ti-edit"></i></a>
-            <a href="{% url 'dashboard:product-delete' obj.pk %}" class="btn btn-icon btn-sm btn-light text-danger" title="Delete"><i class="ti ti-trash"></i></a>
+          <div class="d-inline-flex gap-1 align-items-center">
+            <a href="{% url 'dashboard:product-update' obj.pk %}" class="btn btn-icon btn-sm btn-light" title="Edit"><i
+                class="ti ti-edit"></i></a>
+            <a href="{% url 'dashboard:product-delete' obj.pk %}" class="btn btn-icon btn-sm btn-light text-danger"
+              title="Delete"><i class="ti ti-trash"></i></a>
           </div>
         </td>
       </tr>

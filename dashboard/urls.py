@@ -44,6 +44,7 @@ urlpatterns = [
     path("product/", catalog.ProductListView.as_view(), name="product-list"),
     path("product/create/", catalog.product_create, name="product-create"),
     path("product/<int:pk>/edit/", catalog.product_update, name="product-update"),
+    path("product/<int:pk>/home-toggle/", catalog.product_home_toggle, name="product-home-toggle"),
     path("product/<int:pk>/delete/", catalog.ProductDeleteView.as_view(), name="product-delete"),
     path("review/", catalog.ReviewListView.as_view(), name="review-list"),
     path("review/<int:pk>/edit/", catalog.ReviewUpdateView.as_view(), name="review-update"),

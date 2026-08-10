@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from django.contrib import messages
-from django.db.models import F
+from django.db.models import F, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from catalog.models import Brand, Category, Product, Review
+from catalog.models import Brand, Category, Product, Review, HomePageProduct
 from core.models import Currency
 from dashboard import forms
 from dashboard.access import dashboard_required
@@ -28,7 +28,7 @@ class ProductListView(DashboardListView):
     singular_name = "Product"
     plural_name = "Products"
     search_fields = ["name", "sku"]
-    select_related = ["category", "brand"]
+    select_related = ["category", "brand", "homepage_featured"]
     prefetch_related = ["images"]
     paginate_by = 20
 
@@ -46,6 +46,25 @@ class ProductListView(DashboardListView):
         category = self.request.GET.get("category", "")
         if category.isdigit():
             qs = qs.filter(category_id=int(category))
+            
+        #sort pinned products to the top, toggled-off to the bottom
+        qs = qs.order_by(
+            Case(
+                When(homepage_featured__is_shown=True, then=Value(1)),
+                When(homepage_featured__is_shown=False, then=Value(-1)),
+                default=Value(0),
+                output_field=IntegerField()
+            ).desc(),
+            Case(
+                When(homepage_featured__is_shown=True, then=F("homepage_featured__updated_at")),
+                default=None
+            ).desc(nulls_last=True),
+            Case(
+                When(homepage_featured__is_shown=False, then=F("homepage_featured__updated_at")),
+                default=None
+            ).asc(nulls_last=True),
+            "-created_at"
+        )
         return qs
 
     def get_context_data(self, **kwargs):
@@ -177,6 +196,24 @@ def product_create(request):
 def product_update(request, pk):
     product = get_object_or_404(Product, pk=pk)
     return _render_product_form(request, product, "edit")
+
+
+@dashboard_required
+@require_http_methods(["POST"])
+def product_home_toggle(request, pk):
+    product = get_object_or_404(Product, pk=pk)
+    home_prod, created = HomePageProduct.objects.get_or_create(product=product)
+    
+    #toggle the state
+    home_prod.is_shown = not home_prod.is_shown
+    home_prod.save()
+    
+    if home_prod.is_shown:
+        messages.success(request, f"{product.name} order set as first.")
+    else:
+        messages.info(request, f"{product.name} order set as last.")
+        
+    return redirect("dashboard:product-list")
 
 
 class CategoryListView(DashboardListView):

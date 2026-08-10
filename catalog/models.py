@@ -610,3 +610,27 @@ class ProductDocument(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.product.name} - {self.title}"
+
+
+class HomePageProduct(TimeStampedModel):
+    """Tracks products toggled to appear on the homepage."""
+
+    product = models.OneToOneField(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="homepage_featured",
+        verbose_name="Product",
+    )
+    is_shown = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="Is shown on home",
+    )
+
+    class Meta:
+        verbose_name = "Home Page Product"
+        verbose_name_plural = "Home Page Products"
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"{self.product.name} (Shown: {self.is_shown})"
