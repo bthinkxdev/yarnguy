@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib import admin
 
 from core.forms import CurrencyAdminForm
-from core.models import Currency, SiteSettings
+from core.models import Currency, SiteSettings, State
 
 
 @admin.register(Currency)
@@ -28,3 +28,13 @@ class SiteSettingsAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None) -> bool:
         return False
+
+
+@admin.register(State)
+class StateAdmin(admin.ModelAdmin):
+    """Admin interface for delivery states/provinces."""
+    
+    list_display = ("name", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("name",)
+    ordering = ("name",)
