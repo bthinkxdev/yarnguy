@@ -93,17 +93,28 @@ def dispatch_order_confirmation_notification(*, order_id: int) -> None:
     status_word = "confirmed" if is_confirmed else "received"
     title = f"Order {'Confirmation' if is_confirmed else 'Received'} - {order.order_number}"
     
-    items = list(order.items.all())
-    product_names = ", ".join([item.product.name for item in items[:3]])
-    if len(items) > 3:
-        product_names += " and more"
+    tx = order.payment_transactions.filter(status="success").last()
+    if not tx:
+        tx = order.payment_transactions.last()
     
+    is_cod = tx and tx.gateway_key == "cod"
+    
+    if is_cod:
+        payment_text = "Our team will contact you shortly for a quick order confirmation. Your order will be processed after confirmation."
+    else:
+        payment_text = "Your order is already confirmed and will be processed directly."
+
+    customer_name = user.first_name or user.username
     body = (
-        f"Thank you for your order!\n\n"
-        f"Your order {order.order_number} containing {product_names} has been successfully received.\n"
-        f"We will notify you once the status changes.\n\n"
+        f"Hi {customer_name},\n\n"
+        f"Thank you for placing your order with Yarn Guy \n\n"
+        f"Order ID:{order.order_number}\n\n"
+        f"Your order has been received successfully.\n\n"
+        f"{payment_text}\n\n"
+        f"We’ll keep you updated with the shipping and tracking details once your order is dispatched.\n\n"
+        f"Thank you for choosing Yarn Guy❤️\n\n"
         f"Best regards,\n"
-        f"The Yarn Guy Team"
+        f"Yarn Guy Team"
     )
 
     if profile.notify_via_email and user.email:
