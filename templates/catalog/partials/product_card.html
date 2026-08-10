@@ -133,6 +133,7 @@
     <a class="stretched-link jm-product-card__stretch" href="{% url 'catalog:pdp' slug=product.slug %}"
       aria-label="{% blocktrans with name=product.name %}View {{ name }}{% endblocktrans %}"></a>
 
+    {% if request.resolver_match.url_name != 'homepage' %}
     <div
       class="jm-product-card__cart mt-auto {% if cart_product_ids and product.pk in cart_product_ids %}d-none{% endif %}">
       <button type="button" class="jm-product-card__atc" data-jm-add-to-cart {% if eff_stock <= 0 %}disabled{% endif %}>
@@ -149,6 +150,7 @@
       class="btn btn-outline-floward jm-product-card__atc jm-product-card__atc--in-cart mt-auto jm-dynamic-view-cart">
       <span>{% trans "View Cart" %}</span>
     </a>
+    {% endif %}
     {% endif %}
   </div>
 </article>
