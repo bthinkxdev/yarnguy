@@ -3,6 +3,23 @@
 
 {% block title %}{% trans "Checkout" %} | Yarn Guy{% endblock %}
 
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+<style>
+  .ts-control {
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    padding: 0.25rem 0.5rem;
+    min-height: 31px;
+    border: 1px solid #dee2e6;
+  }
+  .ts-control.focus {
+    border-color: #0369A1;
+    box-shadow: 0 0 0 0.25rem rgba(3, 105, 161, 0.25);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container page-container checkout-page jm-page" hx-get="{% url 'checkout:checkout' %}" hx-trigger="cartUpdated from:body" hx-select=".checkout-page" hx-swap="outerHTML">
   {% if not summary.lines %}
@@ -81,7 +98,14 @@
             <div class="row g-2 mb-3">
               <div class="col-md-6">
                 <label class="form-label small">{% trans "State" %} <span class="text-danger">*</span></label>
-                <input type="text" name="guest_state" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.state|default:'' }}{% endif %}">
+                <select name="guest_state" id="guest_state" class="form-select form-select-sm" placeholder="{% trans 'Search and select state...' %}">
+                  <option value="">{% trans "Search and select state..." %}</option>
+                  {% with current_state=checkout_session.address.state|default:'' %}
+                  {% for state in indian_states %}
+                  <option value="{{ state }}" {% if current_state == state %}selected{% endif %}>{{ state }}</option>
+                  {% endfor %}
+                  {% endwith %}
+                </select>
                 <div id="error-guest_state" class="text-danger small mt-1"></div>
               </div>
               <div class="col-md-6">
@@ -303,7 +327,7 @@
         if (usingNewAddress) {
           var line1 = checkoutForm.querySelector('input[name="guest_address_line1"]')?.value.trim() || '';
           var city = checkoutForm.querySelector('input[name="guest_city"]')?.value.trim() || '';
-          var state = checkoutForm.querySelector('input[name="guest_state"]')?.value.trim() || '';
+          var state = checkoutForm.querySelector('[name="guest_state"]')?.value.trim() || '';
           var pincode = checkoutForm.querySelector('input[name="guest_pincode"]')?.value.trim() || '';
 
           if (!line1) {
@@ -425,16 +449,50 @@
       if (/^[^a-zA-Z0-9]+$/.test(val)) return "City cannot consist of special characters only.";
       return "";
     });
-    setupInputListener('input[name="guest_state"]', 'error-guest_state', function(val) {
-      if (/^\d+$/.test(val)) return "State cannot consist of numbers only.";
-      if (/^[^a-zA-Z0-9]+$/.test(val)) return "State cannot consist of special characters only.";
-      return "";
-    });
     setupInputListener('input[name="guest_pincode"]', 'error-guest_pincode', function(val) {
       if (/^[a-zA-Z\s]+$/.test(val)) return "Postal code cannot contain alphabets only.";
       if (/^[^a-zA-Z0-9]+$/.test(val)) return "Postal code cannot contain special characters only.";
       if (!/^\d+$/.test(val)) return "Postal code can only contain numbers.";
       return "";
+    });
+  });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    function initTomSelect(el) {
+      if (el && !el.classList.contains('tomselected')) {
+        new TomSelect(el, {
+          create: false,
+          sortField: {
+            field: "text",
+            direction: "asc"
+          },
+          onChange: function(value) {
+            var errorDiv = document.getElementById('error-guest_state');
+            if (errorDiv) {
+              if (!value) {
+                errorDiv.innerText = "State is required.";
+              } else {
+                errorDiv.innerText = "";
+              }
+            }
+          }
+        });
+      }
+    }
+
+    var stateSelect = document.getElementById('guest_state');
+    initTomSelect(stateSelect);
+
+    document.body.addEventListener('htmx:load', function(evt) {
+      var newSelect = document.getElementById('guest_state');
+      if (newSelect) {
+        initTomSelect(newSelect);
+      }
     });
   });
 </script>

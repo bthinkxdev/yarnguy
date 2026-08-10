@@ -168,6 +168,15 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
     #reload summary after potential delivery charge update
     summary = get_cart_summary(cart=cart)
 
+    INDIAN_STATES = [
+        "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar",
+        "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa",
+        "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka",
+        "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya",
+        "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+        "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+    ]
+
     from marketing.selectors import has_any_active_coupons
     return render(
         request,
@@ -178,6 +187,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "checkout_session": session,
             "addresses": addresses,
             "active_cities": active_cities,
+            "indian_states": INDIAN_STATES,
 
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,
