@@ -93,16 +93,6 @@
           </div>
         </div>
 
-        <div class="checkout-step">
-          <h2>{% trans "Delivery" %}</h2>
-          <div class="row g-2">
-            <div class="col-md-12">
-              <label class="form-label small">{% trans "Date" %}</label>
-              <input type="date" name="delivery_date" class="form-control" value="{{ checkout_session.delivery_date|date:'Y-m-d'|default:'' }}">
-              <div id="error-delivery_date" class="text-danger small mt-1"></div>
-            </div>
-          </div>
-        </div>
 
         <div class="checkout-step">
           <h2>{% trans "Payment Method" %}</h2>
