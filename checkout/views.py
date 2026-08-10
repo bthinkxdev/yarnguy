@@ -153,9 +153,10 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
     if not selected_gateway_key and available_gateways:
         selected_gateway_key = list(available_gateways.keys())[0]
         
+    from core.services import get_site_settings
+    settings = get_site_settings()
+        
     if selected_gateway_key == "cod":
-        from core.services import get_site_settings
-        settings = get_site_settings()
         if cart.delivery_charge != settings.cod_delivery_charge:
             cart.delivery_charge = settings.cod_delivery_charge
             cart.save(update_fields=["delivery_charge", "updated_at"])
@@ -182,6 +183,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "addresses": addresses,
             "active_cities": active_cities,
             "indian_states": INDIAN_STATES,
+            "settings": settings,
 
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,

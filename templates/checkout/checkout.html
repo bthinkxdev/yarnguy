@@ -128,7 +128,12 @@
               hx-select="#order-summary-container"
               hx-swap="outerHTML"
               {% if selected_gateway_key == key %}checked{% elif not selected_gateway_key and forloop.first %}checked{% endif %}>
-            <label class="form-check-label small" for="gw-{{ key }}">{{ adapter.display_name }}</label>
+            <label class="form-check-label small" for="gw-{{ key }}">
+              {{ adapter.display_name }}
+              {% if key == 'cod' and settings.cod_delivery_charge > 0 %}
+                ({{ display_currency.symbol|default:"₹" }}{{ settings.cod_delivery_charge|floatformat:0 }} {% trans "extra charge" %})
+              {% endif %}
+            </label>
           </div>
           {% endfor %}
           <div id="error-gateway_key" class="text-danger small mt-1"></div>

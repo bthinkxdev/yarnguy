@@ -157,7 +157,7 @@ class CashOnDeliveryAdapter(PaymentGatewayAdapter):
     """
 
     key = "cod"
-    display_name = "Cash on Delivery (COD)"
+    display_name = "Cash on Delivery"
     is_async = False
 
     def create_payment_intent(
