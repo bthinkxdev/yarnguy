@@ -6401,3 +6401,10 @@ body.jm-pdp-sticky-open .jm-wa-float {
     transform: translateY(0);
   }
 }
+
+/* prevent zoom on ios mobile for form inputs */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
