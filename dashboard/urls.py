@@ -36,6 +36,7 @@ urlpatterns = [
     path("orders/", orders.order_list, name="order-list"),
     path("orders/<int:pk>/", orders.order_detail, name="order-detail"),
     path("orders/<int:pk>/invoice/", orders.order_invoice_detail, name="order-invoice"),
+    path("orders/bulk-invoice/", orders.order_bulk_invoice_detail, name="order-bulk-invoice"),
     path("orders/<int:pk>/transition/", orders.order_transition, name="order-transition"),
     path("orders/<int:pk>/payment-transition/", orders.order_payment_transition, name="order-payment-transition"),
     path("reports/", reports.reports_view, name="reports"),

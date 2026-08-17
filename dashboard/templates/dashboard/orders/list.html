@@ -15,16 +15,27 @@
         {% endfor %}
       </select>
       <button type="submit" class="btn btn-outline-secondary"><i class="ti ti-search"></i></button>
+
+      <div class="d-flex gap-2 ms-md-auto w-100 w-md-auto mt-2 mt-md-0 justify-content-start justify-content-md-end" id="bulk-action-buttons">
+        <button type="submit" form="bulk-print-form" class="btn btn-primary flex-fill flex-md-grow-0"><i class="ti ti-printer"></i> Bulk Print</button>
+        <button type="button" id="clear-selection-btn" class="btn btn-outline-secondary flex-fill flex-md-grow-0"><i class="ti ti-x"></i> Clear</button>
+      </div>
     </form>
 
-    <div class="card table-responsive">
-      <table class="table mb-0 text-nowrap table-hover align-middle">
-        <thead class="table-light">
-          <tr><th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Placed</th><th class="text-center">Invoice</th><th class="text-end">Actions</th></tr>
-        </thead>
+    <form id="bulk-print-form" method="post" action="{% url 'dashboard:order-bulk-invoice' %}" target="_blank">
+      {% csrf_token %}
+      <div class="card table-responsive">
+        <table class="table mb-0 text-nowrap table-hover align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="select-all-orders"></th>
+              <th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Placed</th><th class="text-center">Invoice</th><th class="text-end">Actions</th>
+            </tr>
+          </thead>
         <tbody>
           {% for order in objects %}
           <tr>
+            <td><input type="checkbox" class="form-check-input order-checkbox" name="order_ids" value="{{ order.pk }}"></td>
             <td><a href="{% url 'dashboard:order-detail' order.pk %}">{{ order.order_number }}</a></td>
             <td>
               {% if order.cart and not order.cart.customer_profile %}
@@ -53,12 +64,57 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="8" class="text-center text-secondary py-5">No orders found.</td></tr>
+          <tr><td colspan="9" class="text-center text-secondary py-5">No orders found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+    </form>
     {% include "dashboard/partials/_pagination.html" %}
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('select-all-orders');
+    
+    const tableContainer = document.querySelector('.table-responsive');
+    if (tableContainer) {
+        tableContainer.addEventListener('change', function(e) {
+            if (e.target.id === 'select-all-orders') {
+                const checkboxes = document.querySelectorAll('.order-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = e.target.checked;
+                });
+            }
+        });
+    }
+    
+    const form = document.getElementById('bulk-print-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const checked = document.querySelectorAll('.order-checkbox:checked');
+            if (checked.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one order to print.');
+            }
+        });
+    }
+
+    const clearBtn = document.getElementById('clear-selection-btn');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            const checkboxes = document.querySelectorAll('.order-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = false;
+            });
+            if (selectAll) {
+                selectAll.checked = false;
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

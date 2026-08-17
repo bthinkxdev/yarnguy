@@ -138,3 +138,24 @@ def order_invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
     }
     return render(request, "shared/order_invoice.html", context)
 
+
+@dashboard_required
+@require_http_methods(["POST"])
+def order_bulk_invoice_detail(request: HttpRequest) -> HttpResponse:
+    """Render the HTML bulk invoice for selected orders."""
+    from core.models import SiteSettings
+    
+    order_ids = request.POST.getlist("order_ids")
+    if not order_ids:
+        messages.error(request, "No orders selected for printing.")
+        return redirect("dashboard:order-list")
+        
+    orders_qs = Order.objects.select_related(
+        "customer_profile__user", "currency"
+    ).filter(pk__in=order_ids).order_by("-created_at")
+    
+    context = {
+        "orders": orders_qs,
+        "site_settings": SiteSettings.objects.first(),
+    }
+    return render(request, "shared/order_bulk_invoice.html", context)
