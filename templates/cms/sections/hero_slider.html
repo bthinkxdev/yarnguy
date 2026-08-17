@@ -31,12 +31,7 @@
               {% if slide.title %}
               <h2 class="jm-hero__title">{{ slide.title }}</h2>
               {% endif %}
-              <div class="jm-hero__ctas">
-                <a href="{% url 'catalog:plp' %}" class="btn btn-floward jm-btn-lg">{% trans "Shop Now" %}</a>
-                <a href="{% url 'cms:homepage' %}#explore-categories-section"
-                   class="btn btn-outline-floward jm-btn-lg"
-                   data-jm-scroll-target="explore-categories-section">{% trans "Explore Categories" %}</a>
-              </div>
+
             </div>
           </div>
         </div>
@@ -62,12 +57,7 @@
     <div class="jm-hero__fallback" aria-hidden="true"></div>
     <div class="jm-hero__caption">
       <div class="container jm-hero__caption-inner">
-        <div class="jm-hero__ctas">
-          <a href="{% url 'catalog:plp' %}" class="btn btn-floward jm-btn-lg">{% trans "Shop Now" %}</a>
-          <a href="{% url 'cms:homepage' %}#explore-categories-section"
-             class="btn btn-outline-floward btn-sm mt-3"
-             data-jm-scroll-target="explore-categories-section">{% trans "Explore Categories" %}</a>
-        </div>
+
       </div>
     </div>
     {% endif %}
