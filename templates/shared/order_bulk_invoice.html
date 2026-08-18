@@ -49,9 +49,16 @@
         @media print {
             .action-bar { display: none !important; }
             body { background: white; padding: 0; display: block; }
-            .invoice-container { box-shadow: none !important; margin: 0 !important; width: 100% !important; padding: 0 !important; page-break-after: always; }
+            .invoice-container { 
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                width: 100% !important; 
+                padding: 15mm !important; 
+                min-height: auto !important;
+                page-break-after: always; 
+            }
             .invoice-container:last-child { page-break-after: auto; }
-            .invoices-wrapper { display: block; }
+            .invoices-wrapper { display: block; gap: 0; }
         }
         
         .invoices-wrapper {
@@ -64,11 +71,15 @@
 
         .invoice-container {
             width: 210mm;
-            min-height: 297mm;
+            min-height: 296mm;
             padding: 15mm;
             background: white;
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             page-break-inside: avoid;
+            page-break-after: always;
+        }
+        .invoice-container:last-child {
+            page-break-after: auto;
         }
         .invoice-header {
             display: flex;
@@ -171,9 +182,72 @@
             color: #718096;
             font-style: italic;
         }
+        @media screen and (max-width: 800px) {
+            body.responsive-view {
+                padding: 10px;
+                display: block; 
+            }
+            .responsive-view .action-bar {
+                position: static;
+                margin-bottom: 20px;
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+            }
+            .responsive-view .invoices-wrapper {
+                display: block;
+            }
+            .responsive-view .invoice-container {
+                width: 100%;
+                min-height: auto;
+                padding: 15px;
+                margin: 0 auto 20px auto;
+            }
+            .responsive-view .invoice-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .responsive-view .invoice-meta {
+                text-align: left;
+            }
+            .responsive-view .info-section {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .responsive-view .totals-section {
+                justify-content: flex-start;
+            }
+            .responsive-view .totals-table {
+                width: 100%;
+            }
+            .responsive-view .items-table th, 
+            .responsive-view .items-table td {
+                padding: 8px 5px;
+                font-size: 9pt;
+                word-break: break-word;
+                white-space: normal;
+            }
+            .responsive-view .invoice-footer {
+                flex-direction: column;
+                gap: 15px;
+            }
+            .responsive-view .thank-you {
+                text-align: left;
+                margin-top: 10px;
+            }
+            .responsive-view .table-responsive {
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin-bottom: 20px;
+            }
+            .responsive-view .items-table {
+                width: 100%;
+            }
+        }
     </style>
 </head>
-<body>
+<body class="responsive-view">
     <div class="action-bar">
         <button class="btn-download" onclick="window.print()">Print</button>
         <button class="btn-download" onclick="downloadInvoice()">Download PDF</button>
@@ -273,31 +347,33 @@
                 </div>
             </div>
 
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th>Item Description</th>
-                        <th>Price/Qty</th>
-                        <th>Qty</th>
-                        <th>Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in order.items.all %}
-                    <tr>
-                        <td>
-                            <span class="item-name">{{ item.product.name }}</span>
-                            {% if item.variant %}
-                                <span class="item-variant">{{ item.variant.name }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{% money_label item.unit_price order.currency %}</td>
-                        <td>{{ item.quantity }}</td>
-                        <td>{{ order.currency.symbol }} {% widthratio item.unit_price 1 item.quantity %}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th>Item Description</th>
+                            <th>Price/Qty</th>
+                            <th>Qty</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td>
+                                <span class="item-name">{{ item.product.name }}</span>
+                                {% if item.variant %}
+                                    <span class="item-variant">{{ item.variant.name }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{% money_label item.unit_price order.currency %}</td>
+                            <td>{{ item.quantity }}</td>
+                            <td>{{ order.currency.symbol }} {% widthratio item.unit_price 1 item.quantity %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
 
             <div class="totals-section">
                 <table class="totals-table">
@@ -344,17 +420,58 @@
 
     <script>
         function downloadInvoice() {
+            // remove responsive view so we capture desktop layout
+            const wasResponsive = document.body.classList.contains('responsive-view');
+            if (wasResponsive) document.body.classList.remove('responsive-view');
+
             const element = document.getElementById('invoice-content');
+            
+            // modify styles to prevent extra pages and huge margins in PDF
+            const originalGap = element.style.gap;
+            const originalWidth = element.style.width;
+            const originalDisplay = element.style.display;
+            
+            element.style.gap = '0px';
+            element.style.width = '210mm'; // Force exactly A4 width for the wrapper
+            element.style.display = 'block'; // Force block layout so page breaks work
+            
+            const containers = Array.from(element.getElementsByClassName('invoice-container'));
+            const originalStyles = [];
+            
+            for (let i = 0; i < containers.length; i++) {
+                originalStyles.push({
+                    minHeight: containers[i].style.minHeight,
+                    marginBottom: containers[i].style.marginBottom,
+                    boxShadow: containers[i].style.boxShadow
+                });
+                containers[i].style.minHeight = 'auto';
+                containers[i].style.marginBottom = '0';
+                containers[i].style.boxShadow = 'none';
+            }
+
             const opt = {
-                margin:       [0, 0, 0, 0],
+                margin:       0,
                 filename:     'Bulk_Invoices.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                pagebreak:    { mode: ['css', 'legacy'] }
             };
             
-            // generate PDF and save
-            html2pdf().set(opt).from(element).save();
+            // generate PDF and save, then restore styles
+            html2pdf().set(opt).from(element).save().then(() => {
+                element.style.gap = originalGap;
+                element.style.width = originalWidth;
+                element.style.display = originalDisplay;
+                
+                for (let i = 0; i < containers.length; i++) {
+                    containers[i].style.minHeight = originalStyles[i].minHeight;
+                    containers[i].style.marginBottom = originalStyles[i].marginBottom;
+                    containers[i].style.boxShadow = originalStyles[i].boxShadow;
+                }
+                
+                if (wasResponsive) document.body.classList.add('responsive-view');
+            });
         }
     </script>
 </body>
