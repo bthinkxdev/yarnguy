@@ -71,4 +71,4 @@ class StorefrontUser(HttpUser):
 
 
 if __name__ == "__main__":
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "floward_clone.settings.dev")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "yarn_guy.settings.dev")

@@ -59,7 +59,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "floward_clone.urls"
+ROOT_URLCONF = "yarn_guy.urls"
 
 TEMPLATES = [
     {
@@ -81,8 +81,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "floward_clone.wsgi.application"
-ASGI_APPLICATION = "floward_clone.asgi.application"
+WSGI_APPLICATION = "yarn_guy.wsgi.application"
+ASGI_APPLICATION = "yarn_guy.asgi.application"
 
 _database_url = env(
     "DATABASE_URL",
