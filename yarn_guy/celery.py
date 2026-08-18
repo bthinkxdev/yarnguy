@@ -1,4 +1,4 @@
-"""Celery application instance for floward_clone."""
+"""Celery application instance for yarn_guy."""
 
 from __future__ import annotations
 

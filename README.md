@@ -163,7 +163,7 @@ docker run -d --name floward-redis -p 6379:6379 redis:7
 Terminal 1 — start the Celery worker:
 
 ```bash
-celery -A floward_clone worker --loglevel=info
+celery -A yarn_guy worker --loglevel=info
 ```
 
 Terminal 2 — dispatch the ping task:
@@ -182,7 +182,7 @@ Expected output: `Result: pong`
 Terminal 3 (optional) — verify the periodic health-check task is registered:
 
 ```bash
-celery -A floward_clone beat --loglevel=info
+celery -A yarn_guy beat --loglevel=info
 ```
 
 ---
@@ -191,7 +191,7 @@ celery -A floward_clone beat --loglevel=info
 
 | Variable | Description | Default (dev) |
 |----------|-------------|---------------|
-| `DJANGO_SETTINGS_MODULE` | Settings module | `floward_clone.settings.dev` |
+| `DJANGO_SETTINGS_MODULE` | Settings module | `yarn_guy.settings.dev` |
 | `SECRET_KEY` | Django secret key | (required in prod) |
 | `DEBUG` | Debug mode | `True` |
 | `DATABASE_URL` | PostgreSQL or SQLite URL | SQLite file |
@@ -204,7 +204,7 @@ celery -A floward_clone beat --loglevel=info
 ### PostgreSQL (production / staging)
 
 ```env
-DATABASE_URL=postgres://floward:floward@localhost:5432/floward_clone
+DATABASE_URL=postgres://floward:floward@localhost:5432/yarn_guy
 DB_CONN_MAX_AGE=600
 DB_POOL_MIN_SIZE=2
 DB_POOL_MAX_SIZE=10
@@ -229,10 +229,10 @@ DB_STATEMENT_TIMEOUT_OPTIONS=-c statement_timeout=30000
 sudo apt update && sudo apt install -y python3.11 python3.11-venv nginx postgresql-client redis-tools
 
 # 2. Clone the repository
-sudo mkdir -p /var/www/floward_clone
-sudo chown $USER:$USER /var/www/floward_clone
-git clone <your-repo-url> /var/www/floward_clone
-cd /var/www/floward_clone
+sudo mkdir -p /var/www/yarn_guy
+sudo chown $USER:$USER /var/www/yarn_guy
+git clone <your-repo-url> /var/www/yarn_guy
+cd /var/www/yarn_guy
 
 # 3. Python environment
 python3.11 -m venv .venv
@@ -242,7 +242,7 @@ pip install -r requirements.txt
 # 4. Environment configuration
 cp .env.example .env
 # Edit .env with production values:
-#   DJANGO_SETTINGS_MODULE=floward_clone.settings.prod
+#   DJANGO_SETTINGS_MODULE=yarn_guy.settings.prod
 #   DATABASE_URL=postgres://...
 #   SECRET_KEY=<strong-random-key>
 #   ALLOWED_HOSTS=your-domain.com
@@ -253,23 +253,23 @@ python manage.py migrate --noinput
 python manage.py collectstatic --noinput
 
 # 6. Install systemd service
-sudo cp deploy/systemd/floward_clone.service /etc/systemd/system/
+sudo cp deploy/systemd/yarn_guy.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable floward_clone
-sudo systemctl start floward_clone
-sudo systemctl status floward_clone
+sudo systemctl enable yarn_guy
+sudo systemctl start yarn_guy
+sudo systemctl status yarn_guy
 
 # 7. Configure Nginx
-sudo cp deploy/nginx/floward_clone.conf /etc/nginx/sites-available/floward_clone
-sudo ln -s /etc/nginx/sites-available/floward_clone /etc/nginx/sites-enabled/
+sudo cp deploy/nginx/yarn_guy.conf /etc/nginx/sites-available/yarn_guy
+sudo ln -s /etc/nginx/sites-available/yarn_guy /etc/nginx/sites-enabled/
 sudo nginx -t && sudo systemctl reload nginx
 
 # 8. Celery worker + beat (separate systemd units or supervisor)
-celery -A floward_clone worker --loglevel=info --detach
-celery -A floward_clone beat --loglevel=info --detach
+celery -A yarn_guy worker --loglevel=info --detach
+celery -A yarn_guy beat --loglevel=info --detach
 ```
 
-Gunicorn binds to a Unix socket at `/run/floward_clone/gunicorn.sock` (see `deploy/gunicorn/gunicorn.conf.py`). Nginx proxies HTTP traffic to that socket.
+Gunicorn binds to a Unix socket at `/run/yarn_guy/gunicorn.sock` (see `deploy/gunicorn/gunicorn.conf.py`). Nginx proxies HTTP traffic to that socket.
 
 ---
 

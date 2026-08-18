@@ -1,4 +1,4 @@
-"""WSGI config for floward_clone."""
+"""WSGI config for yarn_guy."""
 
 import os
 

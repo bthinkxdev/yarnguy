@@ -1,4 +1,4 @@
-"""Abstract base model mixins and shared core domain models for floward_clone."""
+"""Abstract base model mixins and shared core domain models for yarn_guy."""
 
 from __future__ import annotations
 

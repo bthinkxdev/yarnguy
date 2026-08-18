@@ -32,7 +32,7 @@ app/
 
 ```
 Browser / HTMX request
-  → floward_clone/urls.py (routing, i18n_patterns, sitemaps)
+  → yarn_guy/urls.py (routing, i18n_patterns, sitemaps)
   → LocaleMiddleware (activate en/ar) + session + CSRF + auth
   → app view (thin)
       → selectors.py  (reads)  and/or  services.py (writes)
@@ -64,19 +64,19 @@ Browser / HTMX request
 
 ---
 
-## 2. Project Configuration — `floward_clone/`
+## 2. Project Configuration — `yarn_guy/`
 
 | File | Purpose |
 |------|---------|
-| `floward_clone/__init__.py` | Loads the Celery app at Django startup (`celery_app`). |
-| `floward_clone/settings/__init__.py` | Package marker; environments imported explicitly. |
-| `floward_clone/settings/base.py` | Shared settings (apps, middleware, DB, cache, Celery, i18n, static/media, auth). |
-| `floward_clone/settings/dev.py` | Development: `DEBUG=True`, LocMem cache, console email, eager Celery, optional debug toolbar. |
-| `floward_clone/settings/staging.py` | Staging: production-like, secure cookies, no HSTS/SSL redirect. |
-| `floward_clone/settings/prod.py` | Production: hardened security (HSTS, SSL redirect, secure cookies), optional Sentry. |
-| `floward_clone/urls.py` | Root URL config: admin, sitemaps, i18n_patterns, app includes, dev static/media. |
-| `floward_clone/celery.py` | Creates `Celery("floward_clone")`, reads `CELERY_*` settings, autodiscovers tasks. |
-| `floward_clone/asgi.py` / `wsgi.py` | ASGI/WSGI entrypoints (default settings module = prod). |
+| `yarn_guy/__init__.py` | Loads the Celery app at Django startup (`celery_app`). |
+| `yarn_guy/settings/__init__.py` | Package marker; environments imported explicitly. |
+| `yarn_guy/settings/base.py` | Shared settings (apps, middleware, DB, cache, Celery, i18n, static/media, auth). |
+| `yarn_guy/settings/dev.py` | Development: `DEBUG=True`, LocMem cache, console email, eager Celery, optional debug toolbar. |
+| `yarn_guy/settings/staging.py` | Staging: production-like, secure cookies, no HSTS/SSL redirect. |
+| `yarn_guy/settings/prod.py` | Production: hardened security (HSTS, SSL redirect, secure cookies), optional Sentry. |
+| `yarn_guy/urls.py` | Root URL config: admin, sitemaps, i18n_patterns, app includes, dev static/media. |
+| `yarn_guy/celery.py` | Creates `Celery("yarn_guy")`, reads `CELERY_*` settings, autodiscovers tasks. |
+| `yarn_guy/asgi.py` / `wsgi.py` | ASGI/WSGI entrypoints (default settings module = prod). |
 
 ### 2.1 `settings/base.py` highlights
 - **Env loading** via `django-environ` from `BASE_DIR/.env`.
@@ -102,7 +102,7 @@ Browser / HTMX request
 | `scan-abandoned-carts-hourly` | `marketing.tasks.scan_abandoned_carts` | 3600s |
 | `refresh-sitemap-daily` | `core.tasks.refresh_sitemap_cache` | 86400s |
 
-### 2.3 Root URL map (`floward_clone/urls.py`)
+### 2.3 Root URL map (`yarn_guy/urls.py`)
 
 **Non-i18n (no language prefix):**
 | Route | Include |
@@ -824,8 +824,8 @@ Serving strategy is **no-build**: CDN for Bootstrap/HTMX/icons, committed CSS/JS
 |------|---------|
 | `scripts/scaffold_apps.py` | One-off generator that scaffolds the layered file set for all business apps (origin of the stub docstrings). |
 | `deploy/gunicorn/gunicorn.conf.py` | Gunicorn config (unix socket, `(2*CPU)+1` workers, timeout 120s, request recycling). |
-| `deploy/nginx/floward_clone.conf` | Nginx site (gunicorn upstream socket, gzip, static/media aliases, proxy headers). |
-| `deploy/systemd/floward_clone.service` | systemd unit running Gunicorn (`www-data`, EnvironmentFile, prod settings, auto-restart). |
+| `deploy/nginx/yarn_guy.conf` | Nginx site (gunicorn upstream socket, gzip, static/media aliases, proxy headers). |
+| `deploy/systemd/yarn_guy.service` | systemd unit running Gunicorn (`www-data`, EnvironmentFile, prod settings, auto-restart). |
 | `deploy/docs/BACKUP_RESTORE.md` | DB/media backup & restore runbook. |
 | `loadtests/locustfile.py` | Locust load test (`StorefrontUser`: weighted homepage/PLP/PDP/checkout tasks). |
 | `manage.py` | Django CLI (default settings = dev). |

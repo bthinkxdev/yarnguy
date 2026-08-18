@@ -1,4 +1,4 @@
-"""ASGI config for floward_clone."""
+"""ASGI config for yarn_guy."""
 
 import os
 

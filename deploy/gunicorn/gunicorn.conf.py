@@ -1,7 +1,7 @@
 import multiprocessing
 import os
 
-bind = os.environ.get("GUNICORN_BIND", "unix:/run/floward_clone/gunicorn.sock")
+bind = os.environ.get("GUNICORN_BIND", "unix:/run/yarn_guy/gunicorn.sock")
 workers = int(os.environ.get("GUNICORN_WORKERS", max(3, multiprocessing.cpu_count() + 1)))
 worker_class = "sync"
 timeout = int(os.environ.get("GUNICORN_TIMEOUT", 120))

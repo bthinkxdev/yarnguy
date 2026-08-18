@@ -1,5 +1,5 @@
 """
-Base Django settings shared across all environments for floward_clone.
+Base Django settings shared across all environments for yarn_guy.
 """
 
 from pathlib import Path

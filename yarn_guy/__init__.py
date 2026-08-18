@@ -1,4 +1,4 @@
-"""floward_clone project package; loads Celery app on Django startup."""
+"""yarn_guy project package; loads Celery app on Django startup."""
 
 from __future__ import annotations
 

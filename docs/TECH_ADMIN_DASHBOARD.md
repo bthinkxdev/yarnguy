@@ -57,10 +57,10 @@ dashboard/
 
 | Location | Change |
 |----------|--------|
-| `floward_clone/settings/base.py` → `INSTALLED_APPS` | `"dashboard"` added. |
-| `floward_clone/settings/base.py` → `TEMPLATES` context processors | `"dashboard.context_processors.dashboard_chrome"` added. |
-| `floward_clone/settings/base.py` → `MESSAGE_TAGS` | Maps Django `ERROR` → Bootstrap `danger`. |
-| `floward_clone/urls.py` | `path("dashboard/", include("dashboard.urls"))` (non-i18n prefix). |
+| `yarn_guy/settings/base.py` → `INSTALLED_APPS` | `"dashboard"` added. |
+| `yarn_guy/settings/base.py` → `TEMPLATES` context processors | `"dashboard.context_processors.dashboard_chrome"` added. |
+| `yarn_guy/settings/base.py` → `MESSAGE_TAGS` | Maps Django `ERROR` → Bootstrap `danger`. |
+| `yarn_guy/urls.py` | `path("dashboard/", include("dashboard.urls"))` (non-i18n prefix). |
 
 `dashboard/apps.py` defines `DashboardConfig` (`name="dashboard"`, `verbose_name="Dashboard"`, `default_auto_field=BigAutoField`).
 
