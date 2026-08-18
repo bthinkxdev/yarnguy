@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from floward_clone.celery import app as celery_app
+from yarn_guy.celery import app as celery_app
 
 __all__ = ("celery_app",)
