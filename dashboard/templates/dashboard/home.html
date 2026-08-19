@@ -157,7 +157,7 @@
     <div class="card h-100">
       <div class="card-header panel-header">
         <h4 class="panel-title">Low Stock Products</h4>
-        <a href="{% url 'dashboard:product-list' %}" class="panel-link">View all</a>
+        <a href="{% url 'dashboard:product-list' %}?status=low" class="panel-link">View all</a>
       </div>
       <div class="card-body p-0">
         {% for prod in low_stock %}

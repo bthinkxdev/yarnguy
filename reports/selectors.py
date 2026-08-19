@@ -7,8 +7,10 @@ from typing import Any, Optional
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.db.models import Count, Sum
+from django.db.models import Count, Sum, F
 from django.utils import timezone
+
+from catalog.models import Product
 
 from orders.models import Order, OrderStatus
 from reports.models import (
@@ -108,9 +110,9 @@ def get_admin_dashboard_summary() -> dict[str, Any]:
     yesterday = today - timedelta(days=1)
 
     yesterday_report = DailySalesReport.objects.filter(report_date=yesterday).first()
-    low_stock_count = InventorySnapshot.objects.filter(
-        report_date=yesterday,
-        is_low_stock=True,
+    low_stock_count = Product.objects.filter(
+        is_active=True,
+        stock_quantity__lte=F("low_stock_threshold"),
     ).count()
 
     today_orders = Order.objects.filter(created_at__date=today).exclude(
