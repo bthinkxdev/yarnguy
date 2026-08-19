@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.db.models import Q
+from django.shortcuts import redirect
 from django.urls import reverse
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
@@ -175,8 +176,18 @@ class DashboardDeleteView(DashboardContextMixin, DeleteView):
         return reverse(f"dashboard:{self.url_basename}-list")
 
     def form_valid(self, form):
-        messages.success(self.request, f"{self.singular_name} deleted.")
-        return super().form_valid(form)
+        from django.db.models import ProtectedError
+        try:
+            response = super().form_valid(form)
+            messages.success(self.request, f"{self.singular_name} deleted.")
+            return response
+        except ProtectedError:
+            obj_name = str(self.object)
+            messages.error(
+                self.request,
+                f"Cannot delete this '{obj_name}' because it is included in an order."
+            )
+            return redirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
