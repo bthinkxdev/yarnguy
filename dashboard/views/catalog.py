@@ -228,6 +228,7 @@ class CategoryListView(DashboardListView):
     singular_name = "Category"
     plural_name = "Categories"
     search_fields = ["name", "slug"]
+    filter_by_active_status = True
     columns = [
         {"label": "Name", "name": "name"},
         {"label": "Slug", "name": "slug"},
@@ -268,6 +269,7 @@ class BrandListView(DashboardListView):
     singular_name = "Brand"
     plural_name = "Brands"
     search_fields = ["name", "slug"]
+    filter_by_featured_status = True
     columns = [
         {"label": "Name", "name": "name"},
         {"label": "Slug", "name": "slug"},

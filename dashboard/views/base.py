@@ -47,6 +47,8 @@ class DashboardListView(DashboardContextMixin, ListView):
     can_view: bool = False
     can_edit: bool = True
     can_delete: bool = True
+    filter_by_active_status: bool = False
+    filter_by_featured_status: bool = False
     default_ordering: list[str] = ["-pk"]
 
     def get_queryset(self):
@@ -61,6 +63,21 @@ class DashboardListView(DashboardContextMixin, ListView):
             for field in self.search_fields:
                 filters |= Q(**{f"{field}__icontains": query})
             qs = qs.filter(filters)
+            
+        if self.filter_by_active_status:
+            status_filter = self.request.GET.get("status", "")
+            if status_filter == "active":
+                qs = qs.filter(is_active=True)
+            elif status_filter == "inactive":
+                qs = qs.filter(is_active=False)
+                
+        if self.filter_by_featured_status:
+            featured_filter = self.request.GET.get("featured", "")
+            if featured_filter == "yes":
+                qs = qs.filter(is_featured=True)
+            elif featured_filter == "no":
+                qs = qs.filter(is_featured=False)
+                
         if not qs.ordered:
             qs = qs.order_by(*self.default_ordering)
         return qs
@@ -73,6 +90,10 @@ class DashboardListView(DashboardContextMixin, ListView):
         context["plural_name"] = self.plural_name or self.model._meta.verbose_name_plural.title()
         context["search_query"] = self.request.GET.get("q", "")
         context["searchable"] = bool(self.search_fields)
+        context["filter_by_active_status"] = self.filter_by_active_status
+        context["current_status"] = self.request.GET.get("status", "")
+        context["filter_by_featured_status"] = self.filter_by_featured_status
+        context["current_featured"] = self.request.GET.get("featured", "")
         context["can_create"] = self.can_create
         context["can_view"] = self.can_view
         context["can_edit"] = self.can_edit

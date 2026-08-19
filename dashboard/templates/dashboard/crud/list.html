@@ -14,11 +14,43 @@
 <div class="row">
   <div class="col-12">
     {% if searchable %}
-    <form method="get" class="d-flex gap-2 mb-3 flex-wrap" role="search">
-      <input type="text" name="q" value="{{ search_query }}" class="form-control" style="max-width: 320px;"
-             placeholder="Search {{ plural_name|lower }}..." />
-      <button type="submit" class="btn btn-outline-secondary"><i class="ti ti-search"></i></button>
-      {% if search_query %}<a href="?" class="btn btn-link">Clear</a>{% endif %}
+    <form method="get" class="row g-2 align-items-center mb-3">
+      <div class="col-12 col-md-4">
+        <div class="input-group">
+          <input type="text" id="searchInput" name="q" value="{{ search_query }}" class="form-control border-end-0"
+                 placeholder="Search {{ plural_name|lower }}..." />
+          <button type="button" class="input-group-text bg-transparent border-start-0 {% if search_query %}border-end-0{% endif %} text-secondary" onclick="if(document.getElementById('searchInput').value.trim() !== '') { this.form.submit(); }" title="Search"><i class="ti ti-search"></i></button>
+          {% if search_query %}
+          <button type="button" class="input-group-text bg-transparent border-start-0 text-secondary" onclick="document.getElementById('searchInput').value=''; this.form.submit();" title="Clear search"><i class="ti ti-x"></i></button>
+          {% endif %}
+        </div>
+      </div>
+      {% if filter_by_active_status %}
+      <div class="col-6 col-md-auto">
+        <select name="status" class="form-select">
+          <option value="">All statuses</option>
+          <option value="active" {% if current_status == "active" %}selected{% endif %}>Active</option>
+          <option value="inactive" {% if current_status == "inactive" %}selected{% endif %}>Inactive</option>
+        </select>
+      </div>
+      {% endif %}
+      {% if filter_by_featured_status %}
+      <div class="col-6 col-md-auto">
+        <select name="featured" class="form-select">
+          <option value="">All statuses</option>
+          <option value="yes" {% if current_featured == "yes" %}selected{% endif %}>Featured</option>
+          <option value="no" {% if current_featured == "no" %}selected{% endif %}>Not featured</option>
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-6 col-md-auto d-flex align-items-center gap-2">
+        {% if filter_by_active_status or filter_by_featured_status %}
+        <button type="submit" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Filter</button>
+        {% endif %}
+        {% if search_query or current_status or current_featured %}
+        <a href="?" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
+        {% endif %}
+      </div>
     </form>
     {% endif %}
 

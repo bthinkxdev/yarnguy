@@ -16,16 +16,21 @@
 
 <div class="row">
   <div class="col-12">
-    <form method="get" class="d-flex gap-2 mb-3 flex-wrap align-items-end">
-      <div>
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-6 col-md-auto">
         <label class="form-label small mb-1">From</label>
         <input type="date" name="start" value="{{ start|date:'Y-m-d' }}" class="form-control" />
       </div>
-      <div>
+      <div class="col-6 col-md-auto">
         <label class="form-label small mb-1">To</label>
         <input type="date" name="end" value="{{ end|date:'Y-m-d' }}" class="form-control" />
       </div>
-      <button type="submit" class="btn btn-outline-secondary">Apply</button>
+      <div class="col-12 col-md-auto d-flex align-items-center gap-2">
+        <button type="submit" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Apply</button>
+        {% if request.GET.start or request.GET.end %}
+        <a href="{% url 'dashboard:reports' %}" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
+        {% endif %}
+      </div>
     </form>
   </div>
 </div>

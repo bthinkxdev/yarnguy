@@ -23,9 +23,20 @@ def order_list(request: HttpRequest) -> HttpResponse:
     status = request.GET.get("status", "").strip()
     if status:
         qs = qs.filter(order_status=status)
+    from django.db.models import Q
     query = request.GET.get("q", "").strip()
     if query:
-        qs = qs.filter(order_number__icontains=query)
+        qs = qs.filter(
+            Q(order_number__icontains=query) |
+            Q(customer_profile__user__first_name__icontains=query) |
+            Q(customer_profile__user__last_name__icontains=query) |
+            Q(customer_profile__phone__icontains=query)
+        )
+
+    from payments.models import PaymentStatus
+    payment_status = request.GET.get("payment_status", "").strip()
+    if payment_status:
+        qs = qs.filter(payment_transactions__status=payment_status).distinct()
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
@@ -39,7 +50,9 @@ def order_list(request: HttpRequest) -> HttpResponse:
         "page_obj": page_obj,
         "objects": page_obj.object_list,
         "statuses": OrderStatus.choices,
+        "payment_statuses": PaymentStatus.choices,
         "current_status": status,
+        "current_payment_status": payment_status,
         "search_query": query,
         "querystring": params.urlencode(),
     }

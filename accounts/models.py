@@ -74,7 +74,7 @@ class CustomerProfile(TimeStampedModel):
         help_text="Receive order updates via email.",
     )
     notify_via_sms = models.BooleanField(
-        default=True,
+        default=False,
         verbose_name="SMS notifications",
         help_text="Receive order updates via SMS.",
     )
