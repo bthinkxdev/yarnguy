@@ -24,11 +24,30 @@ def resolve_meta_description(*, obj: Any, fallback: str) -> str:
 
 
 def resolve_og_image_url(*, obj: Any, request: HttpRequest) -> str:
-    """Return absolute OG image URL from object or empty string."""
+    """
+    Return absolute OG image URL from an object.
+
+    Priority: object's own `og_image` field, then (for products) the first
+    gallery image, else empty string.
+    """
     og_image = getattr(obj, "og_image", None)
     if og_image and getattr(og_image, "url", None):
         return request.build_absolute_uri(og_image.url)
+
+    images = getattr(obj, "image_list", None) or getattr(obj, "images", None)
+    if images:
+        first = images[0] if isinstance(images, list) else images.first()
+        if first and getattr(first, "image", None):
+            return request.build_absolute_uri(first.image.url)
+
     return ""
+
+
+def resolve_default_og_image_url(*, request: HttpRequest) -> str:
+    """Absolute URL of the site's default OG image (full logo, 1200x630, no crop/stretch)."""
+    from django.templatetags.static import static
+
+    return request.build_absolute_uri(static("dashboard/images/og-default.png"))
 
 
 def build_hreflang_urls(*, request: HttpRequest) -> list[dict[str, str]]:
@@ -151,11 +170,20 @@ def seo_context(
         description = resolve_meta_description(obj=obj, fallback=description)
 
     canonical = canonical_url or request.build_absolute_uri(request.path)
+
+    og_image = resolve_og_image_url(obj=obj, request=request) if obj is not None else ""
+    og_image_width = og_image_height = None
+    if not og_image:
+        og_image = resolve_default_og_image_url(request=request)
+        og_image_width, og_image_height = 1200, 630
+
     return {
         "seo_title": title,
         "seo_description": description,
         "seo_canonical_url": canonical,
-        "seo_og_image": resolve_og_image_url(obj=obj, request=request) if obj else "",
+        "seo_og_image": og_image,
+        "seo_og_image_width": og_image_width,
+        "seo_og_image_height": og_image_height,
         "seo_hreflang_urls": build_hreflang_urls(request=request),
         "seo_lang": get_language() or settings.LANGUAGE_CODE,
     }

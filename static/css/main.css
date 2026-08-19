@@ -4358,7 +4358,6 @@ body.mobile-search-open .jm-wa-float {
 
 .jm-product-card__media img {
   object-fit: contain !important;
-  padding: 1rem;
   transition: transform 0.35s ease;
 }
 
@@ -5600,10 +5599,6 @@ button.jm-product-card__atc--in-cart:hover {
   /* ----- Product cards (compact Flipkart style) ----- */
   .jm-product-card {
     border-radius: 10px !important;
-  }
-
-  .jm-product-card__media img {
-    padding: 0.55rem;
   }
 
   .jm-product-card__hover {
