@@ -203,8 +203,7 @@
     <div class="jm-mobile-nav container">
       <a class="{% if request.resolver_match.url_name == 'homepage' and request.GET.ref != 'brands' %}is-active{% endif %}"
         href="{% url 'cms:homepage' %}">{% trans "Home" %}</a>
-      <a class="{% if request.resolver_match.url_name == 'plp' %}is-active{% endif %}" href="{% url 'catalog:plp' %}">{%
-        trans "Shop All" %}</a>
+      <a class="{% if request.resolver_match.url_name == 'plp' %}is-active{% endif %}" href="{% url 'catalog:plp' %}">{% trans "Shop All" %}</a>
       {% for cat in category_tree %}
       <a class="{% if request.resolver_match.kwargs.category_slug == cat.slug %}is-active{% endif %}"
         href="{% url 'catalog:plp-category' category_slug=cat.slug %}">{{ cat.name }}</a>

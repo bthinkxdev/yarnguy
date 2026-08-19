@@ -101,8 +101,8 @@
             margin-bottom: 20px;
             gap: 20px;
         }
-        .bill-to, .ship-to {
-            flex: 1;
+        .ship-to {
+            flex: 0 1 320px;
             padding: 12px 15px;
             background: #f7fafc;
             border-radius: 8px;
@@ -283,39 +283,8 @@
             </div>
 
             <div class="info-section">
-                <div class="bill-to">
-                    <div class="section-title">Bill To</div>
-                    <div class="customer-details">
-                        <div class="customer-name">
-                            {% if order.delivery_address_snapshot.name %}
-                                {{ order.delivery_address_snapshot.name }}
-                            {% elif order.customer_profile and order.customer_profile.user.get_full_name %}
-                                {{ order.customer_profile.user.get_full_name }}
-                            {% else %}
-                                Guest Customer
-                            {% endif %}
-                        </div>
-                        {% if order.delivery_address_snapshot.line1 %}<div>{{ order.delivery_address_snapshot.line1 }}</div>{% endif %}
-                        {% if order.delivery_address_snapshot.line2 %}
-                            <div>{{ order.delivery_address_snapshot.line2 }}</div>
-                        {% endif %}
-                        <div>{{ order.delivery_address_snapshot.city }}{% if order.delivery_address_snapshot.state %}, {{ order.delivery_address_snapshot.state }}{% endif %} {{ order.delivery_address_snapshot.pincode }}</div>
-                        
-                        {% if order.delivery_address_snapshot.email %}
-                            <div>{{ order.delivery_address_snapshot.email }}</div>
-                        {% elif order.customer_profile %}
-                            <div>{{ order.customer_profile.user.email }}</div>
-                        {% endif %}
-                        
-                        {% if order.delivery_address_snapshot.phone %}
-                            <div>{{ order.delivery_address_snapshot.phone }}</div>
-                        {% elif order.customer_profile and order.customer_profile.get_phone %}
-                            <div>{{ order.customer_profile.get_phone }}</div>
-                        {% endif %}
-                    </div>
-                </div>
                 <div class="ship-to">
-                    <div class="section-title">Ship To</div>
+                    <div class="section-title">Shipping Address</div>
                     <div class="customer-details">
                         <div class="customer-name">
                             {% if order.delivery_address_snapshot.name %}
@@ -331,13 +300,13 @@
                             <div>{{ order.delivery_address_snapshot.line2 }}</div>
                         {% endif %}
                         <div>{{ order.delivery_address_snapshot.city }}{% if order.delivery_address_snapshot.state %}, {{ order.delivery_address_snapshot.state }}{% endif %} {{ order.delivery_address_snapshot.pincode }}</div>
-                        
+
                         {% if order.delivery_address_snapshot.email %}
                             <div>{{ order.delivery_address_snapshot.email }}</div>
                         {% elif order.customer_profile %}
                             <div>{{ order.customer_profile.user.email }}</div>
                         {% endif %}
-                        
+
                         {% if order.delivery_address_snapshot.phone %}
                             <div>{{ order.delivery_address_snapshot.phone }}</div>
                         {% elif order.customer_profile and order.customer_profile.get_phone %}
