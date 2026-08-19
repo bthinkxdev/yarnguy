@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{{ seo_title }}{% endblock %}
 
@@ -30,6 +30,9 @@
             <label class="form-label small fw-medium">{% trans "Message" %}</label>
             {{ form.message }}
           </div>
+
+          {% include "shared/image_captcha.html" with scope="contact" field_id="image_captcha_contact" label="Security check" captcha_bust=captcha_bust %}
+
           <button type="submit" class="btn btn-floward">
             {% trans "Enquiry" %}
           </button>
@@ -56,4 +59,9 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script src="{% static 'common/js/image-captcha.js' %}" defer></script>
 {% endblock %}

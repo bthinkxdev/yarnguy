@@ -23,6 +23,10 @@ def trigger_shipment_on_order_confirmed(order):
 
     #extract B2C customer details from delivery_address_snapshot
     addr = order.delivery_address_snapshot or {}
+    if not isinstance(addr, dict):
+        logger.error(f"Invalid delivery_address_snapshot for order {order.order_number}: {addr!r}")
+        return False
+
     customer_name = addr.get("name") or addr.get("recipient_name") or "Customer"
     phone = addr.get("phone") or ""
     if not phone and order.customer_profile and order.customer_profile.phone:
@@ -50,15 +54,21 @@ def trigger_shipment_on_order_confirmed(order):
     
     url = f"{base_url}/api/cmu/create.json"
     
-    #format according to Delhivery B2C specs
+    #format according to Delhivery B2C specs - pickup_location must be an object, not a bare string
+    pickup_location_name = getattr(settings, "DELHIVERY_PICKUP_LOCATION", "Primary")
+    request_payload = {
+        "shipments": [shipment_payload],
+        "pickup_location": {
+            "name": pickup_location_name,
+        },
+    }
     form_data = {
         "format": "json",
-        "data": json.dumps({
-            "shipments": [shipment_payload],
-            "pickup_location": getattr(settings, "DELHIVERY_PICKUP_LOCATION", "Primary"),
-        })
+        "data": json.dumps(request_payload),
     }
-    
+
+    logger.info(f"Delhivery request payload for {order.order_number}: {request_payload}")
+
     encoded_data = urllib.parse.urlencode(form_data).encode("utf-8")
     headers = {
         "Authorization": f"Token {api_key}",
@@ -109,7 +119,17 @@ def trigger_shipment_on_order_confirmed(order):
         return False
     except urllib.error.URLError as e:
         logger.error(f"Delhivery connection failed for order {order.order_number}: {e.reason}")
+        from delhivery.models import DelhiveryShipment
+        DelhiveryShipment.objects.update_or_create(
+            order=order,
+            defaults={"tracking_status": "Connection Error", "error_message": str(e.reason)}
+        )
         return False
     except Exception as e:
-        logger.error(f"Unexpected error when calling Delhivery API: {str(e)}")
+        logger.error(f"Unexpected error when calling Delhivery API for order {order.order_number}: {str(e)}")
+        from delhivery.models import DelhiveryShipment
+        DelhiveryShipment.objects.update_or_create(
+            order=order,
+            defaults={"tracking_status": "Error", "error_message": str(e)}
+        )
         return False

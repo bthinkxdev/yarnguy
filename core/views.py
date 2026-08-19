@@ -53,6 +53,8 @@ def privacy_policy_view(request: HttpRequest) -> HttpResponse:
 @require_GET
 def contact_us_view(request: HttpRequest) -> HttpResponse:
     """Render the static Contact Us page with a contact form."""
+    import time
+
     form = ContactInquiryForm()
     if request.user.is_authenticated:
         form.initial["name"] = request.user.get_full_name() or request.user.email
@@ -64,16 +66,33 @@ def contact_us_view(request: HttpRequest) -> HttpResponse:
         description=_("Get in touch with Yarn Guy customer support."),
     )
     context["form"] = form
+    context["captcha_bust"] = int(time.time() * 1000)
     return render(request, "core/contact_us.html", context)
 
 
 @require_POST
 def submit_inquiry_view(request: HttpRequest) -> HttpResponse:
     """Handle contact form submissions."""
+    from django.core.exceptions import ValidationError
+
+    from core import image_captcha
+
     form = ContactInquiryForm(request.POST)
     if form.is_valid():
+        try:
+            image_captcha.verify_answer(
+                request,
+                image_captcha.extract_image_captcha_value(request),
+                scope="contact",
+                ip_address=request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR", ""),
+            )
+        except ValidationError as exc:
+            msg = exc.messages[0] if getattr(exc, "messages", None) else str(exc)
+            messages.error(request, msg)
+            return redirect(request.META.get("HTTP_REFERER", "core:contact-us"))
+
         inquiry = form.save()
-        
+
         site_settings = get_site_settings()
         
         #dispatch background email to vendor

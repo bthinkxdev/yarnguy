@@ -252,4 +252,5 @@ SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 DELHIVERY_API_KEY = env("DELHIVERY_API_KEY", default="")
 DELHIVERY_BASE_URL = env("DELHIVERY_BASE_URL", default="https://staging-express.delhivery.com")
 DELHIVERY_WEBHOOK_TOKEN = env("DELHIVERY_WEBHOOK_TOKEN", default="")
+DELHIVERY_PICKUP_LOCATION = env("DELHIVERY_PICKUP_LOCATION", default="Primary")
 

@@ -38,7 +38,7 @@ def cache_set(key: str, value, ttl_seconds: int) -> None:
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
-SCOPES = frozenset({'customer_login'})
+SCOPES = frozenset({'customer_login', 'contact'})
 
 CAPTCHA_LENGTH = 6
 MIN_SUBMIT_SECONDS = 3
