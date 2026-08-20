@@ -7,9 +7,9 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-def trigger_shipment_on_order_confirmed(order):
+def trigger_shipment_on_pending(order):
     """
-    Trigger a Delhivery B2C shipment when an order status changes to 'Confirmed'.
+    Trigger a Delhivery B2C shipment when an order status changes to 'Pending'.
     Sends an actual HTTP POST request directly to Delhivery Express servers.
     """
     logger.info(f"Triggering Delhivery shipment for order {order.order_number}")

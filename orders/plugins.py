@@ -2,7 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class OrderConfirmedPluginRegistry:
+class OrderPendingPluginRegistry:
     def __init__(self):
         self._plugins = []
 
@@ -21,4 +21,4 @@ class OrderConfirmedPluginRegistry:
                 logger.error(f"Error executing plugin {plugin.__name__}: {e}")
 
 #global registry instance
-order_confirmed_registry = OrderConfirmedPluginRegistry()
+order_pending_registry = OrderPendingPluginRegistry()

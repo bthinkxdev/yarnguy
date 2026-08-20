@@ -16,8 +16,9 @@ from orders.signals import order_status_changed
 
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.PLACED: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
-    OrderStatus.CONFIRMED: {OrderStatus.PREPARING, OrderStatus.CANCELLED},
-    OrderStatus.PREPARING: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
+    OrderStatus.CONFIRMED: {OrderStatus.PENDING, OrderStatus.CANCELLED},
+    OrderStatus.PENDING: {OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED},
+    OrderStatus.READY_TO_SHIP: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
     OrderStatus.SHIPPED: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
     OrderStatus.CANCELLED: set(),
@@ -79,8 +80,8 @@ def transition_order_status(
         send_notifications=send_notifications,
     )
 
-    if new_status == OrderStatus.CONFIRMED:
-        from orders.plugins import order_confirmed_registry
-        order_confirmed_registry.execute_plugins(order)
+    if new_status == OrderStatus.PENDING:
+        from orders.plugins import order_pending_registry
+        order_pending_registry.execute_plugins(order)
 
     return order

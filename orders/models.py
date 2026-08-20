@@ -13,7 +13,8 @@ class OrderStatus(models.TextChoices):
 
     PLACED = "placed", "Placed"
     CONFIRMED = "confirmed", "Confirmed"
-    PREPARING = "preparing", "Preparing"
+    PENDING = "pending", "Pending"
+    READY_TO_SHIP = "ready_to_ship", "Ready to Ship"
     SHIPPED = "shipped", "Shipped"
     DELIVERED = "delivered", "Delivered"
     CANCELLED = "cancelled", "Cancelled"
