@@ -553,7 +553,7 @@ class ProductSpecification(TimeStampedModel):
         help_text="e.g., Weight, Dimensions, Battery Life, Voltage",
     )
     value = models.CharField(
-        max_length=255,
+        max_length=1024,
         verbose_name="Specification Value",
         help_text="e.g., 2.5 kg, 12V, Lithium-Ion",
     )
