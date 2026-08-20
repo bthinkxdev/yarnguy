@@ -56,7 +56,7 @@
         <div class="jm-pdp-field mb-3">
           <div class="d-flex justify-content-between align-items-end mb-2">
             <label class="jm-pdp-field__label mb-0">{% trans "Size" %}</label>
-            {% if product.documents.first %}
+            {% if product.size_chart and product.size_chart.is_active %}
             <a href="#" data-bs-toggle="modal" data-bs-target="#sizeGuideModal" class="text-decoration-none text-dark small" style="font-weight: 500; text-underline-offset: 4px; text-decoration: underline !important;">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-grid me-1" viewBox="0 0 16 16" style="margin-top: -2px;">
                 <path d="M5 1v8H1V1h4zM1 0a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1H1zm13 2v5H9V2h5zM9 1a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H9zM5 11v4H1v-4h4zM1 10a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1H1zm13 2v2H9v-2h5zM9 11a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h5a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H9z"/>
@@ -306,22 +306,72 @@
   {% endif %}
 </div>
 
-  {% if product.documents.first %}
+  {% if product.size_chart and product.size_chart.is_active %}
   <div class="modal fade" id="sizeGuideModal" tabindex="-1" aria-labelledby="sizeGuideModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="sizeGuideModalLabel">{% trans "Size Guide" %}</h5>
+      <div class="modal-content border-0 shadow-lg">
+        <div class="modal-header border-bottom-0 pb-0">
+          <h5 class="modal-title fs-4 fw-bold" id="sizeGuideModalLabel">{% trans "Size Guide" %}</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="modal-body text-center p-3">
-          {% with doc_url=product.documents.first.document_file.url %}
-            {% if '.pdf' in doc_url or '.PDF' in doc_url %}
-              <iframe src="{{ doc_url }}" width="100%" height="600px" style="border: none;"></iframe>
-            {% else %}
-              <img src="{{ doc_url }}" alt="{% trans 'Size Guide' %}" class="img-fluid w-100" style="max-height: 80vh; object-fit: contain;">
-            {% endif %}
-          {% endwith %}
+        <div class="modal-body p-4">
+          <style>
+            .size-chart-content {
+              font-size: 0.95rem;
+              color: #334155;
+            }
+            .size-chart-content table {
+              width: 100%;
+              border-collapse: separate;
+              border-spacing: 0;
+              margin-bottom: 1.5rem;
+              background-color: #fff;
+              border-radius: 12px;
+              overflow: hidden;
+              box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+              border: 1px solid #e2e8f0;
+            }
+            .size-chart-content table th,
+            .size-chart-content table td {
+              padding: 14px 16px;
+              text-align: center;
+              border-bottom: 1px solid #f1f5f9;
+            }
+            .size-chart-content table td:not(:last-child),
+            .size-chart-content table th:not(:last-child) {
+              border-right: 1px solid #f1f5f9;
+            }
+            .size-chart-content table th,
+            .size-chart-content table tr:first-child td {
+              background-color: #f8fafc;
+              font-weight: 600;
+              text-transform: uppercase;
+              font-size: 0.75rem;
+              letter-spacing: 0.05em;
+              color: #475569;
+            }
+            .size-chart-content table tr:last-child td {
+              border-bottom: none;
+            }
+            .size-chart-content table tbody tr {
+              transition: background-color 0.15s ease;
+            }
+            .size-chart-content table tbody tr:hover {
+              background-color: #f8fafc;
+            }
+          </style>
+
+          {% if product.size_chart.image %}
+            <div class="text-center mb-4">
+              <img src="{{ product.size_chart.image.url }}" alt="{% trans 'Size Guide' %}" class="img-fluid rounded" style="max-height: 70vh; object-fit: contain;">
+            </div>
+          {% endif %}
+          
+          {% if product.size_chart.content_html %}
+            <div class="size-chart-content table-responsive">
+              {{ product.size_chart.content_html|safe }}
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>

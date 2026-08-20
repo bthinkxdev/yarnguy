@@ -170,8 +170,9 @@
             <div class="col-12">{% include "dashboard/partials/_field.html" with field=form.name %}</div>
             <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.sku %}</div>
             <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.slug %}</div>
-            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.category %}</div>
-            <div class="col-md-6">{% include "dashboard/partials/_field.html" with field=form.brand %}</div>
+            <div class="col-md-4">{% include "dashboard/partials/_field.html" with field=form.category %}</div>
+            <div class="col-md-4">{% include "dashboard/partials/_field.html" with field=form.brand %}</div>
+            <div class="col-md-4">{% include "dashboard/partials/_field.html" with field=form.size_chart %}</div>
             <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.base_price %}</div>
             <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.mrp %}</div>
             <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.purchase_price %}</div>
@@ -447,115 +448,7 @@
         </div>
       </div>
 
-      <div class="card mb-3" data-formset="documents">
-        <div class="card-header panel-header">
-          <div>
-            <h3 class="panel-title">Size Chart</h3>
-            <p class="panel-sub">Upload a size chart or guide for this product (Image or PDF format)</p>
-          </div>
-          <button type="button" class="btn btn-sm btn-outline-primary" data-formset-add><i
-              class="ti ti-plus me-1"></i>Add size chart</button>
-        </div>
-        <div class="card-body p-0">
-          {{ documents.management_form }}
-          <div class="table-responsive">
-            <table class="table repeater align-middle mb-0">
-              <thead>
-                <tr>
-                  <th class="d-none"></th>
-                  <th>Document Title</th>
-                  <th>PDF/Document File</th>
-                  <th>Display Order</th>
-                  <th class="text-center">View</th>
-                  <th class="text-center">Remove</th>
-                </tr>
-              </thead>
-              <tbody data-formset-body>
-                {% for dform in documents %}
-                <tr>
-                  <td class="d-none">
-                    {{ dform.id }}
-                    {% if dform.instance.pk %}{{ dform.DELETE }}{% endif %}
-                  </td>
-                  <td>
-                    {{ dform.title }}
-                    {% if dform.title.errors %}
-                    <div class="text-danger small mt-1">{{ dform.title.errors|join:", " }}</div>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if dform.instance.pk and dform.instance.document_file %}
-                    <div class="d-flex align-items-center mb-1 py-1" data-existing-file-container>
-                      <span class="small fw-semibold text-dark text-truncate" style="max-width: 250px;" data-file-label>
-                        <i class="ti ti-file-text me-1 text-secondary"></i>{{ dform.instance.filename }}
-                      </span>
-                      <button type="button" class="btn btn-xs btn-outline-primary ms-2" data-replace-file-btn
-                        style="padding: 2px 8px; font-size: 0.75rem;">Change</button>
-                      <div class="d-none">
-                        {{ dform.document_file }}
-                      </div>
-                    </div>
-                    <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Replace current document (PDF or
-                      Image).</span>
-                    {% else %}
-                    {{ dform.document_file }}
-                    <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Upload document (PDF or
-                      Image).</span>
-                    {% endif %}
-                    {% if dform.document_file.errors %}
-                    <div class="text-danger small mt-1">{{ dform.document_file.errors|join:", " }}</div>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ dform.display_order }}
-                    {% if dform.display_order.errors %}
-                    <div class="text-danger small mt-1">{{ dform.display_order.errors|join:", " }}</div>
-                    {% endif %}
-                  </td>
-                  <td class="text-center" data-view-container>
-                    {% if dform.instance.pk and dform.instance.document_file %}
-                    <a href="{{ dform.instance.document_file.url }}" target="_blank"
-                      class="btn btn-icon btn-sm btn-light text-info" data-view-btn title="View Document"><i
-                        class="ti ti-eye"></i></a>
-                    {% else %}
-                    <span class="text-muted small" data-view-placeholder>-</span>
-                    {% endif %}
-                  </td>
-                  <td class="text-center">
-                    <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove
-                      title="Remove Document">
-                      <i class="ti ti-trash"></i>
-                    </button>
-                  </td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-          <template data-formset-empty>
-            <tr>
-              <td class="d-none">
-                {{ documents.empty_form.id }}
-                {{ documents.empty_form.DELETE }}
-              </td>
-              <td>{{ documents.empty_form.title }}</td>
-              <td>
-                {{ documents.empty_form.document_file }}
-                <span class="text-muted d-block mt-1" style="font-size: 0.75rem;">Upload a PDF or Image.</span>
-              </td>
-              <td>{{ documents.empty_form.display_order }}</td>
-              <td class="text-center" data-view-container>
-                <span class="text-muted small" data-view-placeholder>-</span>
-              </td>
-              <td class="text-center">
-                <button type="button" class="btn btn-icon btn-sm btn-light text-danger" data-row-remove>
-                  <i class="ti ti-trash"></i>
-                </button>
-              </td>
-            </tr>
-          </template>
-        </div>
-      </div>
+
       <div class="card mb-3">
         <div class="card-header panel-header">
           <div>

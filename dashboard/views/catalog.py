@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from catalog.models import Brand, Category, Product, Review, HomePageProduct
+from catalog.models import Brand, Category, Product, Review, HomePageProduct, SizeChart
 from core.models import Currency
 from dashboard import forms
 from dashboard.access import dashboard_required
@@ -99,15 +99,11 @@ def _render_product_form(request, product, mode):
         specifications = forms.ProductSpecificationFormSet(
             request.POST, instance=product, prefix="specifications"
         )
-        documents = forms.ProductDocumentFormSet(
-            request.POST, request.FILES, instance=product, prefix="documents"
-        )
         if (
             form.is_valid()
             and variants.is_valid()
             and images.is_valid()
             and specifications.is_valid()
-            and documents.is_valid()
         ):
             product = form.save()
             variants.instance = product
@@ -128,8 +124,6 @@ def _render_product_form(request, product, mode):
             images.save()
             specifications.instance = product
             specifications.save()
-            documents.instance = product
-            documents.save()
             messages.success(request, f"Product '{product.name}' saved successfully.")
             return redirect("dashboard:product-list")
 
@@ -140,7 +134,6 @@ def _render_product_form(request, product, mode):
         specifications = forms.ProductSpecificationFormSet(
             instance=product, prefix="specifications"
         )
-        documents = forms.ProductDocumentFormSet(instance=product, prefix="documents")
 
     for f in [
         form,
@@ -150,8 +143,6 @@ def _render_product_form(request, product, mode):
         images.empty_form,
         *specifications.forms,
         specifications.empty_form,
-        *documents.forms,
-        documents.empty_form,
     ]:
         _style(f)
 
@@ -162,7 +153,6 @@ def _render_product_form(request, product, mode):
         "variants": variants,
         "images": images,
         "specifications": specifications,
-        "documents": documents,
         "form_mode": mode,
         "product": product,
         "cancel_url": reverse("dashboard:product-list"),
@@ -298,6 +288,47 @@ class BrandDeleteView(DashboardDeleteView):
     nav_section = "brands"
     url_basename = "brand"
     singular_name = "Brand"
+
+
+
+class SizeChartListView(DashboardListView):
+    model = SizeChart
+    nav_section = "size_charts"
+    url_basename = "sizechart"
+    singular_name = "Size Chart"
+    plural_name = "Size Charts"
+    search_fields = ["name"]
+    filter_by_active_status = True
+    columns = [
+        {"label": "Name", "name": "name"},
+        {"label": "Created At", "name": "created_at", "type": "datetime"},
+        {"label": "Active", "name": "is_active", "type": "bool"},
+    ]
+
+
+class SizeChartCreateView(DashboardCreateView):
+    model = SizeChart
+    form_class = forms.SizeChartForm
+    nav_section = "size_charts"
+    url_basename = "sizechart"
+    singular_name = "Size Chart"
+    template_name = "dashboard/catalog/sizechart_form.html"
+
+
+class SizeChartUpdateView(DashboardUpdateView):
+    model = SizeChart
+    form_class = forms.SizeChartForm
+    nav_section = "size_charts"
+    url_basename = "sizechart"
+    singular_name = "Size Chart"
+    template_name = "dashboard/catalog/sizechart_form.html"
+
+
+class SizeChartDeleteView(DashboardDeleteView):
+    model = SizeChart
+    nav_section = "size_charts"
+    url_basename = "sizechart"
+    singular_name = "Size Chart"
 
 
 

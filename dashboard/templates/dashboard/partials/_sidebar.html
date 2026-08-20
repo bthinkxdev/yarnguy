@@ -37,6 +37,12 @@
         <i class="ti ti-category"></i><span class="nav-text">Categories</span>
       </a>
     </li>
+    <li>
+      <a class="nav-link {% if nav_section == 'size_charts' %}active{% endif %}"
+        href="{% url 'dashboard:sizechart-list' %}">
+        <i class="ti ti-ruler-measure"></i><span class="nav-text">Size Charts</span>
+      </a>
+    </li>
 
     <li>
       <a class="nav-link {% if nav_section == 'brands' %}active{% endif %}" href="{% url 'dashboard:brand-list' %}">

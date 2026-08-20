@@ -78,6 +78,14 @@ urlpatterns += _crud(
 )
 
 urlpatterns += _crud(
+    "sizechart",
+    catalog.SizeChartListView,
+    catalog.SizeChartCreateView,
+    catalog.SizeChartUpdateView,
+    catalog.SizeChartDeleteView,
+)
+
+urlpatterns += _crud(
     "coupon",
     marketing.CouponListView,
     marketing.CouponCreateView,

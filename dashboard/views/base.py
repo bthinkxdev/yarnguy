@@ -135,7 +135,7 @@ class DashboardCreateView(_FormStyleMixin, DashboardContextMixin, CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        messages.success(self.request, f"{self.singular_name} created successfully.")
+        messages.success(self.request, f"'{self.object}' created successfully.")
         return response
 
     def get_context_data(self, **kwargs):
@@ -156,7 +156,7 @@ class DashboardUpdateView(_FormStyleMixin, DashboardContextMixin, UpdateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        messages.success(self.request, f"{self.singular_name} updated successfully.")
+        messages.success(self.request, f"'{self.object}' updated successfully.")
         return response
 
     def get_context_data(self, **kwargs):
@@ -178,8 +178,9 @@ class DashboardDeleteView(DashboardContextMixin, DeleteView):
     def form_valid(self, form):
         from django.db.models import ProtectedError
         try:
+            obj_name = str(self.object)
             response = super().form_valid(form)
-            messages.success(self.request, f"{self.singular_name} deleted.")
+            messages.success(self.request, f"'{obj_name}' deleted.")
             return response
         except ProtectedError:
             obj_name = str(self.object)

@@ -10,11 +10,11 @@ from catalog.models import (
     Brand,
     Category,
     Product,
-    ProductDocument,
     ProductImage,
     ProductSpecification,
     ProductVariant,
     Review,
+    SizeChart,
 )
 from cms.models import BlogPost, FAQItem, HeroSlide, HomepageSection, Page, PolicyDocument
 from core.models import SiteSettings, Currency
@@ -47,6 +47,7 @@ class ProductForm(SlugAutoMixin):
             "sku",
             "category",
             "brand",
+            "size_chart",
             "base_price",
             "mrp",
             "purchase_price",
@@ -78,6 +79,12 @@ class ProductForm(SlugAutoMixin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from django.db.models import Q
+        qs = SizeChart.objects.filter(is_active=True)
+        if self.instance and self.instance.pk and self.instance.size_chart_id:
+            qs = SizeChart.objects.filter(Q(is_active=True) | Q(pk=self.instance.size_chart_id))
+        self.fields["size_chart"].queryset = qs.order_by("name")
+        self.fields["size_chart"].empty_label = "No Size Chart"
         self.fields["slug"].required = False
         self.fields["base_price"].required = False
         self.fields["mrp"].required = False
@@ -122,6 +129,16 @@ class BrandForm(SlugAutoMixin):
         super().__init__(*args, **kwargs)
         self.fields["slug"].required = False
 
+
+class SizeChartForm(forms.ModelForm):
+    class Meta:
+        model = SizeChart
+        fields = ["name", "content_html", "image", "is_active"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["content_html"].widget.attrs["class"] = "tinymce-editor"
+        self.fields["content_html"].widget.attrs["style"] = "visibility: hidden; height: 300px;"
 
 
 class ReviewForm(forms.ModelForm):
@@ -211,41 +228,10 @@ class ProductSpecificationForm(forms.ModelForm):
         return val if val is not None else 0
 
 
-class ProductDocumentForm(forms.ModelForm):
-    class Meta:
-        model = ProductDocument
-        fields = ["title", "document_file", "display_order"]
-        widgets = {
-            "document_file": forms.FileInput(),
-        }
-        error_messages = {
-            "title": {"required": "Document title is required."},
-            "document_file": {"required": "Document file is required."},
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields["display_order"].required = False
-        if not self.instance.pk:
-            self.initial["display_order"] = None
-
-    def clean_display_order(self):
-        val = self.cleaned_data.get("display_order")
-        return val if val is not None else 0
-
-
-
 ProductSpecificationFormSet = forms.inlineformset_factory(
     Product,
     ProductSpecification,
     form=ProductSpecificationForm,
-    extra=1,
-    can_delete=True,
-)
-ProductDocumentFormSet = forms.inlineformset_factory(
-    Product,
-    ProductDocument,
-    form=ProductDocumentForm,
     extra=1,
     can_delete=True,
 )

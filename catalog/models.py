@@ -101,6 +101,43 @@ class Brand(TimeStampedModel):
 
 
 
+class SizeChart(TimeStampedModel):
+    """Reusable size chart that can be assigned to multiple products."""
+
+    name = models.CharField(
+        max_length=120,
+        verbose_name="Name",
+        help_text="Internal name to identify the size chart (e.g., 'Men T-Shirts').",
+    )
+    content_html = models.TextField(
+        blank=True,
+        verbose_name="Content",
+        help_text="Use the table tool to create your size chart grid.",
+    )
+    image = models.ImageField(
+        upload_to="size_charts/",
+        blank=True,
+        null=True,
+        verbose_name="Fallback Image",
+        help_text="Optional fallback image. Used if no rich text content is provided.",
+    )
+    is_active = models.BooleanField(
+        default=True,
+        db_index=True,
+        verbose_name="Is active",
+        help_text="When False, size chart is hidden from the product selection dropdown.",
+    )
+
+    class Meta:
+        verbose_name = "Size Chart"
+        verbose_name_plural = "Size Charts"
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+
 class Product(TimeStampedModel):
     """Core sellable product — highest read volume entity in the platform."""
 
@@ -131,6 +168,14 @@ class Product(TimeStampedModel):
         blank=True,
         related_name="products",
         verbose_name="Brand",
+    )
+    size_chart = models.ForeignKey(
+        SizeChart,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="products",
+        verbose_name="Size Chart",
     )
     base_price = models.DecimalField(
         max_digits=12,
