@@ -35,6 +35,18 @@ def trigger_shipment_on_pending(order):
     #check payment method
     is_cod = hasattr(order, 'payment_transactions') and order.payment_transactions.filter(gateway_key="cod").exists()
     
+    #extract SKUs for the payload
+    items = order.items.select_related("product", "variant").all()
+    sku_list = []
+    for item in items:
+        if item.variant and hasattr(item.variant, 'sku'):
+            sku = item.variant.sku
+        else:
+            sku = item.product.sku if hasattr(item.product, 'sku') else item.product.name
+        sku_list.append(f"{sku} (x{item.quantity})")
+    
+    products_description = ", ".join(sku_list) if sku_list else f"Order {order.order_number} items"
+    
     #construct B2C package payload
     shipment_payload = {
         "name": customer_name,
@@ -47,7 +59,7 @@ def trigger_shipment_on_pending(order):
         "order": order.order_number,
         "payment_mode": "COD" if is_cod else "Prepaid",
         "return_pin": "",
-        "products_desc": f"Order {order.order_number} items",
+        "products_desc": products_description,
         "total_amount": float(order.total_amount),
         "cod_amount": float(order.total_amount) if is_cod else 0.0,
     }
