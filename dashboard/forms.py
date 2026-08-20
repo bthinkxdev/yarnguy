@@ -61,6 +61,10 @@ class ProductForm(SlugAutoMixin):
             "meta_title",
             "meta_description",
             "og_image",
+            "weight",
+            "length",
+            "width",
+            "height",
         ]
         error_messages = {
             "name": {"required": "Product name is required."},

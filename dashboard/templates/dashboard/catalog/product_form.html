@@ -10,6 +10,84 @@
   [data-formset="variants"] thead { display: none; }
   [data-formset="variants"] .table-responsive, [data-formset="variants"] .table { overflow: visible; background: transparent; border: none; padding: 0; margin: 0; }
   
+  /* --- MOBILE RESPONSIVE CARDS FOR OTHER TABLES --- */
+  @media (max-width: 991.98px) {
+    [data-formset="images"] thead,
+    [data-formset="specifications"] thead,
+    [data-formset="documents"] thead { display: none; }
+
+    [data-formset="images"] .table-responsive, [data-formset="images"] .table,
+    [data-formset="specifications"] .table-responsive, [data-formset="specifications"] .table,
+    [data-formset="documents"] .table-responsive, [data-formset="documents"] .table { 
+      overflow: visible; background: transparent; border: none; padding: 0; margin: 0; min-width: 0 !important; 
+    }
+    
+    [data-formset="images"] tbody[data-formset-body] tr,
+    [data-formset="specifications"] tbody[data-formset-body] tr,
+    [data-formset="documents"] tbody[data-formset-body] tr {
+      display: flex; flex-wrap: wrap; background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 12px;
+      padding: 24px 8px 8px 24px; margin-bottom: 24px; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    [data-formset="images"] tbody[data-formset-body] td,
+    [data-formset="specifications"] tbody[data-formset-body] td,
+    [data-formset="documents"] tbody[data-formset-body] td { 
+      display: block; border: none; padding: 0 16px 16px 0; margin: 0; width: 100%; box-sizing: border-box; 
+    }
+    
+    [data-formset="images"] tbody[data-formset-body] td.d-none,
+    [data-formset="specifications"] tbody[data-formset-body] td.d-none,
+    [data-formset="documents"] tbody[data-formset-body] td.d-none { display: none; }
+    
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(5),
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(6) { width: 50%; }
+    
+    [data-formset="images"] tbody[data-formset-body] td:last-child,
+    [data-formset="specifications"] tbody[data-formset-body] td:last-child,
+    [data-formset="documents"] tbody[data-formset-body] td:last-child { 
+      position: absolute; top: 16px; right: 16px; padding: 0; width: auto; z-index: 5; 
+    }
+    [data-formset="images"] tbody[data-formset-body] td:last-child .btn-icon,
+    [data-formset="specifications"] tbody[data-formset-body] td:last-child .btn-icon,
+    [data-formset="documents"] tbody[data-formset-body] td:last-child .btn-icon {
+      border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    [data-formset="images"] tbody[data-formset-body] td:last-child .btn-icon:hover,
+    [data-formset="specifications"] tbody[data-formset-body] td:last-child .btn-icon:hover,
+    [data-formset="documents"] tbody[data-formset-body] td:last-child .btn-icon:hover { 
+      background: #fee2e2; color: #ef4444 !important; border-color: #fca5a5; 
+    }
+
+    [data-formset="images"] tbody[data-formset-body] td::before,
+    [data-formset="specifications"] tbody[data-formset-body] td::before,
+    [data-formset="documents"] tbody[data-formset-body] td::before { 
+      display: block; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 6px; 
+    }
+
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(2)::before { content: "Preview"; }
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(3)::before { content: "Image file"; }
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(4)::before { content: "Alt text"; }
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(5)::before { content: "Order"; }
+    [data-formset="images"] tbody[data-formset-body] td:nth-child(6)::before { content: "Primary"; }
+
+    [data-formset="specifications"] tbody[data-formset-body] td:nth-child(2)::before { content: "Specification Name"; }
+    [data-formset="specifications"] tbody[data-formset-body] td:nth-child(3)::before { content: "Value"; }
+    [data-formset="specifications"] tbody[data-formset-body] td:nth-child(4)::before { content: "Display Order"; }
+
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(2)::before { content: "Document Title"; }
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(3)::before { content: "PDF/Document File"; }
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(4)::before { content: "Display Order"; }
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(5)::before { content: "View"; }
+    
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(5) { position: absolute; top: 16px; right: 56px; width: auto; padding: 0; }
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(5)::before { display: none; }
+    [data-formset="documents"] tbody[data-formset-body] td:nth-child(5) a {
+      border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      background: #fff; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+  }
+  
   /* transform tr into flex-cards */
   [data-formset="variants"] tbody[data-formset-body] tr {
     display: flex;
@@ -478,9 +556,22 @@
           </template>
         </div>
       </div>
-
-
-
+      <div class="card mb-3">
+        <div class="card-header panel-header">
+          <div>
+            <h3 class="panel-title">Shipping &mdash; package dimensions</h3>
+            <p class="panel-sub">Default packed weight &amp; size used to book couriers (e.g. Delhivery) for this product.</p>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.weight %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.length %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.width %}</div>
+            <div class="col-md-3">{% include "dashboard/partials/_field.html" with field=form.height %}</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="col-12 col-xl-4">

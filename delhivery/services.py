@@ -35,15 +35,37 @@ def trigger_shipment_on_pending(order):
     #check payment method
     is_cod = hasattr(order, 'payment_transactions') and order.payment_transactions.filter(gateway_key="cod").exists()
     
-    #extract SKUs for the payload
+    #extract SKUs and calculate dimensions/weight for the payload
     items = order.items.select_related("product", "variant").all()
     sku_list = []
+    
+    total_weight_kg = 0.0
+    max_length = 0.0
+    max_width = 0.0
+    max_height = 0.0
+
     for item in items:
+        product = item.product
         if item.variant and hasattr(item.variant, 'sku'):
             sku = item.variant.sku
         else:
-            sku = item.product.sku if hasattr(item.product, 'sku') else item.product.name
+            sku = product.sku if hasattr(product, 'sku') else product.name
         sku_list.append(f"{sku} (x{item.quantity})")
+        
+        # accumulate weight
+        if hasattr(product, 'weight') and product.weight:
+            total_weight_kg += float(product.weight) * item.quantity
+            
+        # find max dimensions for the package (approximate)
+        if hasattr(product, 'length') and product.length and float(product.length) > max_length:
+            max_length = float(product.length)
+        if hasattr(product, 'width') and product.width and float(product.width) > max_width:
+            max_width = float(product.width)
+        if hasattr(product, 'height') and product.height and float(product.height) > max_height:
+            max_height = float(product.height)
+            
+    # Delhivery generally expects weight in grams for B2C
+    total_weight_grams = total_weight_kg * 1000 if total_weight_kg > 0 else 500.0
     
     products_description = ", ".join(sku_list) if sku_list else f"Order {order.order_number} items"
     
@@ -62,6 +84,10 @@ def trigger_shipment_on_pending(order):
         "products_desc": products_description,
         "total_amount": float(order.total_amount),
         "cod_amount": float(order.total_amount) if is_cod else 0.0,
+        "weight": total_weight_grams,
+        "length": max_length or 10.0,
+        "breadth": max_width or 10.0,
+        "height": max_height or 5.0,
     }
     
     url = f"{base_url}/api/cmu/create.json"
