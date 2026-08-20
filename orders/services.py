@@ -21,7 +21,7 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.READY_TO_SHIP: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
     OrderStatus.SHIPPED: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
-    OrderStatus.CANCELLED: set(),
+    OrderStatus.CANCELLED: {OrderStatus.REFUNDED},
     OrderStatus.REFUNDED: set(),
 }
 
@@ -83,5 +83,18 @@ def transition_order_status(
     if new_status == OrderStatus.PENDING:
         from orders.plugins import order_pending_registry
         order_pending_registry.execute_plugins(order)
+
+    tx = order.payment_transactions.last()
+    if tx:
+        from payments.models import PaymentStatus
+        if new_status == OrderStatus.DELIVERED:
+            tx.status = PaymentStatus.SUCCESS
+            tx.save(update_fields=["status", "updated_at"])
+        elif new_status == OrderStatus.CANCELLED:
+            tx.status = PaymentStatus.CANCELLED
+            tx.save(update_fields=["status", "updated_at"])
+        elif new_status == OrderStatus.REFUNDED:
+            tx.status = PaymentStatus.REFUNDED
+            tx.save(update_fields=["status", "updated_at"])
 
     return order

@@ -159,9 +159,9 @@
           <div class="mb-3">
             <label class="form-label">Payment status</label>
             <select name="new_status" class="form-select" required>
-              <option value="pending" {% if payments.last.status == 'pending' %}selected{% endif %}>Pending</option>
-              <option value="success" {% if payments.last.status == 'success' %}selected{% endif %}>Success / Paid</option>
-              <option value="failed" {% if payments.last.status == 'failed' %}selected{% endif %}>Failed / Cancelled</option>
+              {% for value, label in payment_statuses %}
+                <option value="{{ value }}" {% if value == payments.last.status %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
             </select>
           </div>
           <button type="submit" class="btn btn-primary w-100">Update Payment</button>

@@ -13,6 +13,8 @@ class PaymentStatus(models.TextChoices):
     PENDING = "pending", "Pending"
     SUCCESS = "success", "Success"
     FAILED = "failed", "Failed"
+    CANCELLED = "cancelled", "Cancelled"
+    REFUNDED = "refunded", "Refunded"
 
 
 class PaymentTransaction(TimeStampedModel):
