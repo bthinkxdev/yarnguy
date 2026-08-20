@@ -3071,6 +3071,31 @@ body.mobile-search-open {
   color: var(--jm-accent-dark);
 }
 
+@media (max-width: 991.98px) {
+  .jm-topbar {
+    overflow: hidden;
+  }
+  .jm-topbar__inner {
+    display: flex;
+    flex-wrap: nowrap;
+    width: max-content;
+    padding-inline: 0;
+    justify-content: flex-start;
+    animation: jm-marquee 25s linear infinite;
+  }
+  .jm-topbar__inner:hover, .jm-topbar__inner:active {
+    animation-play-state: paused;
+  }
+  .jm-topbar__trust, .jm-topbar__meta {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+  @keyframes jm-marquee {
+    0% { transform: translateX(100vw); }
+    100% { transform: translateX(-100%); }
+  }
+}
+
 .jm-header__main-inner {
   display: grid;
   grid-template-columns: auto 1fr auto;
