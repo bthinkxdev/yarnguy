@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+import string
 import uuid
 from typing import Optional
 
@@ -25,7 +27,10 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
 
 def generate_order_number() -> str:
     """Return a unique human-readable order number."""
-    return f"FLW-{uuid.uuid4().hex[:12].upper()}"
+    while True:
+        order_number = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if not Order.objects.filter(order_number=order_number).exists():
+            return order_number
 
 
 @transaction.atomic
