@@ -64,7 +64,7 @@
         </a>
       </div>
 
-      <form class="jm-search d-none d-lg-flex" action="{% url 'catalog:plp' %}" method="get" role="search">
+      <form class="jm-search d-none d-lg-flex" action="{% url 'catalog:plp' %}" method="get" role="search" onsubmit="return document.getElementById('site-search-input').value.trim() !== ''">
 
         <div class="jm-search__field">
           <input type="search" id="site-search-input" name="q" class="jm-search__input"

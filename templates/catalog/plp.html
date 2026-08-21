@@ -7,8 +7,8 @@
 <div class="container page-container plp-page jm-page">
   <div class="plp-toolbar jm-plp-toolbar">
     <div class="jm-plp-toolbar__copy">
-      <h1 class="section-title jm-page-title mb-0">{% if active_category %}{{ active_category.name }}{% else %}{% trans "Shop All" %}{% endif %}</h1>
-      {% if plp.total_count %}<p class="section-subtitle jm-plp-count">{{ plp.total_count }} {% trans "products" %}</p>{% endif %}
+      <h1 id="jm-page-title" class="section-title jm-page-title mb-0">{% if active_category %}{{ active_category.name }}{% else %}{% trans "Shop All" %}{% endif %}</h1>
+      <p id="jm-plp-count" class="section-subtitle jm-plp-count">{{ plp.total_count|default:"0" }} {% trans "products" %}</p>
     </div>
     <div class="d-flex gap-2 align-items-center">
       <button type="button" class="btn btn-outline-floward btn-sm plp-filter-toggle jm-filter-btn" data-bs-toggle="offcanvas" data-bs-target="#plpFilters">

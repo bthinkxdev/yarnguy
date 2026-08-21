@@ -35,3 +35,8 @@
   {% endif %}
 </nav>
 {% endif %}
+
+<h1 id="jm-page-title" class="section-title jm-page-title mb-0" hx-swap-oob="true">{% if active_category %}{{ active_category.name }}{% else %}{% trans "Shop All" %}{% endif %}</h1>
+<p id="jm-plp-count" class="section-subtitle jm-plp-count" hx-swap-oob="true">
+  {{ plp.total_count|default:"0" }} {% trans "products" %}
+</p>

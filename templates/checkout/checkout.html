@@ -305,6 +305,15 @@
         if (!guestName) {
           document.getElementById('error-guest_name').innerText = 'Name is required.';
           isValid = false;
+        } else if (/^\d+$/.test(guestName)) {
+          document.getElementById('error-guest_name').innerText = 'Name cannot consist of numbers only.';
+          isValid = false;
+        } else if (/^[^a-zA-Z0-9]+$/.test(guestName)) {
+          document.getElementById('error-guest_name').innerText = 'Name cannot consist of special characters only.';
+          isValid = false;
+        } else if (!/[a-zA-Z]/.test(guestName)) {
+          document.getElementById('error-guest_name').innerText = 'Name cannot consist of only numbers and special characters.';
+          isValid = false;
         }
 
         if (!guestEmail) {
@@ -440,6 +449,12 @@
       }
     }
 
+    setupInputListener('input[name="guest_name"]', 'error-guest_name', function(val) {
+      if (/^\d+$/.test(val)) return "Name cannot consist of numbers only.";
+      if (/^[^a-zA-Z0-9]+$/.test(val)) return "Name cannot consist of special characters only.";
+      if (/^[^a-zA-Z]+$/.test(val)) return "Name cannot consist of only numbers and special characters.";
+      return "";
+    });
     setupInputListener('input[name="guest_phone"]', 'error-guest_phone', function(val) {
       if (!/^\+?\d*$/.test(val)) return "Phone number can only contain numbers.";
       return "";
@@ -447,11 +462,13 @@
     setupInputListener('input[name="guest_address_line1"]', 'error-guest_address_line1', function(val) {
       if (/^\d+$/.test(val)) return "Address cannot consist of numbers only.";
       if (/^[^a-zA-Z0-9]+$/.test(val)) return "Address cannot consist of special characters only.";
+      if (/^[^a-zA-Z]+$/.test(val)) return "Address cannot consist of only numbers and special characters.";
       return "";
     });
     setupInputListener('input[name="guest_city"]', 'error-guest_city', function(val) {
       if (/^\d+$/.test(val)) return "City cannot consist of numbers only.";
       if (/^[^a-zA-Z0-9]+$/.test(val)) return "City cannot consist of special characters only.";
+      if (/^[^a-zA-Z]+$/.test(val)) return "City cannot consist of only numbers and special characters.";
       return "";
     });
     setupInputListener('input[name="guest_pincode"]', 'error-guest_pincode', function(val) {
