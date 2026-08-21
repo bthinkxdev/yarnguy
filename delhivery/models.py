@@ -30,6 +30,31 @@ class DelhiveryShipment(TimeStampedModel):
         null=True,
         verbose_name="Label URL",
     )
+    pickup_location = models.CharField(
+        max_length=120,
+        blank=True,
+        verbose_name="Pickup Location",
+        help_text="Delhivery pickup location name used for this shipment.",
+    )
+    raw_create_response = models.JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Create Shipment Response",
+        help_text="Full Delhivery API response from AWB creation.",
+    )
+    last_status_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Last Status At",
+        help_text="Timestamp of the most recent webhook scan event applied.",
+    )
+    last_event_signature = models.CharField(
+        max_length=200,
+        blank=True,
+        db_index=True,
+        verbose_name="Last Event Signature",
+        help_text="Dedup key for the most recently applied webhook event.",
+    )
     error_message = models.TextField(
         blank=True,
         null=True,

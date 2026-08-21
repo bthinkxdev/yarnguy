@@ -15,14 +15,25 @@ from orders.models import Order, OrderStatus, OrderStatusHistory
 from orders.signals import order_status_changed
 
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    OrderStatus.PLACED: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
-    OrderStatus.CONFIRMED: {OrderStatus.PENDING, OrderStatus.CANCELLED},
-    OrderStatus.PENDING: {OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED},
+    OrderStatus.CHECKOUT_PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.PLACED_COD: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.CONFIRMED: {OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED},
     OrderStatus.READY_TO_SHIP: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
     OrderStatus.SHIPPED: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
     OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
     OrderStatus.CANCELLED: {OrderStatus.REFUNDED},
     OrderStatus.REFUNDED: set(),
+}
+
+#Fulfillment rank used by the Delhivery webhook to reject out-of-order/backward scan
+#events (e.g. a stale "in transit" push arriving after "delivered" already landed).
+#CANCELLED/REFUNDED are absorbing states and intentionally excluded — a courier
+#RTO/cancel can legitimately happen from any rank.
+ORDER_STATUS_RANK: dict[str, int] = {
+    OrderStatus.CONFIRMED: 1,
+    OrderStatus.READY_TO_SHIP: 2,
+    OrderStatus.SHIPPED: 3,
+    OrderStatus.DELIVERED: 4,
 }
 
 
@@ -95,9 +106,9 @@ def transition_order_status(
         send_notifications=send_notifications,
     )
 
-    if new_status == OrderStatus.PENDING:
-        from orders.plugins import order_pending_registry
-        order_pending_registry.execute_plugins(order)
+    if new_status == OrderStatus.CONFIRMED:
+        from orders.plugins import order_confirmed_registry
+        transaction.on_commit(lambda: order_confirmed_registry.execute_plugins(order))
 
     tx = order.payment_transactions.last()
     if tx:

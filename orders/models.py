@@ -9,11 +9,16 @@ from core.models import TimeStampedModel
 
 
 class OrderStatus(models.TextChoices):
-    """Lifecycle states for a customer order."""
+    """
+    Lifecycle states for a customer order.
 
-    PLACED = "placed", "Placed"
+    CONFIRMED is the single trigger for Delhivery AWB creation (see
+    orders.services.transition_order_status) — no other status creates a shipment.
+    """
+
+    CHECKOUT_PENDING = "checkout_pending", "Payment Pending"
+    PLACED_COD = "placed_cod", "COD Awaiting Confirmation"
     CONFIRMED = "confirmed", "Confirmed"
-    PENDING = "pending", "Pending"
     READY_TO_SHIP = "ready_to_ship", "Ready to Ship"
     SHIPPED = "shipped", "Shipped"
     DELIVERED = "delivered", "Delivered"
@@ -65,7 +70,7 @@ class Order(TimeStampedModel):
     order_status = models.CharField(
         max_length=20,
         choices=OrderStatus.choices,
-        default=OrderStatus.PLACED,
+        default=OrderStatus.CHECKOUT_PENDING,
         db_index=True,
         verbose_name="Order status",
     )
@@ -113,6 +118,35 @@ class Order(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.order_number
+
+    @property
+    def is_guest_order(self) -> bool:
+        """
+        True if the order wasn't placed by a signed-in, registered customer.
+
+        Guest checkout still auto-creates a CustomerProfile/User (for order
+        history + email lookups) via an unusable password — so ``customer_profile``
+        being set isn't enough to tell guest and registered orders apart.
+        """
+        if not self.customer_profile_id:
+            return True
+        return not self.customer_profile.user.has_usable_password()
+
+    @property
+    def customer_display_name(self) -> str:
+        """
+        Best-effort customer name for admin display.
+
+        Registered customers show their account name; guests show the name they
+        typed at checkout (captured in delivery_address_snapshot), since their
+        auto-created CustomerProfile/User often has no real name on it.
+        """
+        if not self.is_guest_order:
+            return str(self.customer_profile)
+        snapshot_name = (self.delivery_address_snapshot or {}).get("name")
+        if snapshot_name:
+            return snapshot_name
+        return str(self.customer_profile) if self.customer_profile_id else "Guest"
 
     @property
     def payment_method_display(self) -> str:

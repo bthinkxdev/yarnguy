@@ -61,10 +61,11 @@
             <td><input type="checkbox" class="form-check-input order-checkbox" name="order_ids" value="{{ order.pk }}"></td>
             <td><a href="{% url 'dashboard:order-detail' order.pk %}">{{ order.order_number }}</a></td>
             <td>
-              {% if order.cart and not order.cart.customer_profile %}
-                Guest
+              {{ order.customer_display_name }}
+              {% if order.is_guest_order %}
+              <span class="badge bg-secondary-subtle text-secondary">Guest</span>
               {% else %}
-                {{ order.customer_profile|default:"Guest" }}
+              <span class="badge bg-success-subtle text-success">Logged</span>
               {% endif %}
             </td>
             <td><span class="badge bg-primary-subtle text-primary">{{ order.get_order_status_display }}</span></td>

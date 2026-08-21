@@ -41,6 +41,9 @@
       <div>
         <h6>{% trans "Policies" %}</h6>
         <a href="{% url 'core:privacy-policy' %}">{% trans "Privacy Policy" %}</a>
+        <a href="{% url 'core:shipping-policy' %}">{% trans "Shipping Policy" %}</a>
+        <a href="{% url 'core:terms-of-service' %}">{% trans "Terms of Service" %}</a>
+        <a href="{% url 'core:refund-policy' %}">{% trans "Refund Policy" %}</a>
         <a href="{% url 'core:contact-us' %}">{% trans "Support" %}</a>
         {% for p in cms_pages %}
           <a href="{% url 'core:page' p.slug %}">{{ p.title|title }}</a>

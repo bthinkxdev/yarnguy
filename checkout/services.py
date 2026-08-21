@@ -17,7 +17,7 @@ from checkout.models import CheckoutSession, CheckoutSessionStatus
 from marketing.models import Coupon
 from marketing.services import record_coupon_redemption
 from orders.models import Order, OrderItem, OrderStatus
-from orders.services import generate_order_number
+from orders.services import generate_order_number, transition_order_status
 
 
 
@@ -67,11 +67,51 @@ def update_checkout_session(
     return checkout_session
 
 
+def _reuse_checkout_pending_order_as_cod(*, order: Order, session: CheckoutSession) -> Order:
+    """
+    Reuse an existing CHECKOUT_PENDING order when the customer switches from an
+    online gateway to COD within the same checkout session, instead of placing a
+    second order for the same cart.
+
+    Order number, idempotency key, and order history are left untouched — only the
+    totals (to pick up the COD delivery charge) and status change. Stock is not
+    re-adjusted and line items are not recreated: they were already committed when
+    this order was first created, and are assumed unchanged since (the cart isn't
+    editable from the payment step).
+
+    ``process_payment`` (called by the view right after this returns) is what
+    actually creates the COD PaymentTransaction — this function only prepares the
+    order to receive it.
+    """
+    summary = get_cart_summary(cart=session.cart)
+    if not summary.lines:
+        raise CheckoutSessionError("Cart is empty.")
+
+    order.subtotal = summary.subtotal
+    order.coupon_discount = summary.coupon_discount
+    order.delivery_charge = summary.delivery_charge
+    order.total_amount = summary.grand_total
+    order.save(
+        update_fields=["subtotal", "coupon_discount", "delivery_charge", "total_amount", "updated_at"]
+    )
+
+    transition_order_status(
+        order=order,
+        new_status=OrderStatus.PLACED_COD,
+        note="Payment method switched to Cash on Delivery",
+        send_notifications=False,
+        force=True,
+    )
+
+    return order
+
+
 @transaction.atomic
 def place_order(
     *,
     checkout_session_id: int,
     idempotency_key: str,
+    gateway_key: str,
     customer_profile: Optional[CustomerProfile] = None,
 ) -> Order:
     """
@@ -84,14 +124,19 @@ def place_order(
 
     Stock is decremented via ``catalog.services.adjust_stock`` (select_for_update).
 
+    ``gateway_key`` decides the initial order status: COD orders start at
+    PLACED_COD (awaiting admin confirmation); every other gateway starts at
+    CHECKOUT_PENDING (awaiting payment) so abandoned online checkouts are
+    distinguishable from real orders and never trigger a Delhivery shipment.
+
     Raises:
         CheckoutSessionError: When session is not in a placeable state.
         InsufficientStockError: When stock is insufficient (no oversell).
         SlotFullyBookedError: When the chosen delivery slot is at capacity.
     """
-    # "address" is deliberately excluded from select_related: it's a nullable
-    # FK, and PostgreSQL rejects FOR UPDATE across a LEFT OUTER JOIN on the
-    # nullable side. It's read separately below via session.address instead.
+    # "address" and "order" are deliberately excluded from select_related: both are
+    # nullable FKs, and PostgreSQL rejects FOR UPDATE across a LEFT OUTER JOIN on the
+    # nullable side. They're read separately below via session.address / session.order.
     session = (
         CheckoutSession.objects.select_for_update()
         .select_related(
@@ -107,6 +152,16 @@ def place_order(
     existing = Order.objects.filter(idempotency_key=idempotency_key).first()
     if existing:
         return existing
+
+    #switching from an online gateway to COD on the same session reuses the order
+    #already created for the abandoned online attempt, rather than placing a
+    #duplicate (which would also double-decrement stock).
+    if (
+        gateway_key == "cod"
+        and session.order_id
+        and session.order.order_status == OrderStatus.CHECKOUT_PENDING
+    ):
+        return _reuse_checkout_pending_order_as_cod(order=session.order, session=session)
 
     if session.status == CheckoutSessionStatus.COMPLETED and session.order_id:
         if session.idempotency_key == idempotency_key:
@@ -141,13 +196,15 @@ def place_order(
             "pincode": getattr(addr, "pincode", "") or "",
         }
 
+    initial_status = OrderStatus.PLACED_COD if gateway_key == "cod" else OrderStatus.CHECKOUT_PENDING
+
     try:
         order = Order.objects.create(
             customer_profile=customer_profile,
             cart=session.cart,
             order_number=generate_order_number(),
             idempotency_key=idempotency_key,
-            order_status=OrderStatus.PLACED,
+            order_status=initial_status,
             delivery_date=session.delivery_date,
             subtotal=summary.subtotal,
             coupon_discount=summary.coupon_discount,

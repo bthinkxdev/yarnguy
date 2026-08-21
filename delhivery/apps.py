@@ -6,8 +6,10 @@ class DelhiveryConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
 
     def ready(self):
-        from orders.plugins import order_pending_registry
-        from delhivery.services import trigger_shipment_on_pending
-        
-        #register the trigger_shipment function to be called when an order is moved to Pending
-        order_pending_registry.register(trigger_shipment_on_pending)
+        from orders.plugins import order_confirmed_registry
+        from delhivery.tasks import create_shipment_for_order
+
+        #register a hook that enqueues the async Celery task when an order is CONFIRMED
+        order_confirmed_registry.register(
+            lambda order: create_shipment_for_order.delay(order_id=order.pk)
+        )

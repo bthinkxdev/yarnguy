@@ -121,6 +121,7 @@ def execute_subscription_recurrence(*, schedule: RecurringSchedule) -> object:
     return place_order(
         checkout_session_id=session.pk,
         idempotency_key=idempotency_key,
+        gateway_key="card",
         customer_profile=profile,
     )
 

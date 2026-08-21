@@ -39,11 +39,11 @@ def get_item(dictionary, key):
 
 
 _STATUS_PILL = {
-    "received": "pill-gray",
-    "preparing": "pill-blue",
-    "packaging": "pill-blue",
-    "ready": "pill-amber",
-    "out_for_delivery": "pill-amber",
+    "checkout_pending": "pill-amber",
+    "placed_cod": "pill-amber",
+    "confirmed": "pill-blue",
+    "ready_to_ship": "pill-blue",
+    "shipped": "pill-blue",
     "delivered": "pill-green",
     "cancelled": "pill-red",
     "refunded": "pill-red",

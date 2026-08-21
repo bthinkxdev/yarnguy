@@ -51,6 +51,39 @@ def privacy_policy_view(request: HttpRequest) -> HttpResponse:
 
 
 @require_GET
+def shipping_policy_view(request: HttpRequest) -> HttpResponse:
+    """Render the static Shipping Policy page."""
+    context = seo_context(
+        request=request,
+        title=_("Shipping Policy | Yarn Guy"),
+        description=_("Read Yarn Guy's shipping policy covering processing times, delivery estimates, and charges."),
+    )
+    return render(request, "core/shipping_policy.html", context)
+
+
+@require_GET
+def terms_of_service_view(request: HttpRequest) -> HttpResponse:
+    """Render the static Terms of Service page."""
+    context = seo_context(
+        request=request,
+        title=_("Terms of Service | Yarn Guy"),
+        description=_("Read the Terms of Service governing your use of yarnguy.com."),
+    )
+    return render(request, "core/terms_of_service.html", context)
+
+
+@require_GET
+def refund_policy_view(request: HttpRequest) -> HttpResponse:
+    """Render the static Refund Policy page."""
+    context = seo_context(
+        request=request,
+        title=_("Refund Policy | Yarn Guy"),
+        description=_("Read Yarn Guy's return and refund policy."),
+    )
+    return render(request, "core/refund_policy.html", context)
+
+
+@require_GET
 def contact_us_view(request: HttpRequest) -> HttpResponse:
     """Render the static Contact Us page with a contact form."""
     import time

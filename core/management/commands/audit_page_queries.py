@@ -92,6 +92,7 @@ class Command(BaseCommand):
         order = place_order(
             checkout_session_id=session.pk,
             idempotency_key="audit-order-1",
+            gateway_key="card",
             customer_profile=profile,
         )
 

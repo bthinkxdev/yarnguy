@@ -13,6 +13,8 @@ from orders.exceptions import InvalidOrderStatusTransitionError
 from orders.models import Order, OrderStatus
 from orders.services import ALLOWED_STATUS_TRANSITIONS, transition_order_status
 
+_STATUS_LABELS = dict(OrderStatus.choices)
+
 
 @dashboard_required
 @require_http_methods(["GET"])
@@ -71,7 +73,10 @@ def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
     payments = order.payment_transactions.select_related("currency").all()
     pod = getattr(order, "proof_of_delivery", None)
 
-    allowed_choices = OrderStatus.choices
+    #only the actually-valid next statuses — CONFIRMED is the sole trigger for AWB
+    #creation, so an admin must never be able to pick an arbitrary status here.
+    next_statuses = ALLOWED_STATUS_TRANSITIONS.get(order.order_status, set())
+    allowed_choices = [(value, _STATUS_LABELS[value]) for value in next_statuses]
     from payments.models import PaymentStatus
     payment_statuses = PaymentStatus.choices
 

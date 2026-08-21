@@ -402,6 +402,7 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
         order = place_order(
             checkout_session_id=session.pk,
             idempotency_key=form.cleaned_data["idempotency_key"],
+            gateway_key=gateway_key,
             customer_profile=profile,
         )
     except InsufficientStockError as exc:

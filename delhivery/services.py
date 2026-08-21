@@ -7,13 +7,21 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-def trigger_shipment_on_pending(order):
+def trigger_shipment_on_confirmed(order):
     """
-    Trigger a Delhivery B2C shipment when an order status changes to 'Pending'.
+    Trigger a Delhivery B2C shipment when an order status changes to CONFIRMED.
     Sends an actual HTTP POST request directly to Delhivery Express servers.
+
+    Idempotent: a no-op if this order already has a waybill.
     """
+    from delhivery.models import DelhiveryShipment
+
+    if DelhiveryShipment.objects.filter(order=order, waybill_number__gt="").exists():
+        logger.info(f"Delhivery shipment already exists for order {order.order_number}; skipping.")
+        return True
+
     logger.info(f"Triggering Delhivery shipment for order {order.order_number}")
-    
+
     api_key = getattr(settings, "DELHIVERY_API_KEY", "")
     base_url = getattr(settings, "DELHIVERY_BASE_URL", "https://staging-express.delhivery.com").rstrip("/")
     
@@ -136,6 +144,8 @@ def trigger_shipment_on_pending(order):
                     defaults={
                         "waybill_number": waybill,
                         "tracking_status": status_label,
+                        "pickup_location": pickup_location_name,
+                        "raw_create_response": result if isinstance(result, dict) else {"raw": str(result)},
                         "error_message": err_msg or str(result),
                     }
                 )

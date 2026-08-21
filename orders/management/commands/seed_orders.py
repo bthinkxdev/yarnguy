@@ -32,10 +32,11 @@ User = get_user_model()
 SEED_KEY_PREFIXES = ("seed-", "recurring-sub-")
 SEED_EMAIL_DOMAIN = "seed.floward.test"
 
+#path[0] is a placeholder anchor for index math only — it's never transitioned to.
 LINEAR_FLOW = [
-    OrderStatus.PLACED,
+    OrderStatus.CHECKOUT_PENDING,
     OrderStatus.CONFIRMED,
-    OrderStatus.PREPARING,
+    OrderStatus.READY_TO_SHIP,
     OrderStatus.SHIPPED,
     OrderStatus.DELIVERED,
 ]
@@ -110,7 +111,8 @@ class Command(BaseCommand):
             order.refresh_from_db()
 
             is_guest = order.customer_profile_id is None
-            if not is_guest and target != OrderStatus.PLACED:
+            initial_statuses = (OrderStatus.CHECKOUT_PENDING, OrderStatus.PLACED_COD)
+            if not is_guest and target not in initial_statuses:
                 self._advance(order, target, actor=None)
             self._record_payment(order, created)
             if order.order_status == OrderStatus.DELIVERED:
@@ -235,7 +237,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Standard multi-item (3 products)",
-                "status": OrderStatus.OUT_FOR_DELIVERY,
+                "status": OrderStatus.SHIPPED,
                 "place": {
                     "profile": c[1],
                     "lines": [(p[1], None, 1), (p[2], None, 2), (p[4], None, 1)],
@@ -243,7 +245,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Order with product variant",
-                "status": OrderStatus.PREPARING,
+                "status": OrderStatus.READY_TO_SHIP,
                 "place": {"profile": c[2], "lines": [(variant_product, variant, 1)]},
             },
             {
@@ -276,7 +278,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Guest checkout (no account)",
-                "status": OrderStatus.PLACED,
+                "status": OrderStatus.CHECKOUT_PENDING,
                 "place": {
                     "profile": None,
                     "session_key": uuid.uuid4().hex,
@@ -311,6 +313,7 @@ class Command(BaseCommand):
         coupon_code: str | None = None,
         address=None,
         delivery_date=None,
+        gateway_key: str = "card",
     ) -> Order:
         existing = Order.objects.filter(idempotency_key=idem_key).first()
         if existing:
@@ -347,6 +350,7 @@ class Command(BaseCommand):
         return place_order(
             checkout_session_id=session.pk,
             idempotency_key=idem_key,
+            gateway_key=gateway_key,
             customer_profile=profile,
         )
 
@@ -403,7 +407,7 @@ class Command(BaseCommand):
         gateway = self.rng.choice(["card", "applepay", "gift_voucher", "benefit"])
         if order.order_status in {OrderStatus.CANCELLED}:
             status = PaymentStatus.FAILED
-        elif order.order_status == OrderStatus.PLACED:
+        elif order.order_status in (OrderStatus.CHECKOUT_PENDING, OrderStatus.PLACED_COD):
             status = self.rng.choice([PaymentStatus.PENDING, PaymentStatus.SUCCESS])
         else:
             status = PaymentStatus.SUCCESS
