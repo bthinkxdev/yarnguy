@@ -14,20 +14,25 @@ logger = logging.getLogger(__name__)
 
 #Delhivery status-string -> our OrderStatus. Anything else is logged and ignored.
 #
-#Deliberately no "manifested" / "pickup scheduled" entry: AWB creation and
-#READY_TO_SHIP are two separate events. Creating the Pending AWB only books the
-#shipment — the order stays CONFIRMED until the warehouse manually packs it and
-#transitions to READY_TO_SHIP (dashboard action). The webhook only takes over once
-#the courier actually has the package moving.
+#"Manifested"/"Pickup Scheduled" map to READY_TO_SHIP (not AWB creation — the AWB
+#already exists from CONFIRMED; these events only confirm Delhivery accepted the
+#shipment). READY_TO_SHIP can also be set manually by the warehouse via the
+#dashboard — whichever happens first; the regression guard below just no-ops the
+#other one. PICKED_UP / IN_TRANSIT / OUT_FOR_DELIVERY / DELIVERED are reachable only
+#through this webhook — admins cannot set them manually (see
+#orders.services.ALLOWED_STATUS_TRANSITIONS).
 DELHIVERY_TO_ORDER_STATUS = {
-    "in transit": OrderStatus.SHIPPED,
-    "dispatched": OrderStatus.SHIPPED,
-    "shipped": OrderStatus.SHIPPED,
-    "out for delivery": OrderStatus.SHIPPED,
+    "manifested": OrderStatus.READY_TO_SHIP,
+    "pickup scheduled": OrderStatus.READY_TO_SHIP,
+    "picked up": OrderStatus.PICKED_UP,
+    "in transit": OrderStatus.IN_TRANSIT,
+    "dispatched": OrderStatus.IN_TRANSIT,
+    "out for delivery": OrderStatus.OUT_FOR_DELIVERY,
     "delivered": OrderStatus.DELIVERED,
-    "cancelled": OrderStatus.CANCELLED,
-    "rto": OrderStatus.CANCELLED,
+    "rto in transit": OrderStatus.CANCELLED,
     "rto delivered": OrderStatus.CANCELLED,
+    "rto": OrderStatus.CANCELLED,
+    "cancelled": OrderStatus.CANCELLED,
 }
 
 

@@ -48,11 +48,13 @@ def dispatch_order_status_notification(
     status_messages = {
         "checkout_pending": f"Your order ({order.order_number}) is awaiting payment. Complete your payment to confirm it.",
         "placed_cod": f"Thanks for your Cash on Delivery order ({order.order_number})! Our team will contact you shortly to confirm it.",
-        "confirmed": f"Great news! Your order ({order.order_number}) containing {product_names} has been verified and confirmed! We will process it shortly.",
-        "ready_to_ship": f"Your order ({order.order_number}) is packed and ready to be shipped out.",
-        "shipped": f"Your order ({order.order_number}) containing {product_names} is on its way! Please make sure someone is available to receive it.",
-        "delivered": f"Your order ({order.order_number}) has been delivered! We hope you love your new equipment. (You can now leave a review in your dashboard!).",
-        "cancelled": f"Your order ({order.order_number}) has been cancelled successfully. If you have already paid, your refund will be processed within 5-7 business days.",
+        "confirmed": f"Your order ({order.order_number}) has been confirmed.",
+        "ready_to_ship": f"Your order ({order.order_number}) is packed and ready for dispatch.",
+        "picked_up": f"Your package ({order.order_number}) has been picked up by Delhivery.",
+        "in_transit": f"Your shipment ({order.order_number}) is on the way.",
+        "out_for_delivery": f"Your order ({order.order_number}) is out for delivery today! Please make sure someone is available to receive it.",
+        "delivered": f"Your order ({order.order_number}) has been delivered successfully! We hope you love your new equipment. (You can now leave a review in your dashboard!).",
+        "cancelled": f"Your order ({order.order_number}) has been cancelled.",
         "refunded": f"Your order ({order.order_number}) has been refunded."
     }
     

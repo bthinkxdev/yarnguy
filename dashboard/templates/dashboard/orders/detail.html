@@ -144,6 +144,8 @@
           </div>
           <button type="submit" class="btn btn-primary w-100">Apply transition</button>
         </form>
+        {% elif order.order_status == "picked_up" or order.order_status == "in_transit" or order.order_status == "out_for_delivery" %}
+        <p class="text-secondary mb-0">Status is <strong>{{ order.get_order_status_display }}</strong> — updates automatically from Delhivery. No manual action available.</p>
         {% else %}
         <p class="text-secondary mb-0">This order is in a terminal state ({{ order.get_order_status_display }}). No further transitions are allowed.</p>
         {% endif %}

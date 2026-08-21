@@ -14,13 +14,19 @@ class OrderStatus(models.TextChoices):
 
     CONFIRMED is the single trigger for Delhivery AWB creation (see
     orders.services.transition_order_status) — no other status creates a shipment.
+
+    PICKED_UP / IN_TRANSIT / OUT_FOR_DELIVERY / DELIVERED are webhook-only: admins
+    cannot set them manually (see orders.services.ALLOWED_STATUS_TRANSITIONS and
+    delhivery.views.delhivery_webhook, which is the only caller that reaches them).
     """
 
     CHECKOUT_PENDING = "checkout_pending", "Payment Pending"
     PLACED_COD = "placed_cod", "COD Awaiting Confirmation"
     CONFIRMED = "confirmed", "Confirmed"
     READY_TO_SHIP = "ready_to_ship", "Ready to Ship"
-    SHIPPED = "shipped", "Shipped"
+    PICKED_UP = "picked_up", "Picked Up"
+    IN_TRANSIT = "in_transit", "In Transit"
+    OUT_FOR_DELIVERY = "out_for_delivery", "Out for Delivery"
     DELIVERED = "delivered", "Delivered"
     CANCELLED = "cancelled", "Cancelled"
     REFUNDED = "refunded", "Refunded"

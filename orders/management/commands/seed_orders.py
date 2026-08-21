@@ -37,7 +37,9 @@ LINEAR_FLOW = [
     OrderStatus.CHECKOUT_PENDING,
     OrderStatus.CONFIRMED,
     OrderStatus.READY_TO_SHIP,
-    OrderStatus.SHIPPED,
+    OrderStatus.PICKED_UP,
+    OrderStatus.IN_TRANSIT,
+    OrderStatus.OUT_FOR_DELIVERY,
     OrderStatus.DELIVERED,
 ]
 
@@ -237,7 +239,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Standard multi-item (3 products)",
-                "status": OrderStatus.SHIPPED,
+                "status": OrderStatus.OUT_FOR_DELIVERY,
                 "place": {
                     "profile": c[1],
                     "lines": [(p[1], None, 1), (p[2], None, 2), (p[4], None, 1)],
@@ -268,7 +270,7 @@ class Command(BaseCommand):
             },
             {
                 "label": "Scheduled delivery with booked slot",
-                "status": OrderStatus.SHIPPED,
+                "status": OrderStatus.OUT_FOR_DELIVERY,
                 "place": {
                     "profile": c[4],
                     "lines": [(p[10 % len(p)], None, 1)],
@@ -385,7 +387,12 @@ class Command(BaseCommand):
             else:
                 target_index = path.index(target)
             for status in path[1 : target_index + 1]:
-                transition_order_status(order=order, new_status=status, actor=actor, note="Seed", send_notifications=False)
+                #force=True: PICKED_UP/IN_TRANSIT/OUT_FOR_DELIVERY are webhook-only
+                #in production (see orders.services.ALLOWED_STATUS_TRANSITIONS) —
+                #seeding simulates the webhook driving these, not an admin.
+                transition_order_status(
+                    order=order, new_status=status, actor=actor, note="Seed", send_notifications=False, force=True
+                )
             if target == OrderStatus.REFUNDED:
                 transition_order_status(
                     order=order, new_status=OrderStatus.REFUNDED, actor=actor, note="Seed refund", send_notifications=False

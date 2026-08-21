@@ -14,12 +14,19 @@ from orders.exceptions import InvalidOrderStatusTransitionError
 from orders.models import Order, OrderStatus, OrderStatusHistory
 from orders.signals import order_status_changed
 
+#Admin-manual transitions only. The webhook (delhivery.views.delhivery_webhook)
+#always calls transition_order_status with force=True, so it is never limited by
+#this map — PICKED_UP / IN_TRANSIT / OUT_FOR_DELIVERY / DELIVERED are reachable only
+#through the webhook, never listed here, so an admin can never select them from the
+#dashboard's transition dropdown (which is built from this same map).
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
     OrderStatus.CHECKOUT_PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.PLACED_COD: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.CONFIRMED: {OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED},
-    OrderStatus.READY_TO_SHIP: {OrderStatus.SHIPPED, OrderStatus.CANCELLED},
-    OrderStatus.SHIPPED: {OrderStatus.DELIVERED, OrderStatus.CANCELLED},
+    OrderStatus.READY_TO_SHIP: {OrderStatus.CANCELLED},
+    OrderStatus.PICKED_UP: set(),
+    OrderStatus.IN_TRANSIT: set(),
+    OrderStatus.OUT_FOR_DELIVERY: set(),
     OrderStatus.DELIVERED: {OrderStatus.REFUNDED},
     OrderStatus.CANCELLED: {OrderStatus.REFUNDED},
     OrderStatus.REFUNDED: set(),
@@ -32,8 +39,10 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
 ORDER_STATUS_RANK: dict[str, int] = {
     OrderStatus.CONFIRMED: 1,
     OrderStatus.READY_TO_SHIP: 2,
-    OrderStatus.SHIPPED: 3,
-    OrderStatus.DELIVERED: 4,
+    OrderStatus.PICKED_UP: 3,
+    OrderStatus.IN_TRANSIT: 4,
+    OrderStatus.OUT_FOR_DELIVERY: 5,
+    OrderStatus.DELIVERED: 6,
 }
 
 
