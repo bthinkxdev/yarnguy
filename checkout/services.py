@@ -89,12 +89,14 @@ def place_order(
         InsufficientStockError: When stock is insufficient (no oversell).
         SlotFullyBookedError: When the chosen delivery slot is at capacity.
     """
+    # "address" is deliberately excluded from select_related: it's a nullable
+    # FK, and PostgreSQL rejects FOR UPDATE across a LEFT OUTER JOIN on the
+    # nullable side. It's read separately below via session.address instead.
     session = (
         CheckoutSession.objects.select_for_update()
         .select_related(
             "cart",
             "cart__currency",
-            "address",
         )
         .filter(pk=checkout_session_id)
         .first()
