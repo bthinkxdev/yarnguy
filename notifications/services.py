@@ -25,8 +25,8 @@ def send_email(*, email: str, subject: str, message: str) -> None:
     logger.info("Email to %s [%s]: %s", email, subject, message)
     
     site_settings = get_site_settings()
-    if site_settings.vendor_email:
-        from_email = f'"{site_settings.vendor_email}" <{settings.DEFAULT_FROM_EMAIL}>'
+    if site_settings.site_name:
+        from_email = f'"{site_settings.site_name}" <{settings.DEFAULT_FROM_EMAIL}>'
     else:
         from_email = settings.DEFAULT_FROM_EMAIL
     
