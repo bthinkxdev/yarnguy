@@ -110,6 +110,13 @@ def transition_order_status(
         from orders.plugins import order_confirmed_registry
         transaction.on_commit(lambda: order_confirmed_registry.execute_plugins(order))
 
+        #COD orders already alerted the admin at creation (PLACED_COD) — only notify
+        #here the first time an order becomes real, i.e. an online payment succeeding
+        #(or an admin manually confirming a still-unpaid CHECKOUT_PENDING order).
+        if old_status == OrderStatus.CHECKOUT_PENDING:
+            from notifications.tasks import dispatch_new_order_admin_notification
+            transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
+
     tx = order.payment_transactions.last()
     if tx:
         from payments.models import PaymentStatus

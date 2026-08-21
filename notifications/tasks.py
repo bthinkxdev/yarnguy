@@ -69,6 +69,49 @@ def dispatch_order_status_notification(
             send_whatsapp(phone=profile.phone, message=body)
 
 
+@shared_task(name="notifications.tasks.dispatch_new_order_admin_notification")
+def dispatch_new_order_admin_notification(*, order_id: int) -> None:
+    """
+    Alert the store's configured order-notification address that a new order came in.
+
+    Fires once per genuinely-placed order (see orders.services.transition_order_status
+    and checkout.services.place_order) — never for abandoned CHECKOUT_PENDING online
+    checkouts. Silently does nothing if no address is configured.
+    """
+    from core.services import get_site_settings
+    from orders.models import Order
+
+    site_settings = get_site_settings()
+    if not site_settings.order_notification_email:
+        return
+
+    order = (
+        Order.objects.select_related("customer_profile__user", "currency")
+        .prefetch_related("items__product")
+        .filter(pk=order_id)
+        .first()
+    )
+    if order is None:
+        return
+
+    items = list(order.items.all())
+    lines_text = "\n".join(f"- {item.product.name} x{item.quantity}" for item in items)
+    currency_code = order.currency.code if order.currency else ""
+
+    subject = f"New order {order.order_number} — {order.get_order_status_display()}"
+    body = (
+        f"A new order was placed on {site_settings.site_name}.\n\n"
+        f"Order: {order.order_number}\n"
+        f"Status: {order.get_order_status_display()}\n"
+        f"Customer: {order.customer_display_name}\n"
+        f"Total: {currency_code} {order.total_amount}\n\n"
+        f"Items:\n{lines_text}\n\n"
+        f"View in dashboard for full details."
+    )
+
+    send_email(email=site_settings.order_notification_email, subject=subject, message=body)
+
+
 @shared_task(name="notifications.tasks.dispatch_order_confirmation_notification")
 def dispatch_order_confirmation_notification(*, order_id: int) -> None:
     """

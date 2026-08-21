@@ -223,6 +223,11 @@ class SiteSettings(TimeStampedModel):
         verbose_name="Vendor Email",
         help_text="Email address to receive quote requests and contact inquiries.",
     )
+    order_notification_email = models.EmailField(
+        blank=True,
+        verbose_name="Order Notification Email",
+        help_text="Email address to notify whenever a new order is placed. Leave blank to disable.",
+    )
     default_currency = models.ForeignKey(
         Currency,
         on_delete=models.PROTECT,

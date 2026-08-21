@@ -428,6 +428,7 @@ class SiteSettingsForm(forms.ModelForm):
         "twitter_url",
         "whatsapp_number",
         "vendor_email",
+        "order_notification_email",
         "tax_rate_percent",
         "cod_delivery_charge",
         "default_currency",
@@ -448,6 +449,7 @@ class SiteSettingsForm(forms.ModelForm):
             "twitter_url",
             "whatsapp_number",
             "vendor_email",
+            "order_notification_email",
             "tax_rate_percent",
             "cod_delivery_charge",
             "razorpay_key_id",
@@ -455,6 +457,7 @@ class SiteSettingsForm(forms.ModelForm):
         ]
         labels = {
             "vendor_email": "Email",
+            "order_notification_email": "New Order Notification Email",
         }
 
     def __init__(self, *args, **kwargs):

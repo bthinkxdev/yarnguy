@@ -103,6 +103,9 @@ def _reuse_checkout_pending_order_as_cod(*, order: Order, session: CheckoutSessi
         force=True,
     )
 
+    from notifications.tasks import dispatch_new_order_admin_notification
+    transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
+
     return order
 
 
@@ -249,5 +252,9 @@ def place_order(
             "updated_at",
         ]
     )
+
+    if initial_status == OrderStatus.PLACED_COD:
+        from notifications.tasks import dispatch_new_order_admin_notification
+        transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
 
     return order
