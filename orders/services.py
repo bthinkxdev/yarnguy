@@ -26,12 +26,27 @@ ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+from django.db.models import Max, IntegerField
+from django.db.models.functions import Cast, Substr
+
 def generate_order_number() -> str:
-    """Return a unique human-readable order number."""
-    while True:
-        order_number = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        if not Order.objects.filter(order_number=order_number).exists():
-            return order_number
+    """Return a unique sequential order number starting from #3000."""
+    max_num = Order.objects.filter(order_number__startswith="#").annotate(
+        num_val=Cast(Substr('order_number', 2), output_field=IntegerField())
+    ).aggregate(Max('num_val'))['num_val__max']
+
+    if max_num and max_num >= 3000:
+        next_num = max_num + 1
+    else:
+        next_num = 3000
+
+    order_number = f"#{next_num}"
+    
+    while Order.objects.filter(order_number=order_number).exists():
+        next_num += 1
+        order_number = f"#{next_num}"
+        
+    return order_number
 
 
 @transaction.atomic
