@@ -98,7 +98,9 @@ if _database_url.startswith("sqlite"):
     }
 else:
     DATABASES = {"default": env.db("DATABASE_URL")}
-    DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=600)
+    # The psycopg pool below manages connection lifetime itself; Django raises
+    # ImproperlyConfigured if CONN_MAX_AGE is also set to a persistent value.
+    DATABASES["default"]["CONN_MAX_AGE"] = 0
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
     DATABASES["default"]["OPTIONS"] = {
         "connect_timeout": env.int("DB_CONNECT_TIMEOUT", default=10),
