@@ -43,10 +43,10 @@ def trigger_shipment_on_confirmed(order):
     #check payment method
     is_cod = hasattr(order, 'payment_transactions') and order.payment_transactions.filter(gateway_key="cod").exists()
     
-    #extract SKUs and calculate dimensions/weight for the payload
+    #extract product descriptions and calculate dimensions/weight for the payload
     items = order.items.select_related("product", "variant").all()
-    sku_list = []
-    
+    item_descriptions = []
+
     total_weight_kg = 0.0
     max_length = 0.0
     max_width = 0.0
@@ -54,16 +54,22 @@ def trigger_shipment_on_confirmed(order):
 
     for item in items:
         product = item.product
+        product_name = product.name if hasattr(product, 'name') else str(product)
         if item.variant and hasattr(item.variant, 'sku'):
-            sku = item.variant.sku
+            sku_code = item.variant.sku
         else:
-            sku = product.sku if hasattr(product, 'sku') else product.name
-        sku_list.append(f"{sku} (x{item.quantity})")
-        
+            sku_code = product.sku if hasattr(product, 'sku') else ""
+        #lead with the real product name (what the label shows as "Product Name"),
+        #with the SKU alongside for the warehouse rather than in place of it.
+        if sku_code:
+            item_descriptions.append(f"{product_name} (SKU:{sku_code}) x{item.quantity}")
+        else:
+            item_descriptions.append(f"{product_name} x{item.quantity}")
+
         # accumulate weight
         if hasattr(product, 'weight') and product.weight:
             total_weight_kg += float(product.weight) * item.quantity
-            
+
         # find max dimensions for the package (approximate)
         if hasattr(product, 'length') and product.length and float(product.length) > max_length:
             max_length = float(product.length)
@@ -71,11 +77,11 @@ def trigger_shipment_on_confirmed(order):
             max_width = float(product.width)
         if hasattr(product, 'height') and product.height and float(product.height) > max_height:
             max_height = float(product.height)
-            
+
     # Delhivery generally expects weight in grams for B2C
     total_weight_grams = total_weight_kg * 1000 if total_weight_kg > 0 else 500.0
-    
-    products_description = ", ".join(sku_list) if sku_list else f"Order {order.order_number} items"
+
+    products_description = ", ".join(item_descriptions) if item_descriptions else f"Order {order.order_number} items"
     
     #construct B2C package payload
     shipment_payload = {
