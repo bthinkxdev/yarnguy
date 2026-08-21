@@ -93,9 +93,12 @@ def trigger_shipment_on_confirmed(order):
         "total_amount": float(order.total_amount),
         "cod_amount": float(order.total_amount) if is_cod else 0.0,
         "weight": total_weight_grams,
-        "length": max_length or 10.0,
-        "breadth": max_width or 10.0,
-        "height": max_height or 5.0,
+        # "length": max_length or 10.0,
+        # "breadth": max_width or 10.0,
+        # "height": max_height or 5.0,
+        "length": float(max_length or 10),
+        "breadth": float(max_width or 10),
+        "height": float(max_height or 5),
     }
     
     url = f"{base_url}/api/cmu/create.json"
