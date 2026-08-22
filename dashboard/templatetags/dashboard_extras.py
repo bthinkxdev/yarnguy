@@ -63,6 +63,26 @@ def status_pill(value):
     return _STATUS_PILL.get(str(value).lower(), "pill-gray")
 
 
+_ORDER_STATUS_BADGE = {
+    "checkout_pending": "bg-warning-subtle text-warning",
+    "placed_cod": "bg-warning-subtle text-warning",
+    "confirmed": "bg-success-subtle text-success",
+    "ready_to_ship": "bg-primary-subtle text-primary",
+    "picked_up": "bg-info-subtle text-info",
+    "in_transit": "bg-info-subtle text-info",
+    "out_for_delivery": "bg-info-subtle text-info",
+    "delivered": "bg-success-subtle text-success",
+    "cancelled": "bg-danger-subtle text-danger",
+    "refunded": "bg-secondary-subtle text-secondary",
+}
+
+
+@register.filter
+def order_status_badge(value):
+    """Return the Bootstrap 'bg-X-subtle text-X' class pair for an order status code."""
+    return _ORDER_STATUS_BADGE.get(str(value).lower(), "bg-secondary-subtle text-secondary")
+
+
 @register.filter
 def primary_image(product):
     """Return the URL of a product's primary (or first) image, else empty string."""

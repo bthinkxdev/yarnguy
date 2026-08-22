@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load dashboard_extras %}
 
 {% block title %}Order {{ order.order_number }}{% endblock %}
 {% block page_title %}Order {{ order.order_number }}{% endblock %}
@@ -14,7 +15,7 @@
     <div class="card mb-3">
       <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
         <h3 class="h5 mb-0">Line Items</h3>
-        <span class="badge bg-primary-subtle text-primary">{{ order.get_order_status_display }}</span>
+        <span class="badge {{ order.order_status|order_status_badge }}">{{ order.get_order_status_display }}</span>
       </div>
       <div class="table-responsive">
         <table class="table mb-0 align-middle">
@@ -102,7 +103,7 @@
             <strong>{{ order.delhivery_shipment.waybill_number|default:"Pending Allocation" }}</strong>
             {% if order.delhivery_shipment.waybill_number %}
             <div class="mt-2">
-              <a href="https://www.delhivery.com/tracking?id={{ order.delhivery_shipment.waybill_number }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="ti ti-external-link me-1"></i>Open Courier Portal</a>
+              <a href="https://www.delhivery.com/track-v2/package/{{ order.delhivery_shipment.waybill_number }}" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="ti ti-external-link me-1"></i>Open Courier Portal</a>
             </div>
             {% endif %}
           </div>

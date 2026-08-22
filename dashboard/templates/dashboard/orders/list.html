@@ -1,4 +1,5 @@
 {% extends "dashboard/base.html" %}
+{% load dashboard_extras %}
 
 {% block title %}Orders{% endblock %}
 {% block page_title %}Orders{% endblock %}
@@ -68,7 +69,7 @@
               <span class="badge bg-success-subtle text-success">Logged</span>
               {% endif %}
             </td>
-            <td><span class="badge bg-primary-subtle text-primary">{{ order.get_order_status_display }}</span></td>
+            <td><span class="badge {{ order.order_status|order_status_badge }}">{{ order.get_order_status_display }}</span></td>
             <td>
               {% if order.payment_status_display == 'Success' or order.payment_status_display == 'Paid' %}
               <span class="badge bg-success-subtle text-success">{{ order.payment_status_display }}</span>
