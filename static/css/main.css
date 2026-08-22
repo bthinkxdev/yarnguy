@@ -3015,6 +3015,12 @@ body.mobile-search-open {
   border-bottom: 1px solid var(--jm-border-light);
   box-shadow: var(--jm-shadow-sm);
   overflow: visible;
+  transition: transform 0.28s ease;
+}
+
+/* Hide on scroll-down, reveal on scroll-up (see initHeaderScrollHide in main.js) */
+.jm-header.jm-header--hidden {
+  transform: translateY(-100%);
 }
 
 .jm-header__main,
