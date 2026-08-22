@@ -54,17 +54,13 @@ def trigger_shipment_on_confirmed(order):
 
     for item in items:
         product = item.product
-        product_name = product.name if hasattr(product, 'name') else str(product)
-        if item.variant and hasattr(item.variant, 'sku'):
-            sku_code = item.variant.sku
-        else:
-            sku_code = product.sku if hasattr(product, 'sku') else ""
-        #lead with the real product name (what the label shows as "Product Name"),
-        #with the SKU alongside for the warehouse rather than in place of it.
-        if sku_code:
-            item_descriptions.append(f"{product_name} (SKU:{sku_code}) x{item.quantity}")
-        else:
-            item_descriptions.append(f"{product_name} x{item.quantity}")
+        #ProductVariant has no "sku" field of its own — only "sku_suffix". Combine it
+        #with the parent product's sku so the actual ordered variant (e.g. size) is
+        #what reaches Delhivery, not just the base product code.
+        sku_code = product.sku
+        if item.variant and item.variant.sku_suffix:
+            sku_code = f"{product.sku} - {item.variant.sku_suffix}"
+        item_descriptions.append(sku_code)
 
         # accumulate weight
         if hasattr(product, 'weight') and product.weight:
@@ -82,7 +78,7 @@ def trigger_shipment_on_confirmed(order):
     total_weight_grams = total_weight_kg * 1000 if total_weight_kg > 0 else 500.0
 
     products_description = ", ".join(item_descriptions) if item_descriptions else f"Order {order.order_number} items"
-    
+    print("products_description -------- :",products_description)
     #construct B2C package payload
     shipment_payload = {
         "name": customer_name,
@@ -106,7 +102,7 @@ def trigger_shipment_on_confirmed(order):
         "breadth": float(max_width or 10),
         "height": float(max_height or 5),
     }
-    
+    print("shipment_payload -------- :", shipment_payload)
     url = f"{base_url}/api/cmu/create.json"
     
     #format according to Delhivery B2C specs - pickup_location must be an object, not a bare string
