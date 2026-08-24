@@ -16,6 +16,8 @@ from reports.selectors import (
     get_admin_dashboard_summary,
     get_daily_customer_reports,
     get_daily_sales_reports,
+    get_live_today_sales_report,
+    get_live_today_customer_report,
 )
 from reports.services import aggregate_daily_reports
 
@@ -30,18 +32,67 @@ def _parse_date(value: str, default: date) -> date:
 @dashboard_required
 def reports_view(request: HttpRequest) -> HttpResponse:
     """Analytics dashboard over the pre-aggregated report tables."""
+    if "clear" in request.GET:
+        request.session.pop("reports_start", None)
+        request.session.pop("reports_end", None)
+        return redirect("dashboard:reports")
+
     today = timezone.localdate()
-    end = _parse_date(request.GET.get("end", ""), today)
-    start = _parse_date(request.GET.get("start", ""), today - timedelta(days=29))
+    
+    start_str = request.GET.get("start")
+    end_str = request.GET.get("end")
+    
+    if start_str is not None and end_str is not None:
+        request.session["reports_start"] = start_str
+        request.session["reports_end"] = end_str
+    else:
+        start_str = request.session.get("reports_start", "")
+        end_str = request.session.get("reports_end", "")
+        
+    start = _parse_date(start_str, today - timedelta(days=31))
+    end = _parse_date(end_str, today)
+    
+    #safeguard against future dates
+    if end > today:
+        end = today
+    if start > end:
+        start = end
 
     sales = get_daily_sales_reports(start_date=start, end_date=end, page=1, page_size=366)
     customers = get_daily_customer_reports(start_date=start, end_date=end, page=1, page_size=366)
 
+    if start <= today <= end:
+        sales["results"] = [r for r in sales["results"] if r.report_date != today]
+        sales["results"].insert(0, get_live_today_sales_report())
+        customers["results"] = [r for r in customers["results"] if r.report_date != today]
+        customers["results"].insert(0, get_live_today_customer_report())
+
     ordered = list(reversed(sales["results"]))
+    
+    #make chart timeline continuous between start and end
+    chart_categories = []
+    chart_revenue = []
+    chart_orders = []
+    
+    #create a lookup for quick access
+    sales_by_date = {r.report_date: r for r in ordered}
+    
+    current_date = start
+    while current_date <= end:
+        chart_categories.append(current_date.strftime("%b %d"))
+        if current_date in sales_by_date:
+            row = sales_by_date[current_date]
+            chart_revenue.append(float(row.revenue) if row.revenue else 0.0)
+            chart_orders.append(row.order_count if row.order_count else 0)
+        else:
+            chart_revenue.append(0.0)
+            chart_orders.append(0)
+        current_date += timedelta(days=1)
+        
     chart = {
-        "categories": [r.report_date.strftime("%b %d") for r in ordered],
-        "revenue": [float(r.revenue) for r in ordered],
-        "orders": [r.order_count for r in ordered],
+        "categories": chart_categories,
+        "revenue": chart_revenue,
+        "orders": chart_orders,
     }
     total_revenue = sum(float(r.revenue) for r in sales["results"])
     total_orders = sum(r.order_count for r in sales["results"])
@@ -65,9 +116,22 @@ def reports_view(request: HttpRequest) -> HttpResponse:
 def reports_export_csv(request: HttpRequest) -> HttpResponse:
     """Export daily sales in the selected range as CSV."""
     today = timezone.localdate()
-    end = _parse_date(request.GET.get("end", ""), today)
-    start = _parse_date(request.GET.get("start", ""), today - timedelta(days=29))
+    start_str = request.GET.get("start") or request.session.get("reports_start", "")
+    end_str = request.GET.get("end") or request.session.get("reports_end", "")
+    
+    end = _parse_date(end_str, today)
+    start = _parse_date(start_str, today - timedelta(days=31))
+    
+    if end > today:
+        end = today
+    if start > end:
+        start = end
+        
     sales = get_daily_sales_reports(start_date=start, end_date=end, page=1, page_size=366)
+
+    if start <= today <= end:
+        sales["results"] = [r for r in sales["results"] if r.report_date != today]
+        sales["results"].insert(0, get_live_today_sales_report())
 
     response = HttpResponse(content_type="text/csv")
     response["Content-Disposition"] = f'attachment; filename="sales_{start}_{end}.csv"'

@@ -9,7 +9,9 @@ from django.core.cache import cache
 from django.core.paginator import Paginator
 from django.db.models import Count, Sum, F
 from django.utils import timezone
+from decimal import Decimal
 
+from accounts.models import CustomerProfile
 from catalog.models import Product
 
 from orders.models import Order, OrderStatus
@@ -94,6 +96,45 @@ def get_inventory_snapshots(
     return {"results": list(page_obj.object_list), "page": page_obj.number}
 
 
+def get_live_today_sales_report() -> DailySalesReport:
+    """Compute today's sales report on the fly."""
+    today = timezone.localdate()
+    agg = Order.objects.filter(created_at__date=today).exclude(
+        order_status=OrderStatus.CANCELLED
+    ).aggregate(
+        order_count=Count("id"),
+        revenue=Sum("total_amount"),
+        coupon_discount_total=Sum("coupon_discount")
+    )
+    order_count = agg["order_count"] or 0
+    revenue = agg["revenue"] or Decimal("0")
+    aov = (revenue / order_count).quantize(Decimal("0.01")) if order_count else Decimal("0")
+    
+    return DailySalesReport(
+        report_date=today,
+        order_count=order_count,
+        revenue=revenue,
+        average_order_value=aov,
+        coupon_discount_total=agg["coupon_discount_total"] or Decimal("0")
+    )
+
+
+def get_live_today_customer_report() -> DailyCustomerReport:
+    """Compute today's customer report on the fly."""
+    today = timezone.localdate()
+    new_customers = CustomerProfile.objects.filter(created_at__date=today).count()
+    returning = Order.objects.filter(created_at__date=today).exclude(
+        order_status=OrderStatus.CANCELLED
+    ).values("customer_profile").distinct().count()
+    
+    return DailyCustomerReport(
+        report_date=today,
+        new_customers=new_customers,
+        returning_customers=max(returning - new_customers, 0),
+        total_active_customers=CustomerProfile.objects.count()
+    )
+
+
 def get_admin_dashboard_summary() -> dict[str, Any]:
     """
     Admin dashboard summary.
@@ -102,9 +143,10 @@ def get_admin_dashboard_summary() -> dict[str, Any]:
     is a deliberate live exception (today cannot be pre-aggregated yet) —
     cached 5 minutes to bound query cost.
     """
-    cached = cache.get(ADMIN_DASHBOARD_CACHE_KEY)
-    if cached is not None:
-        return cached
+    # We've disabled the 5-minute cache so the dashboard updates instantly
+    # cached = cache.get(ADMIN_DASHBOARD_CACHE_KEY)
+    # if cached is not None:
+    #     return cached
 
     today = timezone.localdate()
     yesterday = today - timedelta(days=1)

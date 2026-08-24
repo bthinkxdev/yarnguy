@@ -25,6 +25,10 @@ def get_sales_series(*, days: int = 14) -> dict[str, list]:
         r.report_date: r
         for r in DailySalesReport.objects.filter(report_date__gte=start).order_by("report_date")
     }
+    
+    from reports.selectors import get_live_today_sales_report
+    today = timezone.localdate()
+    rows[today] = get_live_today_sales_report()
     categories: list[str] = []
     revenue: list[float] = []
     orders: list[int] = []
@@ -38,14 +42,27 @@ def get_sales_series(*, days: int = 14) -> dict[str, list]:
 
 
 def get_customer_split() -> dict[str, list[float]]:
-    """Return [new%, returning%] from the most recent customer report."""
-    latest = DailyCustomerReport.objects.order_by("-report_date").first()
-    if not latest:
-        return {"series": [0, 0]}
-    total = (latest.new_customers or 0) + (latest.returning_customers or 0)
+    """Return [new%, returning%] over the last 30 days (true unique human count)."""
+    start = timezone.localdate() - timedelta(days=30)
+    
+    # 1.how many brand new accounts were created in the last 30 days?
+    from accounts.models import CustomerProfile
+    new_customers = CustomerProfile.objects.filter(created_at__date__gte=start).count()
+    
+    # 2.how many unique people placed an order in the last 30 days?
+    from orders.models import Order
+    unique_buyers = Order.objects.filter(
+        created_at__date__gte=start
+    ).values("customer_profile").distinct().count()
+    
+    # returning = people who bought minus the newly created accounts
+    returning_customers = max(0, unique_buyers - new_customers)
+    
+    total = new_customers + returning_customers
     if total == 0:
         return {"series": [0, 0]}
-    new_pct = round(100 * latest.new_customers / total)
+        
+    new_pct = round(100 * new_customers / total)
     return {"series": [new_pct, 100 - new_pct]}
 
 

@@ -27,8 +27,8 @@
       </div>
       <div class="col-12 col-md-auto d-flex align-items-center gap-2">
         <button type="submit" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Apply</button>
-        {% if request.GET.start or request.GET.end %}
-        <a href="{% url 'dashboard:reports' %}" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
+        {% if request.GET.start or request.GET.end or request.session.reports_start or request.session.reports_end %}
+        <a href="{% url 'dashboard:reports' %}?clear=1" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
         {% endif %}
       </div>
     </form>

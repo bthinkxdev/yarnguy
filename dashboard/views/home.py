@@ -32,12 +32,18 @@ def home_view(request: HttpRequest) -> HttpResponse:
     customer_split = selectors.get_customer_split()
     counts = selectors.get_dashboard_counts()
 
-    totals = DailySalesReport.objects.aggregate(
+    from django.utils import timezone
+    from reports.selectors import get_live_today_sales_report
+
+    today = timezone.localdate()
+    totals = DailySalesReport.objects.exclude(report_date=today).aggregate(
         revenue=Sum("revenue"),
         orders=Sum("order_count"),
     )
-    total_revenue = totals["revenue"] or 0
-    total_orders = totals["orders"] or 0
+    live_today = get_live_today_sales_report()
+    
+    total_revenue = (totals["revenue"] or 0) + (live_today.revenue or 0)
+    total_orders = (totals["orders"] or 0) + (live_today.order_count or 0)
     avg_order_value = (float(total_revenue) / total_orders) if total_orders else 0
 
     default_currency = Currency.objects.filter(is_default=True).first()
