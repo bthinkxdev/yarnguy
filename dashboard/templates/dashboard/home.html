@@ -134,7 +134,7 @@
     <div class="card h-100">
       <div class="card-header panel-header">
         <h4 class="panel-title">Top Selling Products</h4>
-        <a href="{% url 'dashboard:product-list' %}" class="panel-link">View all</a>
+        <a href="{% url 'dashboard:product-list' %}?status=top" class="panel-link">View all</a>
       </div>
       <div class="card-body p-0">
         {% for p in top_products %}

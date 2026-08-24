@@ -79,31 +79,40 @@ def _primary_image_url(product: Product) -> str | None:
 
 
 def get_top_products(*, limit: int = 5) -> list[dict[str, Any]]:
-    """Top products by revenue on the most recent day that has performance data."""
-    latest = (
-        DailyProductPerformance.objects.order_by("-report_date")
-        .values_list("report_date", flat=True)
-        .first()
-    )
-    if not latest:
-        return []
+    """Top products by live all-time revenue."""
+    from django.db.models import Sum, F
+    from orders.models import OrderItem, OrderStatus
+    
     rows = list(
-        DailyProductPerformance.objects.filter(report_date=latest)
-        .select_related("product", "product__category")
-        .prefetch_related("product__images")
-        .order_by("-revenue")[:limit]
+        OrderItem.objects.exclude(order__order_status=OrderStatus.CANCELLED)
+        .values("product_id", "product__name", "product__category__name", "product__category_id")
+        .annotate(
+            total_units=Sum("quantity"),
+            total_revenue=Sum(F("unit_price") * F("quantity"))
+        )
+        .filter(total_revenue__gt=0)
+        .order_by("-total_revenue")[:limit]
     )
-    top_revenue = float(rows[0].revenue) if rows and rows[0].revenue else 0.0
+    if not rows:
+        return []
+
+    product_ids = [r["product_id"] for r in rows]
+    products = Product.objects.filter(id__in=product_ids).prefetch_related("images")
+    product_map = {p.id: p for p in products}
+
+    top_revenue = float(rows[0]["total_revenue"]) if rows else 0.0
     result: list[dict[str, Any]] = []
+    
     for r in rows:
-        rev = float(r.revenue or 0)
+        rev = float(r["total_revenue"] or 0)
+        product = product_map.get(r["product_id"])
         result.append(
             {
-                "name": r.product.name,
-                "units": r.units_sold,
-                "revenue": r.revenue,
-                "category": r.product.category.name if r.product.category_id else "",
-                "image": _primary_image_url(r.product),
+                "name": r["product__name"],
+                "units": r["total_units"],
+                "revenue": r["total_revenue"],
+                "category": r["product__category__name"] if r["product__category_id"] else "",
+                "image": _primary_image_url(product) if product else None,
                 "share": round(100 * rev / top_revenue) if top_revenue else 0,
             }
         )
@@ -111,9 +120,9 @@ def get_top_products(*, limit: int = 5) -> list[dict[str, Any]]:
 
 
 def get_low_stock_products(*, limit: int = 5) -> list[dict[str, Any]]:
-    """Active products at or below their low-stock threshold."""
+    """Active products at or below their low-stock threshold (but not completely out of stock)."""
     products = (
-        Product.objects.filter(is_active=True, stock_quantity__lte=F("low_stock_threshold"))
+        Product.objects.filter(is_active=True, stock_quantity__lte=F("low_stock_threshold"), stock_quantity__gt=0)
         .select_related("category")
         .prefetch_related("images")
         .order_by("stock_quantity")[:limit]

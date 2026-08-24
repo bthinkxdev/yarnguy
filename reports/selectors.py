@@ -155,6 +155,7 @@ def get_admin_dashboard_summary() -> dict[str, Any]:
     low_stock_count = Product.objects.filter(
         is_active=True,
         stock_quantity__lte=F("low_stock_threshold"),
+        stock_quantity__gt=0,
     ).count()
 
     today_orders = Order.objects.filter(created_at__date=today).exclude(

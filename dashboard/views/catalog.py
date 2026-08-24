@@ -35,14 +35,31 @@ class ProductListView(DashboardListView):
     def get_queryset(self):
         qs = super().get_queryset()
         status = self.request.GET.get("status", "")
+        top_product_ids = None
         if status == "active":
             qs = qs.filter(is_active=True)
         elif status == "inactive":
             qs = qs.filter(is_active=False)
         elif status == "low":
-            qs = qs.filter(stock_quantity__lte=F("low_stock_threshold"))
+            qs = qs.filter(stock_quantity__lte=F("low_stock_threshold"), stock_quantity__gt=0)
         elif status == "out":
             qs = qs.filter(stock_quantity=0)
+        elif status == "top":
+            from django.db.models import Sum
+            from orders.models import OrderItem, OrderStatus
+            top_product_ids = list(
+                OrderItem.objects.exclude(order__order_status=OrderStatus.CANCELLED)
+                .values("product_id")
+                .annotate(total_revenue=Sum(F("unit_price") * F("quantity")))
+                .filter(total_revenue__gt=0)
+                .order_by("-total_revenue")
+                .values_list("product_id", flat=True)
+            )
+            if top_product_ids:
+                qs = qs.filter(id__in=top_product_ids)
+            else:
+                qs = qs.none()
+
         category = self.request.GET.get("category", "")
         if category.isdigit():
             category_id = int(category)
@@ -51,6 +68,10 @@ class ProductListView(DashboardListView):
                 Category.objects.filter(parent_id=category_id).values_list("id", flat=True)
             )
             qs = qs.filter(category_id__in=category_ids)
+            
+        if status == "top" and top_product_ids:
+            preserved_order = Case(*[When(pk=pk, then=Value(pos)) for pos, pk in enumerate(top_product_ids)], output_field=IntegerField())
+            return qs.order_by(preserved_order)
             
         #sort pinned products to the top, toggled-off to the bottom
         qs = qs.order_by(
