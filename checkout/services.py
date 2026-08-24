@@ -116,6 +116,7 @@ def place_order(
     idempotency_key: str,
     gateway_key: str,
     customer_profile: Optional[CustomerProfile] = None,
+    is_guest_checkout: bool = False,
 ) -> Order:
     """
     Atomically place an order from a checkout session.
@@ -201,6 +202,9 @@ def place_order(
 
     initial_status = OrderStatus.PLACED_COD if gateway_key == "cod" else OrderStatus.CHECKOUT_PENDING
 
+    invoice_details = dict(session.invoice_details or {})
+    invoice_details["is_guest_checkout"] = is_guest_checkout
+
     try:
         order = Order.objects.create(
             customer_profile=customer_profile,
@@ -215,7 +219,7 @@ def place_order(
             total_amount=summary.grand_total,
             currency=session.cart.currency,
             delivery_address_snapshot=address_snapshot,
-            invoice_details=session.invoice_details,
+            invoice_details=invoice_details,
         )
     except IntegrityError:
         return Order.objects.get(idempotency_key=idempotency_key)

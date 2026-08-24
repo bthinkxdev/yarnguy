@@ -134,6 +134,9 @@ class Order(TimeStampedModel):
         history + email lookups) via an unusable password — so ``customer_profile``
         being set isn't enough to tell guest and registered orders apart.
         """
+        if self.invoice_details and "is_guest_checkout" in self.invoice_details:
+            return self.invoice_details["is_guest_checkout"]
+
         if not self.customer_profile_id:
             return True
         return not self.customer_profile.user.has_usable_password()
