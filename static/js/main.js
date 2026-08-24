@@ -1576,12 +1576,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (height > 0) {
       document.documentElement.style.setProperty('--jm-header-sticky-offset', height + 'px');
     }
-    var plpToolbar = document.querySelector('.jm-plp-toolbar');
-    var toolbarHeight = 0;
-    if (plpToolbar && window.matchMedia('(min-width: 992px)').matches) {
-      toolbarHeight = Math.ceil(plpToolbar.getBoundingClientRect().height);
-    }
-    document.documentElement.style.setProperty('--jm-plp-toolbar-height', toolbarHeight + 'px');
   }
 
   function initHeaderScrollHide() {
@@ -1605,12 +1599,16 @@ document.addEventListener('DOMContentLoaded', () => {
       var currentScrollY = window.scrollY;
       if (isBlockingOverlayOpen()) {
         header.classList.remove('jm-header--hidden');
+        document.documentElement.classList.remove('jm-header-is-hidden');
       } else if (currentScrollY <= hideThreshold) {
         header.classList.remove('jm-header--hidden');
+        document.documentElement.classList.remove('jm-header-is-hidden');
       } else if (currentScrollY > lastScrollY) {
         header.classList.add('jm-header--hidden');
+        document.documentElement.classList.add('jm-header-is-hidden');
       } else if (currentScrollY < lastScrollY) {
         header.classList.remove('jm-header--hidden');
+        document.documentElement.classList.remove('jm-header-is-hidden');
       }
       lastScrollY = currentScrollY;
       ticking = false;
