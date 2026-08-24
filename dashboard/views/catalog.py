@@ -46,9 +46,10 @@ class ProductListView(DashboardListView):
             qs = qs.filter(stock_quantity=0)
         elif status == "top":
             from django.db.models import Sum
-            from orders.models import OrderItem, OrderStatus
+            from orders.models import OrderItem
+            from orders.services import REVENUE_ORDER_STATUSES
             top_product_ids = list(
-                OrderItem.objects.exclude(order__order_status=OrderStatus.CANCELLED)
+                OrderItem.objects.filter(order__order_status__in=REVENUE_ORDER_STATUSES)
                 .values("product_id")
                 .annotate(total_revenue=Sum(F("unit_price") * F("quantity")))
                 .filter(total_revenue__gt=0)
@@ -93,13 +94,41 @@ class ProductListView(DashboardListView):
         )
         return qs
 
+    STATUS_FILTER_LABELS = {
+        "active": "Active",
+        "inactive": "Inactive",
+        "low": "Low Stock",
+        "out": "Out of Stock",
+        "top": "Top Selling",
+    }
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         default_currency = Currency.objects.filter(is_default=True).first()
         context["currency_symbol"] = default_currency.symbol if default_currency else ""
         context["categories"] = Category.objects.order_by("name")
-        context["status_filter"] = self.request.GET.get("status", "")
-        context["category_filter"] = self.request.GET.get("category", "")
+        status_filter = self.request.GET.get("status", "")
+        category_filter = self.request.GET.get("category", "")
+        context["status_filter"] = status_filter
+        context["category_filter"] = category_filter
+
+        active_filters = []
+        if status_filter:
+            params = self.request.GET.copy()
+            params.pop("status", None)
+            active_filters.append({
+                "label": self.STATUS_FILTER_LABELS.get(status_filter, status_filter),
+                "clear_url": f"{self.request.path}?{params.urlencode()}" if params else self.request.path,
+            })
+        if category_filter:
+            category = Category.objects.filter(pk=category_filter).first()
+            params = self.request.GET.copy()
+            params.pop("category", None)
+            active_filters.append({
+                "label": category.name if category else "Category",
+                "clear_url": f"{self.request.path}?{params.urlencode()}" if params else self.request.path,
+            })
+        context["active_filters"] = active_filters
         return context
 
 

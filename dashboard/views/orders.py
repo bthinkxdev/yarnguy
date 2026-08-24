@@ -46,6 +46,23 @@ def order_list(request: HttpRequest) -> HttpResponse:
     params = request.GET.copy()
     params.pop("page", None)
 
+    def _clear_url(param: str) -> str:
+        p = request.GET.copy()
+        p.pop("page", None)
+        p.pop(param, None)
+        return f"{request.path}?{p.urlencode()}" if p else request.path
+
+    active_filters = []
+    if status:
+        active_filters.append({"label": _STATUS_LABELS.get(status, status), "clear_url": _clear_url("status")})
+    if payment_status:
+        active_filters.append({
+            "label": f"Payment: {dict(PaymentStatus.choices).get(payment_status, payment_status)}",
+            "clear_url": _clear_url("payment_status"),
+        })
+    if query:
+        active_filters.append({"label": f'Search: "{query}"', "clear_url": _clear_url("q")})
+
     context = {
         "nav_section": "orders",
         "page_title": "Orders",
@@ -57,6 +74,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
         "current_payment_status": payment_status,
         "search_query": query,
         "querystring": params.urlencode(),
+        "active_filters": active_filters,
     }
     return render(request, "dashboard/orders/list.html", context)
 

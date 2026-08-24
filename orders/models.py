@@ -128,18 +128,21 @@ class Order(TimeStampedModel):
     @property
     def is_guest_order(self) -> bool:
         """
-        True if the order wasn't placed by a signed-in, registered customer.
+        True if the order wasn't placed by a signed-in customer.
 
-        Guest checkout still auto-creates a CustomerProfile/User (for order
-        history + email lookups) via an unusable password — so ``customer_profile``
-        being set isn't enough to tell guest and registered orders apart.
+        Captured at checkout time (``checkout.services.place_order``, from
+        ``request.user.is_authenticated``) into ``invoice_details["is_guest_checkout"]``
+        — this is the only reliable signal. There's deliberately no
+        ``has_usable_password()`` fallback: this site's primary customer login is
+        passwordless email OTP (``accounts.services.login_or_create_customer_by_email``),
+        which sets an unusable password on every account it creates — so that check
+        would report EVERY customer as a guest, logged in or not. Orders placed
+        before this flag existed have no reliable signal at all; they default to
+        guest rather than guess.
         """
         if self.invoice_details and "is_guest_checkout" in self.invoice_details:
             return self.invoice_details["is_guest_checkout"]
-
-        if not self.customer_profile_id:
-            return True
-        return not self.customer_profile.user.has_usable_password()
+        return True
 
     @property
     def customer_display_name(self) -> str:
