@@ -11,6 +11,7 @@ from django.utils import timezone
 from accounts.models import CustomerProfile
 from catalog.models import Product
 from orders.models import Order
+from orders.services import REVENUE_ORDER_STATUSES
 from reports.models import (
     DailyCustomerReport,
     DailyProductPerformance,
@@ -49,10 +50,10 @@ def get_customer_split() -> dict[str, list[float]]:
     from accounts.models import CustomerProfile
     new_customers = CustomerProfile.objects.filter(created_at__date__gte=start).count()
     
-    # 2.how many unique people placed an order in the last 30 days?
-    from orders.models import Order
+    # 2.how many unique people placed a real (non-abandoned, non-cancelled) order
+    # in the last 30 days?
     unique_buyers = Order.objects.filter(
-        created_at__date__gte=start
+        created_at__date__gte=start, order_status__in=REVENUE_ORDER_STATUSES
     ).values("customer_profile").distinct().count()
     
     # returning = people who bought minus the newly created accounts
@@ -81,10 +82,10 @@ def _primary_image_url(product: Product) -> str | None:
 def get_top_products(*, limit: int = 5) -> list[dict[str, Any]]:
     """Top products by live all-time revenue."""
     from django.db.models import Sum, F
-    from orders.models import OrderItem, OrderStatus
-    
+    from orders.models import OrderItem
+
     rows = list(
-        OrderItem.objects.exclude(order__order_status=OrderStatus.CANCELLED)
+        OrderItem.objects.filter(order__order_status__in=REVENUE_ORDER_STATUSES)
         .values("product_id", "product__name", "product__category__name", "product__category_id")
         .annotate(
             total_units=Sum("quantity"),

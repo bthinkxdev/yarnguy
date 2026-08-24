@@ -261,6 +261,11 @@ class Product(TimeStampedModel):
     def __str__(self) -> str:
         return self.name
 
+    def get_absolute_url(self) -> str:
+        from django.urls import reverse
+
+        return reverse("catalog:pdp", kwargs={"slug": self.slug})
+
     @property
     def is_in_stock(self) -> bool:
         """True when aggregate product stock is available."""

@@ -14,7 +14,8 @@ from decimal import Decimal
 from accounts.models import CustomerProfile
 from catalog.models import Product
 
-from orders.models import Order, OrderStatus
+from orders.models import Order
+from orders.services import REVENUE_ORDER_STATUSES
 from reports.models import (
     DailyCustomerReport,
     DailyProductPerformance,
@@ -99,8 +100,8 @@ def get_inventory_snapshots(
 def get_live_today_sales_report() -> DailySalesReport:
     """Compute today's sales report on the fly."""
     today = timezone.localdate()
-    agg = Order.objects.filter(created_at__date=today).exclude(
-        order_status=OrderStatus.CANCELLED
+    agg = Order.objects.filter(
+        created_at__date=today, order_status__in=REVENUE_ORDER_STATUSES
     ).aggregate(
         order_count=Count("id"),
         revenue=Sum("total_amount"),
@@ -123,8 +124,8 @@ def get_live_today_customer_report() -> DailyCustomerReport:
     """Compute today's customer report on the fly."""
     today = timezone.localdate()
     new_customers = CustomerProfile.objects.filter(created_at__date=today).count()
-    returning = Order.objects.filter(created_at__date=today).exclude(
-        order_status=OrderStatus.CANCELLED
+    returning = Order.objects.filter(
+        created_at__date=today, order_status__in=REVENUE_ORDER_STATUSES
     ).values("customer_profile").distinct().count()
     
     return DailyCustomerReport(
@@ -158,8 +159,8 @@ def get_admin_dashboard_summary() -> dict[str, Any]:
         stock_quantity__gt=0,
     ).count()
 
-    today_orders = Order.objects.filter(created_at__date=today).exclude(
-        order_status=OrderStatus.CANCELLED,
+    today_orders = Order.objects.filter(
+        created_at__date=today, order_status__in=REVENUE_ORDER_STATUSES
     )
     today_agg = today_orders.aggregate(
         order_count=Count("id"),

@@ -10,7 +10,8 @@ from django.utils import timezone
 
 from accounts.models import CustomerProfile
 from catalog.models import Product
-from orders.models import Order, OrderItem, OrderStatus
+from orders.models import Order, OrderItem
+from orders.services import REVENUE_ORDER_STATUSES
 from reports.models import (
     DailyCustomerReport,
     DailyProductPerformance,
@@ -29,8 +30,8 @@ def aggregate_daily_reports(*, report_date: date | None = None) -> dict[str, int
     if report_date is None:
         report_date = timezone.localdate() - timedelta(days=1)
 
-    orders = Order.objects.filter(created_at__date=report_date).exclude(
-        order_status=OrderStatus.CANCELLED,
+    orders = Order.objects.filter(
+        created_at__date=report_date, order_status__in=REVENUE_ORDER_STATUSES
     )
     agg = orders.aggregate(
         order_count=Count("id"),
@@ -52,8 +53,10 @@ def aggregate_daily_reports(*, report_date: date | None = None) -> dict[str, int
     )
 
     product_rows = list(
-        OrderItem.objects.filter(order__created_at__date=report_date)
-        .exclude(order__order_status=OrderStatus.CANCELLED)
+        OrderItem.objects.filter(
+            order__created_at__date=report_date,
+            order__order_status__in=REVENUE_ORDER_STATUSES,
+        )
         .values("product_id")
         .annotate(
             units_sold=Sum("quantity"),

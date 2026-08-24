@@ -45,6 +45,14 @@ ORDER_STATUS_RANK: dict[str, int] = {
     OrderStatus.DELIVERED: 6,
 }
 
+#Statuses that represent a real, uncancelled sale — for revenue/order-count
+#reporting (reports.services, reports.selectors, dashboard.selectors). Deliberately
+#an include-list, not an exclude-list: CHECKOUT_PENDING/PLACED_COD haven't converted
+#to a sale yet (nothing paid or confirmed), CANCELLED/REFUNDED had the sale reversed.
+#An include-list also means a future new status defaults to NOT counting as revenue
+#until someone deliberately adds it here, rather than silently counting by default.
+REVENUE_ORDER_STATUSES: frozenset[str] = frozenset(ORDER_STATUS_RANK.keys())
+
 
 from django.db.models import Max, IntegerField
 from django.db.models.functions import Cast, Substr
