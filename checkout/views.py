@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 
 from django.contrib.auth.decorators import login_required
@@ -21,6 +22,8 @@ from checkout.services import create_checkout_session, place_order, update_check
 
 from payments.registry import PAYMENT_GATEWAYS
 from payments.services import process_payment
+
+logger = logging.getLogger(__name__)
 
 
 def _get_checkout_cart(request: HttpRequest, create: bool = False):
@@ -547,6 +550,7 @@ def razorpay_callback_view(request: HttpRequest) -> HttpResponse:
     from payments.services import confirm_payment_success, confirm_payment_failed
     from django.shortcuts import get_object_or_404
     from orders.models import Order
+    from core.selectors import get_default_currency
 
     razorpay_payment_id = request.POST.get("razorpay_payment_id", "")
     razorpay_order_id = request.POST.get("razorpay_order_id", "")
@@ -580,14 +584,24 @@ def razorpay_callback_view(request: HttpRequest) -> HttpResponse:
     )
 
     if is_valid and payment_tx:
-        adapter.capture_payment(
+        if not payment_tx.currency:
+            default_curr = get_default_currency()
+        currency_code = payment_tx.currency.code if payment_tx.currency else (default_curr.code if default_curr else "AED")
+        capture_succeeded = adapter.capture_payment(
             razorpay_payment_id=razorpay_payment_id,
             amount=payment_tx.amount,
-            currency=payment_tx.currency.code if payment_tx.currency else (default_curr.code if default_curr else "AED"),
+            currency=currency_code,
         )
-        payment_tx.external_transaction_id = razorpay_payment_id
-        payment_tx.save(update_fields=["external_transaction_id", "updated_at"])
-        confirm_payment_success(payment_transaction=payment_tx)
+        if not capture_succeeded:
+            logger.error(
+                "Razorpay capture failed after valid signature: order_id=%s "
+                "razorpay_payment_id=%s razorpay_order_id=%s",
+                order.pk, razorpay_payment_id, razorpay_order_id,
+            )
+            confirm_payment_failed(payment_transaction=payment_tx)
+            return redirect("checkout:checkout")
+
+        confirm_payment_success(payment_transaction=payment_tx, external_transaction_id=razorpay_payment_id)
         return redirect("checkout:confirmation", order_id=order.pk)
     else:
         if payment_tx:

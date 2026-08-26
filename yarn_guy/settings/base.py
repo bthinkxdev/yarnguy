@@ -256,3 +256,7 @@ DELHIVERY_BASE_URL = env("DELHIVERY_BASE_URL", default="https://staging-express.
 DELHIVERY_WEBHOOK_TOKEN = env("DELHIVERY_WEBHOOK_TOKEN", default="")
 DELHIVERY_PICKUP_LOCATION = env("DELHIVERY_PICKUP_LOCATION", default="Primary")
 
+#razorpay webhook — separate from the razorpay_key_id/secret stored on SiteSettings,
+#this is deployment-only config for verifying payments.views.razorpay_webhook_view
+RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
+

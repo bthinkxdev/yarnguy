@@ -284,25 +284,65 @@ class RazorpayAdapter(PaymentGatewayAdapter):
         amount: Any = 0,
         currency: str = None,
     ) -> bool:
+        """
+        Capture a Razorpay payment, or confirm it was already captured.
+
+        Returns True only when Razorpay confirms the payment is actually
+        captured — never on ambiguity. Two cases require care beyond a bare
+        HTTP-status check on the capture call itself:
+
+        - Already captured: when auto-capture is enabled (Razorpay's default),
+          the payment may already be captured by the time this runs. Calling
+          /capture again then returns HTTP 400 "This payment has already been
+          captured" — a legitimate success, not a failure. We disambiguate by
+          fetching the payment directly rather than parsing error text.
+        - Any network/exception failure now returns False instead of silently
+          assuming success — a blocked confirmation here is still recoverable
+          via the Razorpay webhook, but a wrongly-confirmed order is not.
+        """
         if not currency:
             from core.selectors import get_default_currency
             default_curr = get_default_currency()
             currency = default_curr.code if default_curr else "AED"
         key_id, key_secret = _get_razorpay_credentials()
-        if key_id and key_secret and razorpay_payment_id and not razorpay_payment_id.startswith("pay_test_"):
-            try:
-                import requests
-                amount_in_paise = int(amount * 100)
-                resp = requests.post(
-                    f"https://api.razorpay.com/v1/payments/{razorpay_payment_id}/capture",
-                    auth=(key_id, key_secret),
-                    json={"amount": amount_in_paise, "currency": currency},
-                    timeout=10,
-                )
-                return resp.status_code in (200, 201)
-            except Exception:
-                pass
-        return True
+        if not (key_id and key_secret and razorpay_payment_id) or razorpay_payment_id.startswith("pay_test_"):
+            return True
+
+        import requests
+        try:
+            amount_in_paise = int(amount * 100)
+            resp = requests.post(
+                f"https://api.razorpay.com/v1/payments/{razorpay_payment_id}/capture",
+                auth=(key_id, key_secret),
+                json={"amount": amount_in_paise, "currency": currency},
+                timeout=10,
+            )
+        except Exception:
+            return False
+
+        if resp.status_code in (200, 201):
+            return True
+
+        return self._fetch_payment_is_captured(
+            razorpay_payment_id=razorpay_payment_id, key_id=key_id, key_secret=key_secret,
+        )
+
+    def _fetch_payment_is_captured(self, *, razorpay_payment_id: str, key_id: str, key_secret: str) -> bool:
+        """Authoritative check of a payment's actual status, used when the
+        capture call itself returned a non-2xx (e.g. already captured, or a
+        genuine failure — only GET /payments/{id} can tell them apart)."""
+        import requests
+        try:
+            resp = requests.get(
+                f"https://api.razorpay.com/v1/payments/{razorpay_payment_id}",
+                auth=(key_id, key_secret),
+                timeout=10,
+            )
+            if resp.status_code == 200:
+                return resp.json().get("status") == "captured"
+        except Exception:
+            pass
+        return False
 
     def capture(self, *, intent_id: str) -> PaymentCaptureResult:
         return PaymentCaptureResult(
