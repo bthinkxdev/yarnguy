@@ -19,11 +19,27 @@ _STATUS_LABELS = dict(OrderStatus.choices)
 @dashboard_required
 @require_http_methods(["GET"])
 def order_list(request: HttpRequest) -> HttpResponse:
-    """Paginated, status-filterable, searchable order list."""
+    """Paginated, status-filterable, searchable order list.
+
+    Split into two tabs: "Orders" (everything past checkout) and "Abandoned
+    Checkouts" (CHECKOUT_PENDING — reached payment but never completed it).
+    Both are real Order rows by design (see orders.services.place_order), so
+    without this split abandoned checkouts would otherwise clutter the main
+    list by default.
+    """
+    view = request.GET.get("view", "orders").strip()
+    if view not in ("orders", "abandoned"):
+        view = "orders"
+
     qs = Order.objects.select_related("customer_profile__user", "currency").order_by("-created_at")
 
+    if view == "abandoned":
+        qs = qs.filter(order_status=OrderStatus.CHECKOUT_PENDING)
+    else:
+        qs = qs.exclude(order_status=OrderStatus.CHECKOUT_PENDING)
+
     status = request.GET.get("status", "").strip()
-    if status:
+    if status and view == "orders":
         qs = qs.filter(order_status=status)
     from django.db.models import Q
     query = request.GET.get("q", "").strip()
@@ -53,7 +69,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
         return f"{request.path}?{p.urlencode()}" if p else request.path
 
     active_filters = []
-    if status:
+    if status and view == "orders":
         active_filters.append({"label": _STATUS_LABELS.get(status, status), "clear_url": _clear_url("status")})
     if payment_status:
         active_filters.append({
@@ -63,18 +79,25 @@ def order_list(request: HttpRequest) -> HttpResponse:
     if query:
         active_filters.append({"label": f'Search: "{query}"', "clear_url": _clear_url("q")})
 
+    abandoned_count = Order.objects.filter(order_status=OrderStatus.CHECKOUT_PENDING).count()
+    orderable_statuses = [
+        (value, label) for value, label in OrderStatus.choices if value != OrderStatus.CHECKOUT_PENDING
+    ]
+
     context = {
         "nav_section": "orders",
         "page_title": "Orders",
         "page_obj": page_obj,
         "objects": page_obj.object_list,
-        "statuses": OrderStatus.choices,
+        "statuses": orderable_statuses,
         "payment_statuses": PaymentStatus.choices,
         "current_status": status,
         "current_payment_status": payment_status,
         "search_query": query,
         "querystring": params.urlencode(),
         "active_filters": active_filters,
+        "current_view": view,
+        "abandoned_count": abandoned_count,
     }
     return render(request, "dashboard/orders/list.html", context)
 

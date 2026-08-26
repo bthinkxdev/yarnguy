@@ -5,10 +5,22 @@
 {% block page_title %}Orders{% endblock %}
 
 {% block content %}
+<ul class="nav nav-tabs mb-3">
+  <li class="nav-item">
+    <a class="nav-link {% if current_view == 'orders' %}active{% endif %}" href="{% url 'dashboard:order-list' %}">Orders</a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if current_view == 'abandoned' %}active{% endif %}" href="{% url 'dashboard:order-list' %}?view=abandoned">
+      Abandoned Checkouts
+      {% if abandoned_count %}<span class="badge bg-secondary-subtle text-secondary ms-1">{{ abandoned_count }}</span>{% endif %}
+    </a>
+  </li>
+</ul>
 {% include "dashboard/partials/_active_filters.html" %}
 <div class="row">
   <div class="col-12">
     <form method="get" class="row g-2 align-items-center mb-3">
+      {% if current_view == "abandoned" %}<input type="hidden" name="view" value="abandoned">{% endif %}
       <div class="col-12 col-md-4">
         <div class="input-group">
           <input type="text" id="searchInput" name="q" value="{{ search_query }}" class="form-control border-end-0"
@@ -19,6 +31,7 @@
           {% endif %}
         </div>
       </div>
+      {% if current_view == "orders" %}
       <div class="col-6 col-md-auto">
         <select name="status" class="form-select">
           <option value="">All order statuses</option>
@@ -27,6 +40,7 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
       <div class="col-6 col-md-auto">
         <select name="payment_status" class="form-select">
           <option value="">All payment statuses</option>
@@ -38,7 +52,7 @@
       <div class="col-12 col-md-auto d-flex align-items-center gap-2">
         <button type="submit" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Filter</button>
         {% if current_status or current_payment_status %}
-        <a href="{% url 'dashboard:order-list' %}" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
+        <a href="{% url 'dashboard:order-list' %}{% if current_view == 'abandoned' %}?view=abandoned{% endif %}" class="btn btn-outline-secondary flex-fill flex-md-grow-0">Clear</a>
         {% endif %}
       </div>
       <div class="col-12 col-md-auto ms-md-auto d-flex gap-2 justify-content-start justify-content-md-end" id="bulk-action-buttons">
