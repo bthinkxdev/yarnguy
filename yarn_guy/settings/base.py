@@ -3,6 +3,7 @@ Base Django settings shared across all environments for yarn_guy.
 """
 
 from pathlib import Path
+from celery.schedules import crontab
 
 import environ
 
@@ -137,21 +138,25 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.celery_health_check",
         "schedule": 60.0,
     },
+
     "process-due-recurring-schedules-daily": {
         "task": "recurring.tasks.process_due_schedules",
-        "schedule": 86400.0,
+        "schedule": crontab(hour=0, minute=30),
     },
+
     "aggregate-daily-reports-nightly": {
         "task": "reports.tasks.aggregate_daily_reports",
-        "schedule": 86400.0,
+        "schedule": crontab(hour=0, minute=10),
     },
+
     "scan-abandoned-carts-hourly": {
         "task": "marketing.tasks.scan_abandoned_carts",
         "schedule": 3600.0,
     },
+
     "refresh-sitemap-daily": {
         "task": "core.tasks.refresh_sitemap_cache",
-        "schedule": 86400.0,
+        "schedule": crontab(hour=0, minute=45),
     },
 }
 
