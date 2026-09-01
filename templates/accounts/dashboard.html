@@ -54,19 +54,7 @@
                     </div>
                   </div>
                   <div class="text-muted d-flex align-items-center gap-2">
-                    <!-- Mobile Invoice Button -->
-                    <object class="d-md-none" style="z-index: 10;">
-                      <a href="{% url 'accounts:customer-invoice' order.pk %}" target="_blank"
-                        class="btn btn-sm btn-outline-secondary d-flex align-items-center justify-content-center p-1"
-                        title="{% trans 'View Invoice' %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                          <path
-                            d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z" />
-                          <path
-                            d="M4.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z" />
-                        </svg>
-                      </a>
-                    </object>
+
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
                       viewBox="0 0 16 16">
                       <path fill-rule="evenodd"
@@ -76,18 +64,7 @@
                 </div>
               </div>
             </a>
-            <!-- Desktop Invoice Button -->
-            <a href="{% url 'accounts:customer-invoice' order.pk %}" target="_blank"
-              class="btn btn-sm btn-outline-secondary position-absolute d-none d-md-flex align-items-center justify-content-center p-1"
-              style="top: 50%; right: 50px; transform: translateY(-50%); z-index: 10;"
-              title="{% trans 'View Invoice' %}">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path
-                  d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z" />
-                <path
-                  d="M4.5 6a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zm0 2.5a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5z" />
-              </svg>
-            </a>
+
           </div>
           {% endfor %}
         </div>

@@ -126,6 +126,20 @@
 
   <div class="col-12 col-lg-4">
     <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Update Tracking ID</h3></div>
+      <div class="card-body p-4">
+        <form method="post" action="{% url 'dashboard:order-tracking-update' order.pk %}">
+          {% csrf_token %}
+          <div class="mb-3">
+            <label class="form-label">Waybill Number</label>
+            <input type="text" name="waybill_number" class="form-control" value="{{ order.delhivery_shipment.waybill_number|default:'' }}" placeholder="Enter Tracking ID">
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Save Tracking ID</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mb-3">
       <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Update Status</h3></div>
       <div class="card-body p-4">
         {% if allowed_choices %}
