@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 from django.conf import settings
 from django.http import JsonResponse
@@ -104,6 +105,14 @@ def delhivery_webhook(request):
     event = _extract_event(payload)
     if not event["waybill"] and not event["order_number"]:
         return JsonResponse({"error": "Missing waybill/order reference"}, status=400)
+
+    #2b. Delhivery's Scan Push validation test sends their fixed sample payload with the
+    #literal placeholder AWB "XXXXXXXXXXXX" (all X characters) — it never corresponds to a
+    #real shipment for any merchant. Real AWBs are always numeric, so this check can never
+    #collide with genuine traffic. Acknowledge with 200 OK without touching shipment lookup.
+    if event["waybill"] and re.fullmatch(r"[Xx]+", event["waybill"]):
+        logger.info("Delhivery webhook validation test payload received (placeholder AWB); acknowledging.")
+        return JsonResponse({"status": "test_payload_acknowledged"})
 
     #3. resolve the shipment — waybill first (always present on a real scan push)
     from delhivery.models import DelhiveryShipment
