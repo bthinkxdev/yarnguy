@@ -12,7 +12,7 @@ from cart.models import Cart, CartItem
 from catalog.models import Category, Product
 from checkout.services import create_checkout_session, place_order
 from core.models import Currency
-from orders.models import OrderStatus, OrderStatusHistory
+from orders.models import Order, OrderStatus, OrderStatusHistory
 from payments.models import PaymentStatus, PaymentTransaction
 
 
@@ -114,3 +114,120 @@ class RazorpayCallbackViewTests(TestCase):
         self.assertEqual(self.tx.status, PaymentStatus.FAILED)
         self.assertEqual(OrderStatusHistory.objects.filter(order=self.order).count(), 0)
         self.assertRedirects(response, reverse("checkout:checkout"), fetch_redirect_response=False)
+
+
+class PlaceOrderCodAfterAbandonedOnlineAttemptTests(TestCase):
+    """
+    A customer who starts checkout with an online gateway (leaving an order
+    stuck at CHECKOUT_PENDING when the payment is abandoned), then switches
+    to Cash on Delivery and resubmits, must end up with a real PLACED_COD
+    order — not one still stuck at CHECKOUT_PENDING, which the admin sees as
+    an "abandoned checkout" instead of an order. The checkout form's hidden
+    idempotency_key input isn't recomputed when the payment method changes,
+    so the COD resubmission commonly arrives with the *same* idempotency_key
+    as the earlier abandoned online attempt.
+    """
+
+    def setUp(self) -> None:
+        self.currency, _ = Currency.objects.get_or_create(
+            code="INR",
+            defaults={"symbol": "₹", "exchange_rate_to_base": "1.00000000", "is_default": True},
+        )
+        self.profile = register_customer_email(
+            email="cod-switch-test@example.com",
+            password="testpass12345",
+            name="Cod Switch Test",
+        )
+        category = Category.objects.create(name="Test Category", slug="test-category-cod")
+        self.product = Product.objects.create(
+            name="Test Yarn",
+            slug="test-yarn-cod",
+            sku="SKU-TEST-COD-1",
+            category=category,
+            base_price="500.00",
+            mrp="500.00",
+            purchase_price="300.00",
+            stock_quantity=100,
+        )
+        self._delhivery_patch = patch("delhivery.tasks.create_shipment_for_order.delay")
+        self._delhivery_patch.start()
+        self.addCleanup(self._delhivery_patch.stop)
+
+        self.cart = Cart.objects.create(customer_profile=self.profile, currency=self.currency)
+        CartItem.objects.create(
+            cart=self.cart,
+            product=self.product,
+            quantity=1,
+            unit_price_at_add=self.product.base_price,
+        )
+        self.session = create_checkout_session(cart=self.cart, customer_profile=self.profile)
+
+    def test_cod_resubmission_with_stale_idempotency_key_converts_pending_order(self):
+        idempotency_key = f"{self.session.pk}-stale-key-from-first-page-load"
+
+        abandoned_order = place_order(
+            checkout_session_id=self.session.pk,
+            idempotency_key=idempotency_key,
+            gateway_key="razorpay_upi",
+            customer_profile=self.profile,
+        )
+        self.assertEqual(abandoned_order.order_status, OrderStatus.CHECKOUT_PENDING)
+
+        self.session.refresh_from_db()
+
+        cod_order = place_order(
+            checkout_session_id=self.session.pk,
+            idempotency_key=idempotency_key,
+            gateway_key="cod",
+            customer_profile=self.profile,
+        )
+
+        self.assertEqual(cod_order.pk, abandoned_order.pk)
+        self.assertEqual(cod_order.order_status, OrderStatus.PLACED_COD)
+        self.assertEqual(Order.objects.filter(cart=self.cart).count(), 1)
+
+    def test_duplicate_cod_conversion_call_does_not_create_second_order(self):
+        """
+        Simulates a duplicate place_order call landing after the first one
+        already converted an abandoned online order to COD, but before
+        confirm_payment_success has flipped the session to COMPLETED (the
+        window process_payment/confirm_payment_success runs in, outside
+        place_order's transaction). The duplicate must return the same order,
+        not fall through and create a second one with a second stock decrement.
+        """
+        idempotency_key_1 = f"{self.session.pk}-first-attempt-key"
+        abandoned_order = place_order(
+            checkout_session_id=self.session.pk,
+            idempotency_key=idempotency_key_1,
+            gateway_key="razorpay_upi",
+            customer_profile=self.profile,
+        )
+        self.session.refresh_from_db()
+
+        idempotency_key_2 = f"{self.session.pk}-cod-attempt-key"
+        first_cod_call = place_order(
+            checkout_session_id=self.session.pk,
+            idempotency_key=idempotency_key_2,
+            gateway_key="cod",
+            customer_profile=self.profile,
+        )
+        self.assertEqual(first_cod_call.pk, abandoned_order.pk)
+        self.assertEqual(first_cod_call.order_status, OrderStatus.PLACED_COD)
+
+        #session.status is still DRAFT here — confirm_payment_success (which
+        #flips it to COMPLETED) hasn't run yet, matching the real race window.
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.status, "draft")
+
+        duplicate_call = place_order(
+            checkout_session_id=self.session.pk,
+            idempotency_key=idempotency_key_2,
+            gateway_key="cod",
+            customer_profile=self.profile,
+        )
+
+        self.assertEqual(duplicate_call.pk, abandoned_order.pk)
+        self.assertEqual(Order.objects.filter(cart=self.cart).count(), 1)
+
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock_quantity, 99)

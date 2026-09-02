@@ -153,19 +153,39 @@ def place_order(
     if session is None:
         raise CheckoutSessionError("Checkout session not found.")
 
-    existing = Order.objects.filter(idempotency_key=idempotency_key).first()
-    if existing:
-        return existing
-
     #switching from an online gateway to COD on the same session reuses the order
     #already created for the abandoned online attempt, rather than placing a
-    #duplicate (which would also double-decrement stock).
+    #duplicate (which would also double-decrement stock). Checked before the
+    #idempotency-key short-circuit below: the browser's idempotency_key input
+    #is only recomputed on full page load, so it can still carry the value from
+    #the earlier online-gateway attempt when the customer switches to COD and
+    #submits — that stale key would otherwise match the CHECKOUT_PENDING order
+    #and hand it back unconverted, leaving it stuck as an "abandoned" checkout
+    #even though the customer completed a COD order.
     if (
         gateway_key == "cod"
         and session.order_id
         and session.order.order_status == OrderStatus.CHECKOUT_PENDING
     ):
         return _reuse_checkout_pending_order_as_cod(order=session.order, session=session)
+
+    #a checkout session carries at most one order (CheckoutSession.order is set
+    #once and never reassigned). Once that order has moved past CHECKOUT_PENDING
+    #— placed as COD directly, or just converted above — any further place_order
+    #call for this session (a duplicate click, a client retry after a slow
+    #response whose result never reached the browser, ...) must return that same
+    #order rather than fall through to creating a second one. This closes a race
+    #the idempotency_key check below can't: _reuse_checkout_pending_order_as_cod
+    #deliberately leaves the order's idempotency_key untouched, so a retry
+    #carrying the COD submission's key won't match it by key lookup, and
+    #session.status only flips to COMPLETED later, in a separate transaction
+    #(payments.services.confirm_payment_success) outside this function's lock.
+    if session.order_id and session.order.order_status != OrderStatus.CHECKOUT_PENDING:
+        return session.order
+
+    existing = Order.objects.filter(idempotency_key=idempotency_key).first()
+    if existing:
+        return existing
 
     if session.status == CheckoutSessionStatus.COMPLETED and session.order_id:
         if session.idempotency_key == idempotency_key:
