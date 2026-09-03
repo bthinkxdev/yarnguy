@@ -67,44 +67,61 @@ def update_checkout_session(
     return checkout_session
 
 
-def _reuse_checkout_pending_order_as_cod(*, order: Order, session: CheckoutSession) -> Order:
+def _sync_checkout_pending_order(
+    *, order: Order, session: CheckoutSession, gateway_key: str, idempotency_key: str
+) -> Order:
     """
-    Reuse an existing CHECKOUT_PENDING order when the customer switches from an
-    online gateway to COD within the same checkout session, instead of placing a
-    second order for the same cart.
-
-    Order number, idempotency key, and order history are left untouched — only the
-    totals (to pick up the COD delivery charge) and status change. Stock is not
-    re-adjusted and line items are not recreated: they were already committed when
-    this order was first created, and are assumed unchanged since (the cart isn't
-    editable from the payment step).
-
-    ``process_payment`` (called by the view right after this returns) is what
-    actually creates the COD PaymentTransaction — this function only prepares the
-    order to receive it.
+    Sync an existing CHECKOUT_PENDING order with the current cart and update its payment method.
+    This handles the case where a customer abandons a checkout, updates their cart, and checks out again.
     """
     summary = get_cart_summary(cart=session.cart)
     if not summary.lines:
         raise CheckoutSessionError("Cart is empty.")
 
+    for item in order.items.all():
+        target = item.variant if item.variant else item.product
+        adjust_stock(target=target, delta=item.quantity, reason=f"revert_checkout:{order.order_number}")
+    
+    order.items.all().delete()
+
+    for line in summary.lines:
+        target = line.variant if line.variant else line.product
+        adjust_stock(target=target, delta=-line.quantity, reason=f"order:{idempotency_key}")
+        
+        OrderItem.objects.create(
+            order=order,
+            product=line.product,
+            variant=line.variant,
+            quantity=line.quantity,
+            unit_price=line.unit_price_at_add,
+        )
+
     order.subtotal = summary.subtotal
     order.coupon_discount = summary.coupon_discount
     order.delivery_charge = summary.delivery_charge
     order.total_amount = summary.grand_total
+    order.idempotency_key = idempotency_key
     order.save(
-        update_fields=["subtotal", "coupon_discount", "delivery_charge", "total_amount", "updated_at"]
+        update_fields=["subtotal", "coupon_discount", "delivery_charge", "total_amount", "idempotency_key", "updated_at"]
     )
 
-    transition_order_status(
-        order=order,
-        new_status=OrderStatus.PLACED_COD,
-        note="Payment method switched to Cash on Delivery",
-        send_notifications=False,
-        force=True,
-    )
+    if gateway_key == "cod":
+        transition_order_status(
+            order=order,
+            new_status=OrderStatus.PLACED_COD,
+            note="Payment method switched to Cash on Delivery",
+            send_notifications=False,
+            force=True,
+        )
+        from notifications.tasks import dispatch_new_order_admin_notification
+        transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
+    else:
+        if order.order_status != OrderStatus.CHECKOUT_PENDING:
+            order.order_status = OrderStatus.CHECKOUT_PENDING
+            order.save(update_fields=["order_status", "updated_at"])
 
-    from notifications.tasks import dispatch_new_order_admin_notification
-    transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
+    session.idempotency_key = idempotency_key
+    session.save(update_fields=["idempotency_key", "updated_at"])
 
     return order
 
@@ -153,21 +170,13 @@ def place_order(
     if session is None:
         raise CheckoutSessionError("Checkout session not found.")
 
-    #switching from an online gateway to COD on the same session reuses the order
-    #already created for the abandoned online attempt, rather than placing a
-    #duplicate (which would also double-decrement stock). Checked before the
-    #idempotency-key short-circuit below: the browser's idempotency_key input
-    #is only recomputed on full page load, so it can still carry the value from
-    #the earlier online-gateway attempt when the customer switches to COD and
-    #submits — that stale key would otherwise match the CHECKOUT_PENDING order
-    #and hand it back unconverted, leaving it stuck as an "abandoned" checkout
-    #even though the customer completed a COD order.
-    if (
-        gateway_key == "cod"
-        and session.order_id
-        and session.order.order_status == OrderStatus.CHECKOUT_PENDING
-    ):
-        return _reuse_checkout_pending_order_as_cod(order=session.order, session=session)
+    if session.order_id and session.order.order_status == OrderStatus.CHECKOUT_PENDING:
+        return _sync_checkout_pending_order(
+            order=session.order, 
+            session=session, 
+            gateway_key=gateway_key,
+            idempotency_key=idempotency_key
+        )
 
     #a checkout session carries at most one order (CheckoutSession.order is set
     #once and never reassigned). Once that order has moved past CHECKOUT_PENDING
