@@ -10,6 +10,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
+from django.views.decorators.cache import never_cache
 from django.core.exceptions import ValidationError
 
 from accounts.exceptions import (
@@ -137,9 +138,13 @@ def _wants_json(request: HttpRequest) -> bool:
     return "application/json" in accept and "text/html" not in accept
 
 
+@never_cache
 @require_http_methods(["GET", "POST"])
 def email_register_view(request: HttpRequest) -> HttpResponse:
     """Register a new customer with email and password."""
+    if request.user.is_authenticated:
+        return redirect("accounts:dashboard")
+        
     if request.method == "GET":
         return render(request, "accounts/register.html", {"form": EmailRegistrationForm()})
 
@@ -177,9 +182,14 @@ def email_register_view(request: HttpRequest) -> HttpResponse:
     return redirect("accounts:dashboard")
 
 
+@never_cache
 @require_http_methods(["GET", "POST"])
 def email_login_view(request: HttpRequest) -> HttpResponse:
     """Authenticate a customer with email and password."""
+    if request.user.is_authenticated:
+        next_url = request.GET.get("next") or request.POST.get("next")
+        return redirect(next_url or "accounts:dashboard")
+
     if request.method == "GET":
         return render(request, "accounts/login.html", {"form": EmailLoginForm()})
 
@@ -754,10 +764,14 @@ def subscription_cancel_view(request: HttpRequest, subscription_id: int) -> Http
     return _success_response()
 
 
+@never_cache
 @require_http_methods(["GET", "POST"])
 def email_otp_request_view(request: HttpRequest) -> HttpResponse:
     """Request a passwordless login OTP for General Customers."""
     next_url = request.GET.get("next") or request.POST.get("next", "")
+
+    if request.user.is_authenticated:
+        return redirect(next_url or "accounts:dashboard")
     
     #if no next_url is specified, look at the http referer
     if not next_url:
@@ -809,12 +823,16 @@ def email_otp_request_view(request: HttpRequest) -> HttpResponse:
     return redirect(f"/accounts/verify-email-otp/?{query_params}")
 
 
+@never_cache
 @require_http_methods(["GET", "POST"])
 def email_otp_verify_view(request: HttpRequest) -> HttpResponse:
     """Verify email 4-digit OTP for customer login."""
     email = request.GET.get("email") or request.POST.get("email", "")
     purpose = request.GET.get("purpose") or request.POST.get("purpose", OTPPurpose.LOGIN)
     next_url = request.GET.get("next") or request.POST.get("next", "")
+
+    if request.user.is_authenticated:
+        return redirect(next_url or "accounts:dashboard")
 
     if request.method == "GET":
         form = EmailOTPVerifyForm(initial={"email": email})

@@ -459,15 +459,23 @@ def checkout_confirmation_view(request: HttpRequest, order_id: int) -> HttpRespo
     )
 
 
+from django.views.decorators.cache import never_cache
+
+@never_cache
 @require_GET
 def razorpay_pay_view(request: HttpRequest, order_id: int) -> HttpResponse:
     """Render Razorpay checkout payment page."""
-    from orders.models import Order
+    from orders.models import Order, OrderStatus
     from payments.models import PaymentTransaction
     from payments.adapters.concrete import _get_razorpay_credentials
     from django.shortcuts import get_object_or_404
 
     order = get_object_or_404(Order, pk=order_id)
+    
+    if order.order_status != OrderStatus.CHECKOUT_PENDING:
+        from django.shortcuts import redirect
+        return redirect("catalog:plp")
+
     payment_tx = PaymentTransaction.objects.filter(order=order, gateway_key__startswith="razorpay").last()
     key_id, _ = _get_razorpay_credentials()
 
