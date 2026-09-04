@@ -131,6 +131,11 @@ def transition_order_status(
         #here the first time an order becomes real, i.e. an online payment succeeding
         #(or an admin manually confirming a still-unpaid CHECKOUT_PENDING order).
         if old_status == OrderStatus.CHECKOUT_PENDING:
+            from catalog.services import adjust_stock
+            for item in order.items.all():
+                target = item.variant if item.variant else item.product
+                adjust_stock(target=target, delta=-item.quantity, reason=f"order_confirmed:{order.order_number}")
+
             from notifications.tasks import dispatch_new_order_admin_notification
             transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
 

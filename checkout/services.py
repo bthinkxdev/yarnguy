@@ -78,16 +78,9 @@ def _sync_checkout_pending_order(
     if not summary.lines:
         raise CheckoutSessionError("Cart is empty.")
 
-    for item in order.items.all():
-        target = item.variant if item.variant else item.product
-        adjust_stock(target=target, delta=item.quantity, reason=f"revert_checkout:{order.order_number}")
-    
     order.items.all().delete()
 
     for line in summary.lines:
-        target = line.variant if line.variant else line.product
-        adjust_stock(target=target, delta=-line.quantity, reason=f"order:{idempotency_key}")
-        
         OrderItem.objects.create(
             order=order,
             product=line.product,
@@ -106,6 +99,10 @@ def _sync_checkout_pending_order(
     )
 
     if gateway_key == "cod":
+        for item in order.items.all():
+            target = item.variant if item.variant else item.product
+            adjust_stock(target=target, delta=-item.quantity, reason=f"order:{idempotency_key}")
+            
         transition_order_status(
             order=order,
             new_status=OrderStatus.PLACED_COD,
@@ -208,11 +205,7 @@ def place_order(
     if not summary.lines:
         raise CheckoutSessionError("Cart is empty.")
 
-
-
-    for line in summary.lines:
-        target = line.variant if line.variant else line.product
-        adjust_stock(target=target, delta=-line.quantity, reason=f"order:{idempotency_key}")
+    # Stock will be reduced only when the order is successfully placed (PLACED_COD or payment success)
 
     address_snapshot: dict[str, Any] = {}
     if session.address_id:
@@ -287,6 +280,10 @@ def place_order(
     )
 
     if initial_status == OrderStatus.PLACED_COD:
+        for line in summary.lines:
+            target = line.variant if line.variant else line.product
+            adjust_stock(target=target, delta=-line.quantity, reason=f"order:{idempotency_key}")
+
         from notifications.tasks import dispatch_new_order_admin_notification
         transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
 
