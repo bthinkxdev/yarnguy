@@ -155,6 +155,13 @@ class Product(TimeStampedModel):
         verbose_name="SKU",
         help_text="Stock keeping unit identifier.",
     )
+    hsn_code = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        verbose_name="HSN Code",
+        help_text="Harmonized System of Nomenclature code.",
+    )
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,

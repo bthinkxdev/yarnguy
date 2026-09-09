@@ -45,6 +45,7 @@ class ProductForm(SlugAutoMixin):
             "name",
             "slug",
             "sku",
+            "hsn_code",
             "category",
             "brand",
             "size_chart",
@@ -86,6 +87,7 @@ class ProductForm(SlugAutoMixin):
         self.fields["size_chart"].queryset = qs.order_by("name")
         self.fields["size_chart"].empty_label = "No Size Chart"
         self.fields["slug"].required = False
+        self.fields["hsn_code"].required = False
         self.fields["base_price"].required = False
         self.fields["mrp"].required = False
         self.fields["purchase_price"].required = False
