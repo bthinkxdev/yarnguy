@@ -18,7 +18,7 @@
       {% endwith %}
     </div>
     <div class="cart-line__info">
-      <a href="{% url 'catalog:pdp' slug=line.product.slug %}" class="cart-line__name text-dark">
+      <a href="{% url 'catalog:pdp' slug=line.product.slug %}{% if line.variant %}?variant_id={{ line.variant.id }}{% endif %}" class="cart-line__name text-dark">
         {{ line.product.name }}
       </a>
       {% if line.variant %}
@@ -36,28 +36,30 @@
       {% if line.gift_snapshot %}<div class="small text-floward mb-1">{% trans "Gift customized" %}</div>{% endif %}
       
       <div class="qty-stepper d-flex align-items-center border rounded-pill overflow-hidden mt-2" style="width: fit-content;">
-        <form method="post" action="{% url 'cart:quantity' %}" hx-post="{% url 'cart:quantity' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
+        <form method="post" action="{% url 'cart:quantity' %}">
           {% csrf_token %}
           <input type="hidden" name="cart_item_id" value="{{ line.item.pk }}">
           <input type="hidden" name="delta" value="-1">
-          <button class="qty-stepper__btn" type="submit" aria-label="{% trans 'Decrease quantity' %}" {% if line.quantity <= 1 %}disabled{% endif %} style="padding: 2px 8px; font-size: 14px; border: none; background: transparent;">
+          <input type="hidden" name="is_drawer" value="1">
+          <button class="qty-stepper__btn" type="button" hx-post="{% url 'cart:quantity' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML" hx-include="closest form" aria-label="{% trans 'Decrease quantity' %}" {% if line.quantity <= 1 %}disabled{% endif %} style="padding: 2px 8px; font-size: 14px; border: none; background: transparent;">
             &minus;
           </button>
         </form>
         <span class="qty-stepper__value" style="padding: 0 8px; min-width: 20px; text-align: center; font-size: 13px;">{{ line.quantity }}</span>
-        <form method="post" action="{% url 'cart:quantity' %}" hx-post="{% url 'cart:quantity' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
+        <form method="post" action="{% url 'cart:quantity' %}">
           {% csrf_token %}
           <input type="hidden" name="cart_item_id" value="{{ line.item.pk }}">
           <input type="hidden" name="delta" value="1">
-          <button class="qty-stepper__btn" type="submit" aria-label="{% trans 'Increase quantity' %}" style="padding: 2px 8px; font-size: 14px; border: none; background: transparent;">&plus;</button>
+          <input type="hidden" name="is_drawer" value="1">
+          <button class="qty-stepper__btn" type="button" hx-post="{% url 'cart:quantity' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML" hx-include="closest form" aria-label="{% trans 'Increase quantity' %}" style="padding: 2px 8px; font-size: 14px; border: none; background: transparent;">&plus;</button>
         </form>
       </div>
       {% endwith %}
     </div>
-    <form method="post" action="{% url 'cart:remove' %}" hx-post="{% url 'cart:remove' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML">
+    <form method="post" action="{% url 'cart:remove' %}">
       {% csrf_token %}
       <input type="hidden" name="cart_item_id" value="{{ line.item.pk }}">
-      <button class="btn btn-sm btn-ghost text-danger" type="submit" aria-label="{% trans 'Remove' %}">×</button>
+      <button class="btn btn-sm btn-ghost text-danger" type="button" hx-post="{% url 'cart:remove' %}" hx-target="#cart-drawer-body" hx-swap="innerHTML" hx-include="closest form" aria-label="{% trans 'Remove' %}">×</button>
     </form>
     </li>
     {% endfor %}

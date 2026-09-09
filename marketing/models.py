@@ -58,6 +58,18 @@ class Coupon(TimeStampedModel):
             models.Index(fields=["is_active", "code"], name="mkt_coupon_active_code_idx"),
         ]
 
+    @property
+    def is_currently_active(self) -> bool:
+        from django.utils import timezone
+        if not self.is_active:
+            return False
+        now = timezone.now()
+        if self.valid_from and now < self.valid_from:
+            return False
+        if self.valid_until and now > self.valid_until:
+            return False
+        return True
+
     def __str__(self) -> str:
         return self.code
 
@@ -99,6 +111,18 @@ class FlashSale(TimeStampedModel):
     class Meta:
         verbose_name = "Flash sale"
         verbose_name_plural = "Flash sales"
+
+    @property
+    def is_currently_active(self) -> bool:
+        from django.utils import timezone
+        if not self.is_active:
+            return False
+        now = timezone.now()
+        if self.starts_at and now < self.starts_at:
+            return False
+        if self.ends_at and now > self.ends_at:
+            return False
+        return True
 
     def __str__(self) -> str:
         return self.name

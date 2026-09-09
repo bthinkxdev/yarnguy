@@ -24,7 +24,7 @@ class CouponListView(DashboardListView):
         {"label": "Type", "name": "get_discount_type_display"},
         {"label": "Value", "name": "discount_value", "type": "money"},
         {"label": "Valid until", "name": "valid_until", "type": "datetime"},
-        {"label": "Active", "name": "is_active", "type": "bool"},
+        {"label": "Active", "name": "is_currently_active", "type": "bool"},
     ]
 
 
@@ -63,7 +63,7 @@ class FlashSaleListView(DashboardListView):
         {"label": "Discount %", "name": "discount_percentage"},
         {"label": "Starts", "name": "starts_at", "type": "datetime"},
         {"label": "Ends", "name": "ends_at", "type": "datetime"},
-        {"label": "Active", "name": "is_active", "type": "bool"},
+        {"label": "Active", "name": "is_currently_active", "type": "bool"},
     ]
 
 

@@ -146,11 +146,20 @@
 
     <div class="col-lg-5">
       <div class="checkout-step sticky-top" style="top: 100px;" id="order-summary-container" hx-get="{% url 'checkout:checkout' %}" hx-trigger="stockChanged from:body" hx-select="#order-summary-container" hx-swap="outerHTML">
+        {% if messages %}
+        <div class="mb-3">
+          {% for message in messages %}
+          <div class="alert {% if message.tags %}alert-{{ message.tags }}{% else %}alert-info{% endif %} py-2 small mb-2" role="alert">
+            {{ message }}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h2 class="mb-0">{% trans "Order Summary" %}</h2>
           {% if is_buy_now and summary.lines %}
             {% with first_line=summary.lines|first %}
-            <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}" class="text-decoration-none small text-floward fw-semibold">{% trans "Edit Item" %}</a>
+            <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}{% if first_line.variant %}?variant_id={{ first_line.variant.id }}{% endif %}" class="text-decoration-none small text-floward fw-semibold">{% trans "Edit Item" %}</a>
             {% endwith %}
           {% else %}
             <a href="#" class="text-decoration-none small text-floward fw-semibold" data-bs-toggle="offcanvas" data-bs-target="#cartOffcanvas">{% trans "Edit Cart" %}</a>
@@ -206,14 +215,14 @@
           <span class="small fw-semibold text-floward">{{ summary.coupon_code }}</span>
           <form method="post" action="{% url 'checkout:coupon-remove' %}">
             {% csrf_token %}
-            <button type="submit" class="btn btn-link text-danger p-0 ms-2" style="font-size: 0.8rem; text-decoration: none;">{% trans "Remove" %}</button>
+            <button type="button" class="btn btn-link text-danger p-0 ms-2" style="font-size: 0.8rem; text-decoration: none;" hx-post="{% url 'checkout:coupon-remove' %}" hx-target="#order-summary-container" hx-select="#order-summary-container" hx-swap="outerHTML" hx-include="closest form">{% trans "Remove" %}</button>
           </form>
         </div>
         {% elif has_active_coupons %}
         <form method="post" action="{% url 'checkout:coupon-apply' %}" class="d-flex gap-2 py-3 border-bottom">
           {% csrf_token %}
           <input type="text" name="code" class="form-control form-control-sm" placeholder="{% trans 'Enter coupon code' %}">
-          <button type="submit" class="btn btn-dark btn-sm px-3">{% trans "Apply" %}</button>
+          <button type="button" class="btn btn-dark btn-sm px-3" hx-post="{% url 'checkout:coupon-apply' %}" hx-target="#order-summary-container" hx-select="#order-summary-container" hx-swap="outerHTML" hx-include="closest form">{% trans "Apply" %}</button>
         </form>
         {% endif %}
         <div class="d-flex justify-content-between fw-semibold mt-3 pt-2 border-top">
@@ -226,7 +235,7 @@
             {% if summary.has_out_of_stock_items %}
               <div class="text-danger small mt-2 text-center">{% trans "This product just went out of stock due to high demand." %}</div>
               {% with first_line=summary.lines|first %}
-              <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}" class="btn btn-outline-dark w-100 py-2 mt-2">{% trans "Return to Product Page" %}</a>
+              <a href="{% url 'catalog:pdp' slug=first_line.product.slug %}{% if first_line.variant %}?variant_id={{ first_line.variant.id }}{% endif %}" class="btn btn-outline-dark w-100 py-2 mt-2">{% trans "Return to Product Page" %}</a>
               {% endwith %}
             {% elif summary.has_exceeds_stock_items %}
               {% with first_line=summary.lines|first %}
@@ -519,4 +528,4 @@
   });
 </script>
 {% endblock %}
-
+
