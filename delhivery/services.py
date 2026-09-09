@@ -60,6 +60,11 @@ def trigger_shipment_on_confirmed(order):
         sku_code = product.sku
         if item.variant and item.variant.sku_suffix:
             sku_code = f"{product.sku} - {item.variant.sku_suffix}"
+        
+        #include quantity in the description so it is visible in Delhivery
+        if item.quantity > 1:
+            sku_code = f"{sku_code} (Qty: {item.quantity})"
+            
         item_descriptions.append(sku_code)
 
         # accumulate weight
