@@ -269,6 +269,27 @@ class CouponForm(forms.ModelForm):
         ]
         widgets = {"valid_from": _DATETIME, "valid_until": _DATETIME}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            from django.utils import timezone
+            now = timezone.now()
+            if self.instance.valid_until and self.instance.valid_until < now:
+                self.initial["is_active"] = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        valid_until = cleaned_data.get("valid_until")
+        is_active = cleaned_data.get("is_active")
+        
+        from django.utils import timezone
+        now = timezone.now()
+        
+        if valid_until and valid_until < now and is_active:
+            cleaned_data["is_active"] = False
+            
+        return cleaned_data
+
 
 
 class FlashSaleForm(forms.ModelForm):
@@ -276,6 +297,27 @@ class FlashSaleForm(forms.ModelForm):
         model = FlashSale
         fields = ["name", "products", "discount_percentage", "starts_at", "ends_at", "is_active"]
         widgets = {"starts_at": _DATETIME, "ends_at": _DATETIME}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            from django.utils import timezone
+            now = timezone.now()
+            if self.instance.ends_at and self.instance.ends_at < now:
+                self.initial["is_active"] = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        ends_at = cleaned_data.get("ends_at")
+        is_active = cleaned_data.get("is_active")
+        
+        from django.utils import timezone
+        now = timezone.now()
+        
+        if ends_at and ends_at < now and is_active:
+            cleaned_data["is_active"] = False
+            
+        return cleaned_data
 
 
 class NewsletterSubscriberForm(forms.ModelForm):
