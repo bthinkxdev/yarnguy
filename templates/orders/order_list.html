@@ -23,8 +23,8 @@
                 <span class="fw-bold text-dark fs-6">#{{ order.order_number }}</span>
               </div>
               <div class="col-md-3 mb-2 mb-md-0">
-                <span class="text-muted small text-uppercase fw-semibold d-block mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">{% trans "Date Placed" %}</span>
-                <span class="text-dark">{{ order.created_at|date:"M d, Y" }}</span>
+                <span class="text-muted small text-uppercase fw-semibold d-block mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">{% trans "Order Date" %}</span>
+                <span class="text-dark">{{ order.confirmed_at|default:order.created_at|date:"M d, Y" }}</span>
               </div>
               <div class="col-md-2 mb-2 mb-md-0">
                 <span class="text-muted small text-uppercase fw-semibold d-block mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">{% trans "Total" %}</span>

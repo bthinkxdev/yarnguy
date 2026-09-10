@@ -186,6 +186,14 @@ class Order(TimeStampedModel):
             return "Unknown"
         return tx.get_status_display()
 
+    @property
+    def confirmed_at(self):
+        """Get the date the order was last confirmed."""
+        history = self.status_history.filter(to_status=OrderStatus.CONFIRMED).last()
+        if history:
+            return history.changed_at
+        return None
+
 
 class OrderItem(TimeStampedModel):
     """Immutable purchased line on an order."""

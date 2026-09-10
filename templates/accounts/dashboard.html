@@ -50,7 +50,7 @@
                       <span class="badge bg-light text-dark border fw-normal">{{ order.get_order_status_display|default:order.order_status }}</span>
                     </div>
                     <div class="text-muted small">
-                      {{ order.created_at|date:"M d, Y" }} <span class="mx-1">&bull;</span> {% money_label order.total_amount order.currency %}
+                      {{ order.confirmed_at|default:order.created_at|date:"M d, Y" }} <span class="mx-1">&bull;</span> {% money_label order.total_amount order.currency %}
                     </div>
                   </div>
                   <div class="text-muted d-flex align-items-center gap-2">

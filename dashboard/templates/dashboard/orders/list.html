@@ -68,7 +68,7 @@
           <thead class="table-light">
             <tr>
               <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="select-all-orders"></th>
-              <th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Placed</th><th class="text-center">Invoice</th><th class="text-end">Actions</th>
+              <th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Order Date</th><th class="text-center">Invoice</th><th class="text-end">Actions</th>
             </tr>
           </thead>
         <tbody>
@@ -95,7 +95,13 @@
               {% endif %}
             </td>
             <td>{{ order.total_amount|floatformat:2 }} {% if order.currency %}{{ order.currency.code }}{% endif %}</td>
-            <td>{{ order.created_at|date:"M d, Y H:i" }}</td>
+            <td>
+              {% if order.confirmed_at %}
+                {{ order.confirmed_at|date:"M d, Y H:i" }}
+              {% else %}
+                <span class="text-secondary" title="Placed Date (Not Confirmed)">{{ order.created_at|date:"M d, Y H:i" }}</span>
+              {% endif %}
+            </td>
             <td class="text-center">
               <a href="{% url 'dashboard:order-invoice' order.pk %}" class="btn btn-sm btn-outline-secondary" title="View Invoice" target="_blank"><i class="ti ti-file-invoice"></i> View</a>
             </td>
