@@ -2,53 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Union
+from typing import Union
 
 from django.contrib.auth.models import User
 from django.db import transaction
 
 from accounts.models import CustomerProfile
-from catalog.exceptions import InsufficientStockError, ProductValidationError
+from catalog.exceptions import InsufficientStockError
 from catalog.models import (
     ModerationStatus,
     Product,
-    ProductImage,
     ProductVariant,
     Review,
 )
-
-
-@transaction.atomic
-def create_product_with_variants(
-    *,
-    product_data: dict[str, Any],
-    variants_data: list[dict[str, Any]],
-    images_data: list[dict[str, Any]],
-) -> Product:
-    """
-    Atomically create a product with variants and images.
-
-    Params:
-        product_data: Field values for Product.
-        variants_data: List of variant dicts (variant_type, name, price_delta, etc.).
-        images_data: List of image dicts; at least one must have is_primary=True.
-    Returns:
-        Created Product instance.
-    Raises:
-        ProductValidationError: When no primary image is provided.
-    """
-    if not any(img.get("is_primary") for img in images_data):
-        raise ProductValidationError("At least one primary image is required.")
-
-    product = Product.objects.create(**product_data)
-
-    for variant_data in variants_data:
-        ProductVariant.objects.create(product=product, **variant_data)
-
-    for image_data in images_data:
-        ProductImage.objects.create(product=product, **image_data)
-
-    return product
 
 
 @transaction.atomic

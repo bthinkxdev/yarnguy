@@ -32,7 +32,7 @@
             {% for item in items %}
             <tr>
               <td>{{ item.product.name }}</td>
-              <td>{{ item.variant.name|default:"—" }}</td>
+              <td>{{ item.variant_name|default:"—" }}</td>
               <td>{{ item.quantity }}</td>
               <td>{{ item.unit_price|floatformat:2 }}</td>
               <td>{{ item.quantity|floatformat:0 }} × {{ item.unit_price|floatformat:2 }}</td>
@@ -197,12 +197,54 @@
 
     <div class="card mb-3">
       <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Delivery address</h3></div>
-      <div class="card-body p-4 small">
-        {% for key, value in order.delivery_address_snapshot.items %}
-          {% if key != 'label' %}
-          <div><span class="text-secondary">{{ key }}:</span> {{ value }}</div>
-          {% endif %}
-        {% empty %}<p class="text-secondary mb-0">No snapshot.</p>{% endfor %}
+      <div class="card-body p-4">
+        {% if address_editable %}
+        <form method="post" action="{% url 'dashboard:order-address-update' order.pk %}">
+          {% csrf_token %}
+          <div class="mb-2">
+            <label class="form-label">Name</label>
+            {{ address_form.name }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Email</label>
+            {{ address_form.email }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Phone</label>
+            {{ address_form.phone }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Address line 1</label>
+            {{ address_form.line1 }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Address line 2</label>
+            {{ address_form.line2 }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">City</label>
+            {{ address_form.city }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">State</label>
+            {{ address_form.state }}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Pincode</label>
+            {{ address_form.pincode }}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">Save Address</button>
+        </form>
+        {% else %}
+        <p class="text-secondary small mb-3">This order is {{ order.get_order_status_display }} — the delivery address can no longer be edited.</p>
+        <div class="small">
+          {% for key, value in order.delivery_address_snapshot.items %}
+            {% if key != 'label' %}
+            <div><span class="text-secondary">{{ key }}:</span> {{ value }}</div>
+            {% endif %}
+          {% empty %}<p class="text-secondary mb-0">No snapshot.</p>{% endfor %}
+        </div>
+        {% endif %}
       </div>
     </div>
 

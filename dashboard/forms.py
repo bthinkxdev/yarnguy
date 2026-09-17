@@ -152,7 +152,7 @@ class ReviewForm(forms.ModelForm):
 class ProductVariantForm(forms.ModelForm):
     class Meta:
         model = ProductVariant
-        fields = ["variant_type", "name", "base_price", "mrp", "purchase_price", "sku_suffix", "stock_quantity", "low_stock_threshold"]
+        fields = ["variant_type", "name", "base_price", "mrp", "purchase_price", "sku_suffix", "stock_quantity", "low_stock_threshold", "is_default"]
         widgets = {
             "variant_type": forms.TextInput(attrs={
                 "list": "variant-type-list",
@@ -171,24 +171,79 @@ class ProductVariantForm(forms.ModelForm):
         }
 
     def has_changed(self):
-        """Ignore empty extra forms even if fields have model defaults (like stock_quantity=0)."""
-        changed = super().has_changed()
-        if changed:
-            #if every field in the POST data is empty or default, it's an untouched extra form.
-            has_real_data = False
-            for name in self.fields:
-                prefixed_name = self.add_prefix(name)
-                val = self.data.get(prefixed_name)
-                if val and val not in ["0", "5", "0.0", "0.00"]:  # ignore empty strings and default numeric strings
-                    has_real_data = True
-                    break
-            return has_real_data
-        return changed
+        """
+        A row counts as "touched" if any field was submitted with a non-blank
+        value — deliberately not deferring to the default has_changed(), which
+        compares against the new instance's own field defaults (stock_quantity
+        0, low_stock_threshold 5) and so would call an explicitly-filled-in row
+        matching those defaults "unchanged", silently dropping it.
+        """
+        for name in self.fields:
+            prefixed_name = self.add_prefix(name)
+            val = self.data.get(prefixed_name)
+            if val not in (None, ""):
+                return True
+        return False
+
+class ProductVariantInlineFormSet(forms.BaseInlineFormSet):
+    """
+    Cross-row validation that a single form can't do on its own: dedupe
+    variant_type casing within a product, reject SKU-suffix collisions, and
+    enforce at most one default variant. Deliberately application-level only
+    (no DB constraint/migration) so it can't fail against any duplicate/blank
+    data already sitting in production.
+    """
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+
+        product = self.instance
+        seen_types: dict[str, str] = {}
+        seen_skus: dict[str, int] = {}
+        default_count = 0
+
+        for form in self.forms:
+            if not getattr(form, "cleaned_data", None) or form.cleaned_data.get("DELETE"):
+                continue
+
+            variant_type = (form.cleaned_data.get("variant_type") or "").strip()
+            if variant_type:
+                key = variant_type.lower()
+                canonical = seen_types.get(key)
+                if canonical is None:
+                    existing = ProductVariant.objects.filter(
+                        product=product, variant_type__iexact=variant_type
+                    ).exclude(pk=form.instance.pk).first()
+                    canonical = existing.variant_type if existing else variant_type
+                    seen_types[key] = canonical
+                form.cleaned_data["variant_type"] = canonical
+                form.instance.variant_type = canonical
+
+            sku_suffix = (form.cleaned_data.get("sku_suffix") or "").strip()
+            if sku_suffix:
+                key = sku_suffix.lower()
+                if key in seen_skus:
+                    form.add_error("sku_suffix", "This SKU suffix is used by another variant in this submission.")
+                else:
+                    seen_skus[key] = 1
+                    conflict = ProductVariant.objects.filter(
+                        product=product, sku_suffix__iexact=sku_suffix
+                    ).exclude(pk=form.instance.pk).first()
+                    if conflict:
+                        form.add_error("sku_suffix", f'SKU suffix "{sku_suffix}" is already used by another variant of this product.')
+
+            if form.cleaned_data.get("is_default"):
+                default_count += 1
+                if default_count > 1:
+                    form.add_error("is_default", "Only one variant can be marked as default.")
 
 ProductVariantFormSet = forms.inlineformset_factory(
     Product,
     ProductVariant,
     form=ProductVariantForm,
+    formset=ProductVariantInlineFormSet,
     extra=0,
     can_delete=True,
 )

@@ -9,7 +9,3 @@ class CatalogError(Exception):
 
 class InsufficientStockError(CatalogError):
     """Raised when a stock adjustment would drive quantity below zero."""
-
-
-class ProductValidationError(CatalogError):
-    """Raised when product creation data fails validation."""

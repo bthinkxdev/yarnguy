@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from django.contrib import messages
-from django.db.models import F, Case, When, Value, IntegerField
+from django.db import transaction
+from django.db.models import F, Case, When, Value, IntegerField, ProtectedError
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
@@ -149,31 +150,68 @@ def _render_product_form(request, product, mode):
         specifications = forms.ProductSpecificationFormSet(
             request.POST, instance=product, prefix="specifications"
         )
-        if (
-            form.is_valid()
-            and variants.is_valid()
-            and images.is_valid()
-            and specifications.is_valid()
-        ):
-            product = form.save()
-            variants.instance = product
-            variants.save()
 
-            if product.variants.exists():
-                from django.db.models import Sum
-                first_variant = product.variants.order_by("id").first()
-                total_stock = product.variants.aggregate(total=Sum("stock_quantity"))["total"] or 0
-                
-                product.stock_quantity = total_stock
-                product.base_price = first_variant.base_price
-                product.mrp = first_variant.mrp
-                product.purchase_price = first_variant.purchase_price
-                product.save(update_fields=["stock_quantity", "base_price", "mrp", "purchase_price"])
+        #evaluate all four eagerly (not via `and` short-circuit) so every
+        #formset gets a chance to populate its own errors for re-display,
+        #and so has_surviving_variant below can rely on variants.cleaned_data.
+        form_valid = form.is_valid()
+        variants_valid = variants.is_valid()
+        images_valid = images.is_valid()
+        specifications_valid = specifications.is_valid()
 
-            images.instance = product
-            images.save()
-            specifications.instance = product
-            specifications.save()
+        #product-level base_price/mrp/purchase_price/stock_quantity are only
+        #meaningful standalone when no variant exists to drive them (see the
+        #sync below, and ProductForm.clean() which otherwise silently defaults
+        #a blank of any of these to 0).
+        has_surviving_variant = variants_valid and any(
+            vform.cleaned_data and not vform.cleaned_data.get("DELETE")
+            for vform in variants.forms
+        )
+        if form_valid and not has_surviving_variant:
+            for field, label in (
+                ("base_price", "Base price"),
+                ("mrp", "MRP"),
+                ("purchase_price", "Purchase price"),
+                ("stock_quantity", "Stock quantity"),
+            ):
+                if form.data.get(form.add_prefix(field)) in (None, ""):
+                    form.add_error(field, f"{label} is required when the product has no variants.")
+                    form_valid = False
+
+        if form_valid and variants_valid and images_valid and specifications_valid:
+            try:
+                with transaction.atomic():
+                    product = form.save()
+                    variants.instance = product
+                    variants.save()
+
+                    if product.variants.exists():
+                        from django.db.models import Sum
+                        default_variant = (
+                            product.variants.filter(is_default=True).first()
+                            or next((v for v in product.variants.all() if v.stock_quantity > 0), None)
+                            or product.variants.first()
+                        )
+                        total_stock = product.variants.aggregate(total=Sum("stock_quantity"))["total"] or 0
+
+                        product.stock_quantity = total_stock
+                        product.base_price = default_variant.base_price
+                        product.mrp = default_variant.mrp
+                        product.purchase_price = default_variant.purchase_price
+                        product.save(update_fields=["stock_quantity", "base_price", "mrp", "purchase_price"])
+
+                    images.instance = product
+                    images.save()
+                    specifications.instance = product
+                    specifications.save()
+            except ProtectedError:
+                messages.error(
+                    request,
+                    "Cannot delete a variant that is included in an order. "
+                    "Mark it out of stock instead, or remove it from the order first."
+                )
+                return redirect("dashboard:product-list")
+
             messages.success(request, f"Product '{product.name}' saved successfully.")
             return redirect("dashboard:product-list")
 

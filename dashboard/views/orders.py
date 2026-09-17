@@ -9,9 +9,15 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from dashboard.access import dashboard_required
-from orders.exceptions import InvalidOrderStatusTransitionError
+from orders.exceptions import InvalidOrderStatusTransitionError, OrderNotEditableError
+from orders.forms import OrderAddressForm
 from orders.models import Order, OrderStatus
-from orders.services import ALLOWED_STATUS_TRANSITIONS, transition_order_status
+from orders.services import (
+    ADDRESS_EDITABLE_STATUSES,
+    ALLOWED_STATUS_TRANSITIONS,
+    transition_order_status,
+    update_order_delivery_address,
+)
 
 _STATUS_LABELS = dict(OrderStatus.choices)
 
@@ -121,6 +127,18 @@ def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
     from payments.models import PaymentStatus
     payment_statuses = PaymentStatus.choices
 
+    snapshot = order.delivery_address_snapshot or {}
+    address_form = OrderAddressForm(initial={
+        "name": snapshot.get("name", ""),
+        "email": snapshot.get("email", ""),
+        "phone": snapshot.get("phone", ""),
+        "line1": snapshot.get("line1", ""),
+        "line2": snapshot.get("line2", ""),
+        "city": snapshot.get("city", ""),
+        "state": snapshot.get("state", ""),
+        "pincode": snapshot.get("pincode", ""),
+    })
+
     context = {
         "nav_section": "orders",
         "page_title": f"Order {order.order_number}",
@@ -131,6 +149,8 @@ def order_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "pod": pod,
         "allowed_choices": allowed_choices,
         "payment_statuses": payment_statuses,
+        "address_form": address_form,
+        "address_editable": order.order_status in ADDRESS_EDITABLE_STATUSES,
     }
     return render(request, "dashboard/orders/detail.html", context)
 
@@ -221,6 +241,25 @@ def order_bulk_invoice_detail(request: HttpRequest) -> HttpResponse:
         "site_settings": SiteSettings.objects.first(),
     }
     return render(request, "shared/order_bulk_invoice.html", context)
+
+@dashboard_required
+@require_POST
+def order_address_update(request: HttpRequest, pk: int) -> HttpResponse:
+    """Manually update an order's frozen delivery address snapshot."""
+    order = get_object_or_404(Order, pk=pk)
+    form = OrderAddressForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Could not update address: please check the fields and try again.")
+        return redirect("dashboard:order-detail", pk=pk)
+
+    try:
+        update_order_delivery_address(order=order, data=form.cleaned_data, actor=request.user)
+        messages.success(request, "Delivery address updated.")
+    except OrderNotEditableError as exc:
+        messages.error(request, str(exc))
+
+    return redirect("dashboard:order-detail", pk=pk)
+
 
 @dashboard_required
 @require_POST

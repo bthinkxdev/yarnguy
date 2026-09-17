@@ -10,9 +10,23 @@ from typing import Optional
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from orders.exceptions import InvalidOrderStatusTransitionError
+from orders.exceptions import InvalidOrderStatusTransitionError, OrderNotEditableError
 from orders.models import Order, OrderStatus, OrderStatusHistory
 from orders.signals import order_status_changed
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+#Address edits are blocked once the order is physically with the courier or
+#resolved — editing our snapshot at that point wouldn't redirect the actual
+#shipment and would mislead an admin into thinking it did.
+ADDRESS_EDITABLE_STATUSES: frozenset[str] = frozenset({
+    OrderStatus.CHECKOUT_PENDING,
+    OrderStatus.PLACED_COD,
+    OrderStatus.CONFIRMED,
+    OrderStatus.READY_TO_SHIP,
+})
 
 #Admin-manual transitions only. The webhook (delhivery.views.delhivery_webhook)
 #always calls transition_order_status with force=True, so it is never limited by
@@ -152,4 +166,53 @@ def transition_order_status(
             tx.status = PaymentStatus.REFUNDED
             tx.save(update_fields=["status", "updated_at"])
 
+    #stock is decremented exactly once, either at PLACED_COD (checkout.services)
+    #or here at CONFIRMED (above, when old_status was CHECKOUT_PENDING) — so it
+    #must be given back exactly once too. CANCELLED is reachable from any
+    #non-pending status (nothing to give back from CHECKOUT_PENDING, since it was
+    #never taken). REFUNDED is only restocked when reached straight from
+    #DELIVERED — a REFUNDED reached via CANCELLED was already restocked there,
+    #and ALLOWED_STATUS_TRANSITIONS makes both CANCELLED and REFUNDED
+    #terminal/near-terminal, so neither branch can fire twice for the same order.
+    if new_status == OrderStatus.CANCELLED and old_status != OrderStatus.CHECKOUT_PENDING:
+        _restock_order_items(order, reason=f"order_cancelled:{order.order_number}")
+    elif new_status == OrderStatus.REFUNDED and old_status == OrderStatus.DELIVERED:
+        _restock_order_items(order, reason=f"order_refunded:{order.order_number}")
+
+    return order
+
+
+def _restock_order_items(order: Order, *, reason: str) -> None:
+    """Give back the stock reserved for every line on ``order``."""
+    from catalog.services import adjust_stock
+
+    for item in order.items.all():
+        target = item.variant if item.variant else item.product
+        adjust_stock(target=target, delta=item.quantity, reason=reason)
+
+
+@transaction.atomic
+def update_order_delivery_address(
+    *, order: Order, data: dict[str, str], actor: Optional[User] = None
+) -> Order:
+    """
+    Update an order's frozen ``delivery_address_snapshot`` with admin-edited
+    values.
+
+    Raises:
+        OrderNotEditableError: When the order has already shipped or is resolved.
+    """
+    if order.order_status not in ADDRESS_EDITABLE_STATUSES:
+        raise OrderNotEditableError(
+            f"Delivery address can no longer be edited — order is {order.get_order_status_display()}."
+        )
+
+    snapshot = dict(order.delivery_address_snapshot or {})
+    snapshot.update(data)
+    order.delivery_address_snapshot = snapshot
+    order.save(update_fields=["delivery_address_snapshot", "updated_at"])
+    logger.info(
+        "Delivery address updated for order %s by %s",
+        order.order_number, actor if actor else "system",
+    )
     return order

@@ -289,12 +289,17 @@ class Product(TimeStampedModel):
     @property
     def display_variant(self):
         """
-        Return the first in-stock variant for display on product cards (PLP/Home) and initial PDP loading.
-        If all variants are out of stock, fallback to the first variant.
+        Return the admin-marked default variant when set. Otherwise, the first
+        in-stock variant, for display on product cards (PLP/Home) and initial
+        PDP loading. If all variants are out of stock, fallback to the first
+        variant.
         """
         variants = self.variant_list if hasattr(self, "variant_list") else list(self.variants.all())
         if not variants:
             return None
+        for v in variants:
+            if v.is_default:
+                return v
         for v in variants:
             if v.stock_quantity > 0:
                 return v
@@ -386,6 +391,11 @@ class ProductVariant(TimeStampedModel):
     low_stock_threshold = models.PositiveIntegerField(
         default=5,
         verbose_name="Low stock threshold",
+    )
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name="Default variant",
+        help_text="Drives the product's displayed price/stock when variants exist.",
     )
 
     class Meta:

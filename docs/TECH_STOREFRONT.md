@@ -572,14 +572,18 @@ Payment processing via an adapter/registry pattern. JSON only — no templates.
 ### 10.1 `payments/models.py`
 - `PaymentStatus` — PENDING / SUCCESS / FAILED.
 - `PaymentTransaction` — payment record (order, gateway, amount, external intent id, status).
+- `RazorpayWebhookEvent` — durable dedup + audit record for real Razorpay webhook deliveries, keyed on `event_id` (unique). `status` records the terminal outcome of the first processing attempt (PROCESSED / UNKNOWN_TRANSACTION / AMOUNT_MISMATCH / CURRENCY_MISMATCH / IGNORED_EVENT_TYPE / ERROR) — never overwritten by a redelivery.
 
 ### 10.2 `payments/views.py` / `urls.py`
-- `payment_webhook_view(request, gateway_key)` → `JsonResponse` (`@csrf_exempt`, `@require_POST`; reads `X-Payment-Signature`; 404 `{"status":"ignored"}` when unmatched). Route `webhooks/<str:gateway_key>/` name `webhook`.
+- `payment_webhook_view(request, gateway_key)` → `JsonResponse` (`@csrf_exempt`, `@require_POST`; reads `X-Payment-Signature`; 404 `{"status":"ignored"}` when unmatched). Route `webhooks/<str:gateway_key>/` name `webhook`. Generic mock contract — not used by Razorpay in production.
+- `razorpay_webhook_view(request)` → `JsonResponse` (`@csrf_exempt`, `@require_POST`). The real, production Razorpay server-to-server confirmation path, independent of the browser `checkout.js` redirect callback (`checkout/views.py::razorpay_callback_view`). Verifies `X-Razorpay-Signature` (HMAC-SHA256 over the raw body with `RAZORPAY_WEBHOOK_SECRET`) before parsing anything; 400 on invalid/missing signature, missing `X-Razorpay-Event-Id`, or malformed JSON. Route `webhooks/razorpay/` name `razorpay-webhook` — registered **before** the generic `<str:gateway_key>` route, which would otherwise shadow it. Subscribe only `payment.captured`, `order.paid`, `payment.failed` in the Razorpay dashboard; other event types are acknowledged and ignored (`IGNORED_EVENT_TYPE`).
 
 ### 10.3 `payments/services.py`
-- `confirm_payment_success` / `confirm_payment_failed` — single convergence points (atomic).
+- `confirm_payment_success` / `confirm_payment_failed` — single convergence points (atomic), called by **both** the browser callback and the Razorpay webhook. Idempotent and concurrency-safe: reload the row under `select_for_update()` and no-op if the transaction already reached a terminal state (SUCCESS is never re-processed or downgraded by a later `payment.failed`).
 - `process_payment(*, order, gateway_key, payment_data)` — **atomic**; create PENDING tx, resolve adapter, create intent; async gateways stay PENDING (await webhook), sync gateways (incl. `GiftVoucherAdapter`) capture inline and converge.
-- `handle_payment_webhook(*, gateway_key, payload, signature)` — **atomic**; verify via adapter, match tx by `external_intent_id`, converge; None if unmatched.
+- `handle_payment_webhook(*, gateway_key, payload, signature)` — **atomic**; the old generic mock-webhook path (non-Razorpay sandbox adapters only). Verify via adapter, match tx by `external_intent_id`, converge; None if unmatched.
+- `verify_razorpay_webhook_signature(*, payload, signature)` — HMAC-SHA256 raw-body check against `RAZORPAY_WEBHOOK_SECRET`.
+- `handle_razorpay_webhook_event(*, event_id, event_type, event_data)` — **atomic**; the real Razorpay webhook's orchestration. Dedupes on `event_id` (`RazorpayWebhookEvent.objects.get_or_create`), resolves the `PaymentTransaction` by `external_intent_id` (Razorpay order id) + `gateway_key__startswith="razorpay"`, validates amount (paise-exact) and currency before calling `confirm_payment_success`/`confirm_payment_failed`. Unknown transactions and amount/currency mismatches are recorded on `RazorpayWebhookEvent` for investigation, never guessed at.
 
 **State machine:** PENDING → SUCCESS/FAILED. `selectors.py`, `forms.py`, `signals.py` — empty placeholders.
 

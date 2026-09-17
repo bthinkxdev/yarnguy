@@ -212,11 +212,24 @@ class OrderItem(TimeStampedModel):
     )
     variant = models.ForeignKey(
         "catalog.ProductVariant",
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         null=True,
         blank=True,
         related_name="order_items",
         verbose_name="Variant",
+    )
+    variant_name = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Variant name (snapshot)",
+        help_text="Captured at purchase time so history survives a later variant edit/delete.",
+    )
+    variant_sku = models.CharField(
+        max_length=96,
+        blank=True,
+        default="",
+        verbose_name="Variant SKU (snapshot)",
     )
     quantity = models.PositiveIntegerField(verbose_name="Quantity")
     unit_price = models.DecimalField(

@@ -214,6 +214,7 @@
                   <th>SKU suffix</th>
                   <th>Stock</th>
                   <th>Threshold</th>
+                  <th class="text-center">Default</th>
                   <th class="text-center">Remove</th>
                 </tr>
               </thead>
@@ -258,6 +259,10 @@
                     {% if vform.low_stock_threshold.errors %}<div class="text-danger small mt-1">{{ vform.low_stock_threshold.errors|join:", " }}</div>{% endif %}
                   </td>
                   <td class="text-center">
+                    {{ vform.is_default }}
+                    {% if vform.is_default.errors %}<div class="text-danger small mt-1">{{ vform.is_default.errors|join:", " }}</div>{% endif %}
+                  </td>
+                  <td class="text-center">
                     {% if vform.instance.pk %}
                     <div class="d-none">{{ vform.DELETE }}</div>
                     {% endif %}
@@ -285,6 +290,7 @@
               <td>{{ variants.empty_form.sku_suffix }}</td>
               <td>{{ variants.empty_form.stock_quantity }}</td>
               <td>{{ variants.empty_form.low_stock_threshold }}</td>
+              <td class="text-center">{{ variants.empty_form.is_default }}</td>
               <td class="text-center"><button type="button" class="btn btn-icon btn-sm btn-light text-danger"
                   data-row-remove><i class="ti ti-trash"></i></button></td>
             </tr>

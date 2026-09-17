@@ -67,6 +67,15 @@ def update_checkout_session(
     return checkout_session
 
 
+def _order_item_variant_snapshot(*, product, variant) -> tuple[str, str]:
+    """(variant_name, variant_sku) captured at purchase time so order history
+    survives a later variant edit/delete — see OrderItem.variant_name/variant_sku."""
+    if variant is None:
+        return "", ""
+    sku = f"{product.sku}-{variant.sku_suffix}" if variant.sku_suffix else product.sku
+    return variant.name, sku
+
+
 def _sync_checkout_pending_order(
     *, order: Order, session: CheckoutSession, gateway_key: str, idempotency_key: str
 ) -> Order:
@@ -81,10 +90,13 @@ def _sync_checkout_pending_order(
     order.items.all().delete()
 
     for line in summary.lines:
+        variant_name, variant_sku = _order_item_variant_snapshot(product=line.product, variant=line.variant)
         OrderItem.objects.create(
             order=order,
             product=line.product,
             variant=line.variant,
+            variant_name=variant_name,
+            variant_sku=variant_sku,
             quantity=line.quantity,
             unit_price=line.unit_price_at_add,
         )
@@ -247,10 +259,13 @@ def place_order(
         return Order.objects.get(idempotency_key=idempotency_key)
 
     for line in summary.lines:
+        variant_name, variant_sku = _order_item_variant_snapshot(product=line.product, variant=line.variant)
         OrderItem.objects.create(
             order=order,
             product=line.product,
             variant=line.variant,
+            variant_name=variant_name,
+            variant_sku=variant_sku,
             quantity=line.quantity,
             unit_price=line.unit_price_at_add,
         )
