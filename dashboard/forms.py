@@ -199,7 +199,13 @@ class ProductVariantInlineFormSet(forms.BaseInlineFormSet):
         if any(self.errors):
             return
 
-        product = self.instance
+        #a product being created is unsaved and has no existing variants to
+        #collide with; filtering by it would raise ValueError.
+        existing_variants = (
+            ProductVariant.objects.filter(product=self.instance)
+            if self.instance.pk
+            else ProductVariant.objects.none()
+        )
         seen_types: dict[str, str] = {}
         seen_skus: dict[str, int] = {}
         default_count = 0
@@ -213,8 +219,8 @@ class ProductVariantInlineFormSet(forms.BaseInlineFormSet):
                 key = variant_type.lower()
                 canonical = seen_types.get(key)
                 if canonical is None:
-                    existing = ProductVariant.objects.filter(
-                        product=product, variant_type__iexact=variant_type
+                    existing = existing_variants.filter(
+                        variant_type__iexact=variant_type
                     ).exclude(pk=form.instance.pk).first()
                     canonical = existing.variant_type if existing else variant_type
                     seen_types[key] = canonical
@@ -228,8 +234,8 @@ class ProductVariantInlineFormSet(forms.BaseInlineFormSet):
                     form.add_error("sku_suffix", "This SKU suffix is used by another variant in this submission.")
                 else:
                     seen_skus[key] = 1
-                    conflict = ProductVariant.objects.filter(
-                        product=product, sku_suffix__iexact=sku_suffix
+                    conflict = existing_variants.filter(
+                        sku_suffix__iexact=sku_suffix
                     ).exclude(pk=form.instance.pk).first()
                     if conflict:
                         form.add_error("sku_suffix", f'SKU suffix "{sku_suffix}" is already used by another variant of this product.')
