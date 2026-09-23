@@ -927,7 +927,10 @@ def customer_invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
             from django.http import Http404
             raise Http404("Invoice not found.")
     else:
-        if order.cart and order.cart.session_key != request.session.session_key:
+        session_key = request.session.session_key
+        allowed_keys = {session_key, f"bn_{session_key}"[:40]} if session_key else set()
+        cart_key = order.cart.session_key if order.cart else None
+        if not cart_key or cart_key not in allowed_keys:
             from django.http import Http404
             raise Http404("Invoice not found.")
 
