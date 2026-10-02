@@ -54,18 +54,24 @@ def trigger_shipment_on_confirmed(order):
 
     for item in items:
         product = item.product
-        #ProductVariant has no "sku" field of its own — only "sku_suffix". Combine it
-        #with the parent product's sku so the actual ordered variant (e.g. size) is
-        #what reaches Delhivery, not just the base product code.
-        sku_code = product.sku
-        if item.variant and item.variant.sku_suffix:
-            sku_code = f"{product.sku} - {item.variant.sku_suffix}"
-        
-        #include quantity in the description so it is visible in Delhivery
+        #Display name matches Delhivery's printed slip convention: sentence-case
+        #product name (color is already part of product.name in this catalog),
+        #with the ordered size appended — e.g. "Henley half sleeve muscle fit -
+        #dusty black - m".
+        display_name = product.name.strip().capitalize()
+        if item.variant and item.variant.name:
+            display_name = f"{display_name} - {item.variant.name.strip().lower()}"
         if item.quantity > 1:
-            sku_code = f"{sku_code} (Qty: {item.quantity})"
-            
-        item_descriptions.append(sku_code)
+            display_name = f"{display_name} (Qty: {item.quantity})"
+
+        #variant.sku_suffix already holds the complete abbreviated code (e.g.
+        #"M DST BLK HNLY") as entered against the ordered size — it is NOT a
+        #suffix to append to product.sku. "0" is used in the catalog as an
+        #explicit "not set" placeholder for some variants, so treat it as blank.
+        variant_sku = item.variant.sku_suffix.strip() if item.variant and item.variant.sku_suffix else ""
+        sku_code = variant_sku if variant_sku and variant_sku != "0" else product.sku
+
+        item_descriptions.append(f"{display_name}\nSKU:{sku_code}")
 
         # accumulate weight
         if hasattr(product, 'weight') and product.weight:
@@ -82,8 +88,7 @@ def trigger_shipment_on_confirmed(order):
     # Delhivery generally expects weight in grams for B2C
     total_weight_grams = total_weight_kg * 1000 if total_weight_kg > 0 else 500.0
 
-    products_description = ", ".join(item_descriptions) if item_descriptions else f"Order {order.order_number} items"
-    print("products_description -------- :",products_description)
+    products_description = "\n".join(item_descriptions) if item_descriptions else f"Order {order.order_number} items"
     #construct B2C package payload
     shipment_payload = {
         "name": customer_name,
