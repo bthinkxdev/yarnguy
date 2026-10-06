@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from django.core.paginator import Paginator
-from django.db.models import Prefetch
+from django.db.models import F, Prefetch
 
 from accounts.models import CustomerProfile
 from orders.models import Order, OrderItem, OrderStatusHistory
@@ -36,7 +36,7 @@ def get_customer_orders(
             "currency",
         )
         .filter(customer_profile=customer_profile)
-        .order_by("-created_at")
+        .order_by(F("success_at").desc(nulls_last=True), "-created_at")
     )
     paginator = Paginator(queryset, page_size)
     page_obj = paginator.get_page(page)

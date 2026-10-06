@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.db.models import F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
@@ -37,12 +38,25 @@ def order_list(request: HttpRequest) -> HttpResponse:
     if view not in ("orders", "abandoned"):
         view = "orders"
 
-    qs = Order.objects.select_related("customer_profile__user", "currency").order_by("-created_at")
+    qs = Order.objects.select_related("customer_profile__user", "currency")
 
     if view == "abandoned":
-        qs = qs.filter(order_status=OrderStatus.CHECKOUT_PENDING)
+        #These never reach success_at (still CHECKOUT_PENDING), so sort by last
+        #activity instead — most recently touched/retried abandoned cart first.
+        qs = qs.filter(order_status=OrderStatus.CHECKOUT_PENDING).order_by("-updated_at")
     else:
-        qs = qs.exclude(order_status=OrderStatus.CHECKOUT_PENDING)
+        #Sorted by success_at (when the order first became a real sale — online
+        #payment confirmed or COD placed), not created_at: a retried/late payment
+        #success reuses the SAME order row and only ever sets success_at, never
+        #created_at, so sorting by created_at would permanently bury an order under
+        #its original placement date even after it's just succeeded today. Unlike
+        #updated_at, success_at is set once and doesn't move the row again on an
+        #unrelated later change (a courier scan, an address edit). See
+        #orders.models.Order.Meta.ordering for the same reasoning applied as the
+        #model-level default.
+        qs = qs.exclude(order_status=OrderStatus.CHECKOUT_PENDING).order_by(
+            F("success_at").desc(nulls_last=True), "-created_at"
+        )
 
     status = request.GET.get("status", "").strip()
     if status and view == "orders":
@@ -234,7 +248,7 @@ def order_bulk_invoice_detail(request: HttpRequest) -> HttpResponse:
         
     orders_qs = Order.objects.select_related(
         "customer_profile__user", "currency"
-    ).filter(pk__in=order_ids).order_by("-created_at")
+    ).filter(pk__in=order_ids).order_by(F("success_at").desc(nulls_last=True), "-created_at")
     
     context = {
         "orders": orders_qs,

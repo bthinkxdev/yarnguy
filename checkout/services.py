@@ -6,6 +6,7 @@ from datetime import date
 from typing import Any, Optional
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from accounts.models import Address, CustomerProfile
 from cart.models import Cart, CartItem
@@ -246,6 +247,10 @@ def place_order(
             order_number=generate_order_number(),
             idempotency_key=idempotency_key,
             order_status=initial_status,
+            #COD orders succeed immediately at placement — this path never goes
+            #through transition_order_status, which is where every other route to
+            #CONFIRMED/PLACED_COD sets this same field.
+            success_at=timezone.now() if initial_status == OrderStatus.PLACED_COD else None,
             delivery_date=session.delivery_date,
             subtotal=summary.subtotal,
             coupon_discount=summary.coupon_discount,

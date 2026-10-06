@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from django.db.models import F
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 
@@ -47,7 +48,7 @@ def customer_detail(request: HttpRequest, pk: int) -> HttpResponse:
         "page_title": str(profile),
         "profile": profile,
         "addresses": profile.addresses.all(),
-        "orders": profile.orders.order_by("-created_at")[:10],
+        "orders": profile.orders.order_by(F("success_at").desc(nulls_last=True), "-created_at")[:10],
     }
     return render(request, "dashboard/customers/detail.html", context)
 

@@ -9,6 +9,7 @@ from typing import Optional
 
 from django.contrib.auth.models import User
 from django.db import transaction
+from django.utils import timezone
 
 from orders.exceptions import InvalidOrderStatusTransitionError, OrderNotEditableError
 from orders.models import Order, OrderStatus, OrderStatusHistory
@@ -119,7 +120,19 @@ def transition_order_status(
             )
 
     order.order_status = new_status
-    order.save(update_fields=["order_status", "updated_at"])
+    update_fields = ["order_status", "updated_at"]
+
+    #First time this order becomes a real sale (online payment confirmed, or an
+    #existing CHECKOUT_PENDING order switched to COD) — record it once. Direct COD
+    #creation sets this itself at Order.objects.create() time instead, since that
+    #path never calls this function. Guarded by "is None" because these statuses are
+    #one-directional per ALLOWED_STATUS_TRANSITIONS, but staying idempotent costs
+    #nothing and protects against a future transition map change re-entering them.
+    if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD) and order.success_at is None:
+        order.success_at = timezone.now()
+        update_fields.append("success_at")
+
+    order.save(update_fields=update_fields)
 
     OrderStatusHistory.objects.create(
         order=order,

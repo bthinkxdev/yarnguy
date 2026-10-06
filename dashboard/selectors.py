@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from django.db.models import F
+from django.db.models import Count, F
 from django.utils import timezone
 
 from accounts.models import CustomerProfile
@@ -43,26 +43,33 @@ def get_sales_series(*, days: int = 14) -> dict[str, list]:
 
 
 def get_customer_split() -> dict[str, list[float]]:
-    """Return [new%, returning%] over the last 30 days (true unique human count)."""
-    start = timezone.localdate() - timedelta(days=30)
-    
-    # 1.how many brand new accounts were created in the last 30 days?
-    from accounts.models import CustomerProfile
-    new_customers = CustomerProfile.objects.filter(created_at__date__gte=start).count()
-    
-    # 2.how many unique people placed a real (non-abandoned, non-cancelled) order
-    # in the last 30 days?
-    unique_buyers = Order.objects.filter(
-        created_at__date__gte=start, order_status__in=REVENUE_ORDER_STATUSES
-    ).values("customer_profile").distinct().count()
-    
-    # returning = people who bought minus the newly created accounts
-    returning_customers = max(0, unique_buyers - new_customers)
-    
+    """Return [new%, returning%] across the full customer base (lifetime).
+
+    "New" = customers with exactly one real (REVENUE_ORDER_STATUSES) order ever.
+    "Returning" = customers with two or more. Matches the lifetime Products/Customers/
+    Orders counts shown in this same dashboard card (get_dashboard_counts) — this used
+    to be wrongly scoped to a rolling 30-day window and computed by subtracting two
+    unrelated aggregate counts (accounts created vs. unique buyers in that window)
+    instead of looking at each customer's own order history. That meant a repeat
+    buyer with 20 lifetime orders would still show up as "100% new" any time the last
+    30 days happened to have little or no revenue activity, even though the store had
+    plenty of real returning customers — exactly what was reported.
+    """
+    order_counts = (
+        Order.objects.filter(
+            order_status__in=REVENUE_ORDER_STATUSES, customer_profile__isnull=False
+        )
+        .values("customer_profile")
+        .annotate(order_count=Count("id"))
+    )
+
+    new_customers = sum(1 for row in order_counts if row["order_count"] == 1)
+    returning_customers = sum(1 for row in order_counts if row["order_count"] > 1)
+
     total = new_customers + returning_customers
     if total == 0:
         return {"series": [0, 0]}
-        
+
     new_pct = round(100 * new_customers / total)
     return {"series": [new_pct, 100 - new_pct]}
 
@@ -141,11 +148,16 @@ def get_low_stock_products(*, limit: int = 5) -> list[dict[str, Any]]:
 
 
 def get_recent_orders(*, limit: int = 6) -> list[Order]:
-    """Most recent orders with their customer preloaded."""
+    """Most recently succeeded orders with their customer preloaded.
+
+    Sorted by success_at (set once, when the order first becomes a real sale) so a
+    late/retried payment success resurfaces the order here even though it was
+    originally placed days or weeks ago, without reshuffling on unrelated later
+    activity (a courier scan, an address edit) — see orders.models.Order.Meta.ordering.
+    """
     return list(
-        Order.objects.select_related("customer_profile__user", "currency").order_by("-created_at")[
-            :limit
-        ]
+        Order.objects.select_related("customer_profile__user", "currency")
+        .order_by(F("success_at").desc(nulls_last=True), "-created_at")[:limit]
     )
 
 

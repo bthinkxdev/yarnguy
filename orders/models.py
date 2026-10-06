@@ -108,19 +108,41 @@ class Order(TimeStampedModel):
         verbose_name="Delivery address snapshot",
     )
     invoice_details = models.JSONField(default=dict, verbose_name="Invoice details")
+    success_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Order success at",
+        help_text=(
+            "When this order first became a real sale: online payment confirmed, or "
+            "COD order placed. Null for CHECKOUT_PENDING orders that never succeeded. "
+            "Set once in orders.services.transition_order_status (CONFIRMED/PLACED_COD) "
+            "and at direct COD creation in checkout.services.place_order — never "
+            "touched again, unlike updated_at, so later unrelated changes (a courier "
+            "scan, an address edit) can't move an order's position by accident."
+        ),
+    )
 
     class Meta:
         verbose_name = "Order"
         verbose_name_plural = "Orders"
         indexes = [
             models.Index(
-                fields=["customer_profile", "-created_at"],
-                name="ord_customer_created_idx",
+                fields=["customer_profile", "-success_at"],
+                name="ord_customer_success_idx",
             ),
             models.Index(fields=["order_status"], name="orders_order_status_idx"),
             models.Index(fields=["idempotency_key"], name="orders_idempotency_key_idx"),
         ]
-        ordering = ["-created_at"]
+        #success_at, not updated_at: updated_at is bumped by every unrelated save
+        #(a courier scan, an address edit), so sorting listings by it makes orders
+        #jump around for reasons that have nothing to do with the order actually
+        #succeeding. success_at is set exactly once, at the moment the order becomes
+        #a real sale, and never touched again. CHECKOUT_PENDING orders have no
+        #success_at yet — nulls_last keeps them from flooding the top of any listing
+        #that falls back to this default, and the -created_at tiebreaker gives them a
+        #sane relative order among themselves.
+        ordering = [models.F("success_at").desc(nulls_last=True), "-created_at"]
 
     def __str__(self) -> str:
         return self.order_number
