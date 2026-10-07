@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET
 from catalog.selectors import get_homepage_product_rails
 from cms.selectors import get_active_homepage_sections
 from cms.services import get_section_render_context
+from core import meta_pixel
 from core.seo import seo_context
 
 
@@ -31,6 +32,7 @@ def homepage_view(request: HttpRequest) -> HttpResponse:
         description="Premium Gym Wear & Activewear - Yarn Guy",
     )
     context["section_contexts"] = section_contexts
+    context["mpx_events"] = [meta_pixel.event("ViewHome", custom=True)]
     response = render(request, "cms/homepage.html", context)
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response["Pragma"] = "no-cache"

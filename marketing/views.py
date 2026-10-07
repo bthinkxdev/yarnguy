@@ -7,6 +7,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
+from core import meta_pixel
 from marketing.forms import NewsletterSignupForm
 from marketing.services import subscribe_newsletter
 
@@ -42,6 +43,7 @@ def newsletter_subscribe_view(request: HttpRequest) -> HttpResponse:
     subscriber, is_new = subscribe_newsletter(email=form.cleaned_data["email"])
     
     if is_new:
+        meta_pixel.queue_event(request, "Subscribe", {"subscription_type": "newsletter"})
         msg = "Thank you for subscribing to our newsletter!"
         if is_ajax:
             return JsonResponse({"status": "success", "message": msg})

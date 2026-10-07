@@ -263,6 +263,19 @@ class SiteSettings(TimeStampedModel):
         help_text="Razorpay Key Secret / Test Key Secret for payment signature verification.",
     )
 
+    meta_pixel_id = models.CharField(
+        max_length=32,
+        blank=True,
+        verbose_name="Meta Pixel ID",
+        help_text="Numeric Pixel / Dataset ID from Meta Events Manager. Leave blank to disable tracking (falls back to the META_PIXEL_ID env var).",
+    )
+    meta_capi_access_token = models.CharField(
+        max_length=512,
+        blank=True,
+        verbose_name="Meta Conversions API access token",
+        help_text="Enables server-side Purchase events. Falls back to the META_CAPI_ACCESS_TOKEN env var.",
+    )
+
     class Meta:
         verbose_name = "Site settings"
         verbose_name_plural = "Site settings"

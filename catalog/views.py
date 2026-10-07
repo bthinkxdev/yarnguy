@@ -25,6 +25,7 @@ from catalog.selectors import (
     get_variant_price,
     record_product_view,
 )
+from core import meta_pixel
 from core.seo import build_plp_canonical_url, build_product_json_ld, resolve_meta_title, seo_context
 
 
@@ -62,6 +63,31 @@ def _parse_plp_filters(request: HttpRequest) -> dict:
     if max_price := request.GET.get("max_price"):
         filters["max_price"] = max_price
     return filters
+
+
+def _plp_pixel_events(*, request: HttpRequest, plp_data: dict, active_cat) -> list[dict]:
+    """ViewCategory for a listing; Search when the header search box sent ``?q=``."""
+    products = plp_data["results"]
+    prices = plp_data["display_prices"]
+    content_ids = [meta_pixel.content_id(p) for p in products]
+    base = {
+        "content_type": "product",
+        "content_ids": content_ids,
+        "currency": meta_pixel.currency_code(),
+        "num_results": plp_data["total_count"],
+    }
+    events = []
+    query = request.GET.get("q", "").strip()
+    if query:
+        events.append(meta_pixel.event("Search", {**base, "search_string": query[:100]}))
+    category_params = {
+        **base,
+        "content_category": active_cat.name if active_cat else "All products",
+        "category_id": active_cat.pk if active_cat else "",
+        "value": float(sum(prices.get(p.pk, 0) for p in products)),
+    }
+    events.append(meta_pixel.event("ViewCategory", category_params, custom=True))
+    return events
 
 
 @require_GET
@@ -129,6 +155,13 @@ def plp_view(request: HttpRequest, category_slug: str | None = None) -> HttpResp
             "active_category": active_cat,
         }
     )
+
+    #the HTMX grid partial (filters / pagination) is not a new page view
+    is_grid_partial = request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request")
+    if not is_grid_partial:
+        context["mpx_events"] = _plp_pixel_events(
+            request=request, plp_data=plp_data, active_cat=active_cat
+        )
 
     if request.headers.get("HX-Request") and not request.headers.get("HX-History-Restore-Request"):
         response = render(request, "catalog/partials/product_grid.html", context)
@@ -208,6 +241,14 @@ def pdp_view(request: HttpRequest, slug: str) -> HttpResponse:
         title=f"{product.name} | Yarn Guy",
         description=f"{product.name} — Premium gym wear and active wear from Yarn Guy",
     )
+    context["mpx_events"] = [
+        meta_pixel.event(
+            "ViewContent",
+            meta_pixel.product_params(
+                product, price=price_data["price"], variant=target_variant
+            ),
+        )
+    ]
     context.update(
         {
             "product": product,

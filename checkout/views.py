@@ -19,6 +19,7 @@ from cart.services import get_or_create_cart
 from checkout.forms import CheckoutAddressForm, CheckoutDeliveryForm, CheckoutPaymentForm
 from checkout.selectors import get_checkout_session_by_id
 from checkout.services import create_checkout_session, place_order, update_checkout_session
+from core import meta_pixel
 
 from payments.registry import PAYMENT_GATEWAYS
 from payments.services import process_payment
@@ -176,10 +177,19 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
     INDIAN_STATES = list(State.objects.filter(is_active=True).values_list('name', flat=True))
 
     from marketing.selectors import has_any_active_coupons
+    is_buy_now = request.session.get("checkout_mode") == "buy_now"
+    mpx_events = []
+    if summary.lines:
+        initiate_params = meta_pixel.lines_params(
+            summary.lines, value=summary.grand_total, currency=cart.currency
+        )
+        initiate_params["checkout_type"] = "buy_now" if is_buy_now else "cart"
+        mpx_events.append(meta_pixel.event("InitiateCheckout", initiate_params))
     return render(
         request,
         "checkout/checkout.html",
         {
+            "mpx_events": mpx_events,
             "cart": cart,
             "summary": summary,
             "checkout_session": session,
@@ -191,7 +201,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,
             "has_active_coupons": has_any_active_coupons(),
-            "is_buy_now": request.session.get("checkout_mode") == "buy_now",
+            "is_buy_now": is_buy_now,
         },
     )
 
@@ -419,6 +429,19 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
         response["HX-Trigger"] = "stockChanged"
         return response
 
+    if meta_pixel.is_enabled():
+        #stored on the order so a webhook-confirmed payment (no browser in the request) can
+        #still send fbp/fbc/IP/UA to the Conversions API, and so Purchase carries checkout_type
+        tracking = meta_pixel.capture_tracking_context(
+            request,
+            checkout_type="buy_now" if request.session.get("checkout_mode") == "buy_now" else "cart",
+        )
+        tracking["source_url"] = request.build_absolute_uri(
+            reverse("checkout:confirmation", kwargs={"order_id": order.pk})
+        )
+        order.invoice_details = {**(order.invoice_details or {}), "meta_tracking": tracking}
+        order.save(update_fields=["invoice_details", "updated_at"])
+
     payment_data = {}
 
     process_payment(
@@ -450,11 +473,14 @@ def checkout_confirmation_view(request: HttpRequest, order_id: int) -> HttpRespo
     from orders.models import Order
     from django.shortcuts import get_object_or_404
     order = get_object_or_404(Order, pk=order_id)
+    #Purchase only for a real sale (order.success_at) — never for a pending / failed payment
+    purchase_event = meta_pixel.purchase_page_event(order)
     return render(
         request,
         "checkout/confirmation_page.html",
         {
             "order": order,
+            "mpx_events": [purchase_event] if purchase_event else [],
         },
     )
 
@@ -521,10 +547,16 @@ def razorpay_pay_view(request: HttpRequest, order_id: int) -> HttpResponse:
     callback_url = request.build_absolute_uri(reverse("checkout:razorpay-callback"))
     cancel_url = request.build_absolute_uri(reverse("checkout:checkout"))
 
+    #an unpaid order now exists: the customer is past checkout but has NOT bought anything yet
+    pending_params = meta_pixel.order_params(order)
+    pending_params["payment_method"] = "online"
+    pending_params["payment_gateway"] = payment_tx.gateway_key if payment_tx else ""
     return render(
         request,
         "checkout/razorpay_pay.html",
         {
+            "mpx_events": [meta_pixel.event("OnlinePaymentStarted", pending_params, custom=True)],
+            "mpx_failure_params": pending_params,
             "order": order,
             "razorpay_key_id": key_id or "rzp_test_mock",
             "razorpay_order_id": razorpay_order_id,
@@ -542,6 +574,14 @@ def razorpay_pay_view(request: HttpRequest, order_id: int) -> HttpResponse:
 
 
 from django.views.decorators.csrf import csrf_exempt
+
+
+def _queue_payment_failed(request: HttpRequest, *, order, reason: str) -> None:
+    """Report a server-detected failed online payment on the checkout page the customer lands on."""
+    params = meta_pixel.order_params(order)
+    params["payment_method"] = "online"
+    params["failure_reason"] = reason
+    meta_pixel.queue_event(request, "PaymentFailed", params, custom=True)
 
 
 @csrf_exempt
@@ -607,6 +647,7 @@ def razorpay_callback_view(request: HttpRequest) -> HttpResponse:
                 order.pk, razorpay_payment_id, razorpay_order_id,
             )
             confirm_payment_failed(payment_transaction=payment_tx)
+            _queue_payment_failed(request, order=order, reason="capture_failed")
             return redirect("checkout:checkout")
 
         confirm_payment_success(payment_transaction=payment_tx, external_transaction_id=razorpay_payment_id)
@@ -614,6 +655,7 @@ def razorpay_callback_view(request: HttpRequest) -> HttpResponse:
     else:
         if payment_tx:
             confirm_payment_failed(payment_transaction=payment_tx)
+        _queue_payment_failed(request, order=order, reason="verification_failed")
         return redirect("checkout:checkout")
 
 

@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
+from core import meta_pixel
 from orders.exceptions import InvalidOrderStatusTransitionError, OrderNotEditableError
 from orders.models import Order, OrderStatus, OrderStatusHistory
 from orders.signals import order_status_changed
@@ -128,11 +129,18 @@ def transition_order_status(
     #path never calls this function. Guarded by "is None" because these statuses are
     #one-directional per ALLOWED_STATUS_TRANSITIONS, but staying idempotent costs
     #nothing and protects against a future transition map change re-entering them.
+    became_sale = False
     if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD) and order.success_at is None:
         order.success_at = timezone.now()
         update_fields.append("success_at")
+        became_sale = True
 
     order.save(update_fields=update_fields)
+
+    if became_sale:
+        #server-side Meta Purchase — covers customers who never return to the confirmation
+        #page (closed tab after paying, webhook-confirmed payment)
+        meta_pixel.dispatch_purchase_event(order)
 
     OrderStatusHistory.objects.create(
         order=order,

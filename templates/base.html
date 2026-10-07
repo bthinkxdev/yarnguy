@@ -1,4 +1,4 @@
-{% load static i18n %}
+{% load static i18n storefront_tags %}
 
 {% if not shell_only %}
 
@@ -33,6 +33,8 @@
   <link href="{% static 'css/main.css' %}" rel="stylesheet">
 
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+
+  {% include "includes/meta_pixel.html" %}
 
   {% block extra_head %}{% endblock %}
 
@@ -78,6 +80,8 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
   <script src="{% static 'js/main.js' %}?v=2"></script>
+
+  {% if meta_pixel_id %}{% meta_pixel_events %}{% endif %}
 
   {% block extra_js %}{% endblock %}
 

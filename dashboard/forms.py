@@ -539,7 +539,15 @@ class SiteSettingsForm(forms.ModelForm):
         "default_currency",
         "razorpay_key_id",
         "razorpay_key_secret",
+        "meta_pixel_id",
+        "meta_capi_access_token",
+        "clear_meta_capi_access_token",
     ]
+
+    clear_meta_capi_access_token = forms.BooleanField(
+        required=False,
+        label="Remove the saved access token",
+    )
 
     class Meta:
         model = SiteSettings
@@ -559,14 +567,42 @@ class SiteSettingsForm(forms.ModelForm):
             "cod_delivery_charge",
             "razorpay_key_id",
             "razorpay_key_secret",
+            "meta_pixel_id",
+            "meta_capi_access_token",
         ]
         labels = {
             "vendor_email": "Email",
             "order_notification_email": "New Order Notification Email",
         }
+        widgets = {
+            #never echo the stored token back into the page source
+            "meta_capi_access_token": forms.PasswordInput(render_value=False, attrs={"autocomplete": "off"}),
+        }
+
+    def clean_meta_pixel_id(self):
+        value = self.cleaned_data.get("meta_pixel_id", "").strip()
+        if value and not value.isdigit():
+            raise forms.ValidationError("Pixel ID must contain digits only.")
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        #runs after every field is cleaned (the clear checkbox is declared after the token).
+        #A blank token means "unchanged" — the field is a write-only password input.
+        token = (cleaned.get("meta_capi_access_token") or "").strip()
+        if cleaned.get("clear_meta_capi_access_token"):
+            token = ""
+        elif not token:
+            token = self.instance.meta_capi_access_token
+        cleaned["meta_capi_access_token"] = token
+        return cleaned
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.instance.meta_capi_access_token:
+            self.fields["meta_capi_access_token"].help_text = (
+                "A token is saved. Leave blank to keep it, or enter a new one to replace it."
+            )
         default_curr = Currency.objects.filter(is_default=True).first()
         if default_curr:
             self.fields["default_currency"].initial = default_curr.pk

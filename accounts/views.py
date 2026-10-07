@@ -59,6 +59,7 @@ from accounts.services import (
     verify_email_otp,
     login_or_create_customer_by_email,
 )
+from core import meta_pixel
 from core.decorators import role_required
 
 from accounts.selectors import get_customer_subscriptions, get_customer_subscription_by_id
@@ -177,6 +178,7 @@ def email_register_view(request: HttpRequest) -> HttpResponse:
         )
 
     login(request, profile.user, backend="django.contrib.auth.backends.ModelBackend")
+    meta_pixel.queue_event(request, "CompleteRegistration", {"status": True, "registration_method": "email"})
     if _wants_json(request):
         return _success_response({"user_id": profile.user_id})
     return redirect("accounts:dashboard")
@@ -222,6 +224,7 @@ def email_login_view(request: HttpRequest) -> HttpResponse:
             status=401,
         )
     login(request, form.get_user(), backend="django.contrib.auth.backends.ModelBackend")
+    meta_pixel.queue_event(request, "Login", {"login_method": "email"}, custom=True)
     if _wants_json(request):
         return _success_response({"user_id": form.get_user().pk})
     next_url = request.GET.get("next") or request.POST.get("next")
