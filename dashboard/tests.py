@@ -309,3 +309,165 @@ class ProductFormRequiredPriceGateTests(TestCase):
         ))
         self.assertRedirects(response, reverse("dashboard:product-list"))
         self.assertTrue(Product.objects.filter(sku="SKU-PRICE-1").exists())
+
+
+class CustomerOverviewTests(TestCase):
+    """Customer donut + qualifying-order count share one definition (dashboard.selectors).
+
+    Qualifying = success_at set (online paid, or COD placed) and not cancelled/refunded.
+    """
+
+    def setUp(self) -> None:
+        from django.utils import timezone
+
+        self.now = timezone.now()
+        self.currency, _ = Currency.objects.get_or_create(
+            code="INR",
+            defaults={"symbol": "₹", "exchange_rate_to_base": "1.00000000", "is_default": True},
+        )
+        self._seq = 0
+
+    def _customer(self):
+        self._seq += 1
+        return register_customer_email(
+            email=f"overview-{self._seq}@example.com", password="testpass12345", name=f"Overview {self._seq}"
+        )
+
+    def _order(self, profile, *, status=OrderStatus.CONFIRMED, days_ago=1, succeeded=True, at=None):
+        from datetime import timedelta
+
+        self._seq += 1
+        success_at = None
+        if succeeded:
+            success_at = at or (self.now - timedelta(days=days_ago))
+        return Order.objects.create(
+            customer_profile=profile,
+            order_number=f"#T{self._seq}",
+            order_status=status,
+            success_at=success_at,
+            subtotal="100.00",
+            total_amount="100.00",
+            currency=self.currency,
+        )
+
+    def split(self, period="30"):
+        from dashboard import selectors
+
+        return selectors.get_customer_split(period)
+
+    def test_single_recent_order_is_new_and_old_history_makes_returning(self):
+        self._order(self._customer())
+        returning = self._customer()
+        self._order(returning, days_ago=100)
+        self._order(returning, days_ago=2)
+        result = self.split()
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 1))
+        self.assertEqual(result["series"], [50, 50])
+
+    def test_two_orders_inside_period_is_returning(self):
+        profile = self._customer()
+        self._order(profile, days_ago=3)
+        self._order(profile, days_ago=1)
+        result = self.split()
+        self.assertEqual((result["new_count"], result["returning_count"]), (0, 1))
+        self.assertEqual(result["series"], [0, 100])
+
+    def test_cod_placed_order_counts_immediately(self):
+        self._order(self._customer(), status=OrderStatus.PLACED_COD)
+        result = self.split()
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 0))
+
+    def test_unpaid_abandoned_cancelled_and_refunded_are_excluded(self):
+        self._order(self._customer(), status=OrderStatus.CHECKOUT_PENDING, succeeded=False)
+        self._order(self._customer(), status=OrderStatus.CANCELLED)
+        self._order(self._customer(), status=OrderStatus.REFUNDED)
+        result = self.split()
+        self.assertEqual((result["new_count"], result["returning_count"]), (0, 0))
+        self.assertEqual(result["series"], [0, 0])
+
+    def test_cancelled_order_does_not_make_customer_returning(self):
+        profile = self._customer()
+        self._order(profile, days_ago=5)
+        self._order(profile, status=OrderStatus.CANCELLED, days_ago=2)
+        result = self.split()
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 0))
+
+    def test_customer_with_no_orders_or_only_old_orders_is_excluded_from_period(self):
+        self._customer()
+        self._order(self._customer(), days_ago=100)
+        self._order(self._customer(), days_ago=1)
+        result = self.split("30")
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 0))
+        self.assertEqual(result["series"], [100, 0])
+
+    def test_all_time_period_uses_lifetime_order_count(self):
+        self._order(self._customer(), days_ago=400)
+        repeat = self._customer()
+        self._order(repeat, days_ago=500)
+        self._order(repeat, days_ago=300)
+        result = self.split("all")
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 1))
+
+    def test_percentages_always_total_100(self):
+        self._order(self._customer())
+        for _ in range(2):
+            profile = self._customer()
+            self._order(profile, days_ago=100)
+            self._order(profile, days_ago=1)
+        result = self.split()
+        self.assertEqual(result["series"], [33, 67])
+        self.assertEqual(sum(result["series"]), 100)
+
+    def test_period_start_boundary_uses_local_midnight(self):
+        from datetime import timedelta
+
+        from dashboard import selectors
+
+        start = selectors.customer_period_start("30")
+        self.assertEqual(timezone_local_time(start), (0, 0, 0))
+        self._order(self._customer(), at=start)  # exactly at the boundary: inside
+        before = self._customer()
+        self._order(before, at=start - timedelta(seconds=1))  # one second earlier: outside
+        result = self.split("30")
+        self.assertEqual((result["new_count"], result["returning_count"]), (1, 0))
+
+    def test_invalid_period_falls_back_to_30_days(self):
+        from dashboard import selectors
+
+        self.assertEqual(selectors.resolve_customer_period("bogus"), "30")
+        self.assertEqual(selectors.resolve_customer_period(None), "30")
+        self.assertEqual(selectors.resolve_customer_period("all"), "all")
+
+    def test_counts_use_the_same_qualifying_definition(self):
+        from dashboard import selectors
+
+        buyer = self._customer()
+        self._order(buyer, days_ago=2)
+        self._order(buyer, days_ago=100)
+        self._order(buyer, status=OrderStatus.PLACED_COD, days_ago=1)
+        self._order(buyer, status=OrderStatus.CHECKOUT_PENDING, succeeded=False)
+        self._order(buyer, status=OrderStatus.CANCELLED, days_ago=1)
+        self._customer()  # registered, never bought
+
+        counts = selectors.get_dashboard_counts("30")
+        self.assertEqual(counts["qualifying_order_count"], 2)
+        self.assertEqual(counts["qualifying_order_count_all_time"], 3)
+        self.assertEqual(counts["registered_customer_count"], 2)
+
+    def test_home_view_renders_each_period_with_new_labels(self):
+        staff = User.objects.create_superuser(username="ov-admin", email="ov@example.com", password="testpass12345")
+        self.client.force_login(staff)
+        for period in ("7", "30", "90", "all", "bogus"):
+            response = self.client.get(reverse("dashboard:home"), {"period": period})
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Registered customers")
+            self.assertContains(response, "Qualifying orders")
+        default = self.client.get(reverse("dashboard:home"))
+        self.assertEqual(default.context["customer_period"], "30")
+
+
+def timezone_local_time(value):
+    from django.utils import timezone
+
+    local = timezone.localtime(value)
+    return (local.hour, local.minute, local.second)

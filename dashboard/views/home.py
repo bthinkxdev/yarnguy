@@ -29,8 +29,9 @@ def home_view(request: HttpRequest) -> HttpResponse:
     """Render the dashboard overview with live KPIs, charts and lists."""
     summary = get_admin_dashboard_summary()
     sales_series = selectors.get_sales_series(days=14)
-    customer_split = selectors.get_customer_split()
-    counts = selectors.get_dashboard_counts()
+    customer_period = selectors.resolve_customer_period(request.GET.get("period"))
+    customer_split = selectors.get_customer_split(customer_period)
+    counts = selectors.get_dashboard_counts(customer_period)
 
     from django.utils import timezone
     from reports.selectors import get_live_today_sales_report
@@ -64,5 +65,11 @@ def home_view(request: HttpRequest) -> HttpResponse:
         "recent_orders": selectors.get_recent_orders(limit=6),
         "sales_series": sales_series,
         "customer_split": customer_split,
+        "customer_period": customer_period,
+        "customer_period_label": selectors.CUSTOMER_PERIOD_LABELS[customer_period],
+        "customer_periods": [
+            {"key": key, "label": label, "active": key == customer_period}
+            for key, label in selectors.CUSTOMER_PERIOD_LABELS.items()
+        ],
     }
     return render(request, "dashboard/home.html", context)

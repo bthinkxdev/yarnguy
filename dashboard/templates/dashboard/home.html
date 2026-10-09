@@ -40,9 +40,9 @@
   <div class="col-xl-3 col-md-6">
     <div class="kpi-tile tile-blue">
       <div class="kpi-icon"><i class="ti ti-users"></i></div>
-      <p class="kpi-label">Customers</p>
-      <h3 class="kpi-value">{{ counts.customer_count }}</h3>
-      <span class="kpi-sub">{{ counts.order_count }} orders all-time</span>
+      <p class="kpi-label">Registered customers</p>
+      <h3 class="kpi-value">{{ counts.registered_customer_count }}</h3>
+      <span class="kpi-sub">{{ counts.qualifying_order_count_all_time }} qualifying orders all-time</span>
     </div>
   </div>
   <div class="col-xl-3 col-md-6">
@@ -113,15 +113,21 @@
       <div class="card-header panel-header">
         <div>
           <h3 class="panel-title">Customers Overview</h3>
-          <p class="panel-sub">New vs returning</p>
+          <p class="panel-sub">New vs returning · {{ customer_period_label|lower }}</p>
+        </div>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Reporting period">
+          {% for p in customer_periods %}
+          <a href="?period={{ p.key }}" class="btn {% if p.active %}btn-primary{% else %}btn-outline-secondary{% endif %}"{% if p.active %} aria-current="true"{% endif %}>{% if p.key == 'all' %}All{% else %}{{ p.key }}d{% endif %}</a>
+          {% endfor %}
         </div>
       </div>
       <div class="card-body text-center">
         <div id="customerChart"></div>
+        <p class="small text-secondary mb-0">{{ customer_split.new_count }} new · {{ customer_split.returning_count }} returning</p>
         <div class="row overview-stats mt-3">
           <div class="col-4"><h4>{{ counts.product_count }}</h4><span>Products</span></div>
-          <div class="col-4"><h4>{{ counts.customer_count }}</h4><span>Customers</span></div>
-          <div class="col-4"><h4>{{ counts.order_count }}</h4><span>Orders</span></div>
+          <div class="col-4"><h4>{{ counts.registered_customer_count }}</h4><span>Registered customers</span></div>
+          <div class="col-4"><h4>{{ counts.qualifying_order_count }}</h4><span>Qualifying orders</span></div>
         </div>
       </div>
     </div>
