@@ -23,21 +23,13 @@
         </span>
       </div>
       <div class="jm-topbar__meta">
-        {% if site_settings.whatsapp_number %}
-        <a class="jm-topbar__link" href="tel:{{ site_settings.whatsapp_number }}">
+        {% if site_settings.primary_phone %}
+        <a class="jm-topbar__link" href="tel:{{ site_settings.primary_phone_tel }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <path
               d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
           </svg>
-          {{ site_settings.whatsapp_number }}
-        </a>
-        {% else %}
-        <a class="jm-topbar__link" href="tel:+971503131065">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path
-              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-          </svg>
-          +971 50 313 1065
+          {{ site_settings.primary_phone }}
         </a>
         {% endif %}
         <a class="jm-topbar__cta" href="{% url 'core:contact-us' %}">{% trans "Contact Us" %}</a>
@@ -217,9 +209,9 @@
   </div>
 </header>
 
-{% with wa=site_settings.whatsapp_number|default:"971503131065" %}
+{% if site_settings.whatsapp_digits %}
 <a class="jm-wa-float"
-  href="https://wa.me/{{ wa|cut:'+'|cut:' '|cut:'-' }}?text={{ 'Hi Yarn Guy, I have an enquiry.'|urlencode }}"
+  href="https://wa.me/{{ site_settings.whatsapp_digits }}?text={{ 'Hi Yarn Guy, I have an enquiry.'|urlencode }}"
   target="_blank" rel="noopener noreferrer" aria-label="{% trans 'WhatsApp enquiry' %}">
   <span class="jm-wa-float__pulse" aria-hidden="true"></span>
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -227,7 +219,7 @@
       d="M20.52 3.48A11.86 11.86 0 0 0 12.04 0C5.5 0 .16 5.34.16 11.88c0 2.1.55 4.14 1.6 5.95L0 24l6.35-1.66a11.86 11.86 0 0 0 5.69 1.45h.01c6.54 0 11.88-5.34 11.88-11.88 0-3.17-1.24-6.16-3.41-8.43zM12.05 21.1h-.01a9.2 9.2 0 0 1-4.69-1.28l-.34-.2-3.77.99 1.01-3.67-.22-.38a9.2 9.2 0 0 1-1.41-4.9c0-5.08 4.14-9.22 9.23-9.22 2.46 0 4.78.96 6.52 2.7a9.16 9.16 0 0 1 2.7 6.53c0 5.09-4.14 9.23-9.22 9.23zm5.06-6.91c-.28-.14-1.64-.81-1.9-.9-.25-.1-.44-.14-.62.14-.19.28-.72.9-.88 1.08-.16.19-.33.21-.61.07-.28-.14-1.18-.43-2.25-1.39-.83-.74-1.39-1.65-1.55-1.93-.16-.28-.02-.43.12-.57.13-.13.28-.33.42-.5.14-.16.19-.28.28-.47.1-.19.05-.35-.02-.5-.07-.14-.62-1.49-.85-2.04-.22-.53-.45-.46-.62-.47h-.53c-.19 0-.5.07-.76.35-.26.28-1 1-1 2.43s1.02 2.82 1.16 3.01c.14.19 2.01 3.07 4.87 4.31.68.29 1.21.47 1.62.6.68.21 1.3.18 1.79.11.55-.08 1.64-.67 1.87-1.32.23-.65.23-1.2.16-1.32-.07-.11-.25-.18-.53-.32z" />
   </svg>
 </a>
-{% endwith %}
+{% endif %}
 
 <div class="mobile-search d-lg-none" id="mobile-search-overlay" aria-hidden="true">
   <div class="mobile-search__backdrop" data-search-dismiss></div>

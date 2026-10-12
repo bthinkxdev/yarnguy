@@ -531,6 +531,7 @@ class SiteSettingsForm(forms.ModelForm):
         "facebook_url",
         "instagram_url",
         "twitter_url",
+        "contact_phone",
         "whatsapp_number",
         "vendor_email",
         "order_notification_email",
@@ -552,6 +553,7 @@ class SiteSettingsForm(forms.ModelForm):
             "facebook_url",
             "instagram_url",
             "twitter_url",
+            "contact_phone",
             "whatsapp_number",
             "vendor_email",
             "order_notification_email",
@@ -563,7 +565,26 @@ class SiteSettingsForm(forms.ModelForm):
         labels = {
             "vendor_email": "Email",
             "order_notification_email": "New Order Notification Email",
+            "whatsapp_number": "WhatsApp number",
         }
+
+    @staticmethod
+    def _clean_phone(value: str) -> str:
+        value = (value or "").strip()
+        digits = [ch for ch in value if ch.isdigit()]
+        if value and (
+            not 7 <= len(digits) <= 15
+            or any(not (ch.isdigit() or ch in "+ -()") for ch in value)
+            or "+" in value[1:]
+        ):
+            raise forms.ValidationError("Enter a valid phone number with country code, e.g. +919876543210.")
+        return value
+
+    def clean_contact_phone(self):
+        return self._clean_phone(self.cleaned_data.get("contact_phone"))
+
+    def clean_whatsapp_number(self):
+        return self._clean_phone(self.cleaned_data.get("whatsapp_number"))
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

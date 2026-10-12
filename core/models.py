@@ -217,7 +217,20 @@ class SiteSettings(TimeStampedModel):
     facebook_url = models.URLField(blank=True)
     instagram_url = models.URLField(blank=True)
     twitter_url = models.URLField(blank=True)
-    whatsapp_number = models.CharField(max_length=20, blank=True)
+    contact_phone = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name="Phone number",
+        help_text=(
+            "Public contact number shown in the header, footer, contact page and policy pages. "
+            "Include the country code, e.g. +919876543210. Falls back to the WhatsApp number if blank."
+        ),
+    )
+    whatsapp_number = models.CharField(
+        max_length=20,
+        blank=True,
+        help_text="Used for the WhatsApp chat button and invoices. Include the country code, e.g. +919876543210.",
+    )
     vendor_email = models.EmailField(
         blank=True,
         verbose_name="Vendor Email",
@@ -269,6 +282,23 @@ class SiteSettings(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.site_name
+
+    @property
+    def primary_phone(self) -> str:
+        """Phone number to display storefront-wide (contact phone, else WhatsApp number)."""
+        return (self.contact_phone or self.whatsapp_number or "").strip()
+
+    @property
+    def primary_phone_tel(self) -> str:
+        """``primary_phone`` reduced to what a ``tel:`` link accepts (digits, optional leading +)."""
+        phone = self.primary_phone
+        return ("+" if phone.startswith("+") else "") + "".join(ch for ch in phone if ch.isdigit())
+
+    @property
+    def whatsapp_digits(self) -> str:
+        """Digits-only number for ``wa.me`` links (WhatsApp number, else the contact phone)."""
+        raw = (self.whatsapp_number or self.contact_phone or "")
+        return "".join(ch for ch in raw if ch.isdigit())
 
     def save(self, *args, **kwargs) -> None:
         self.pk = 1

@@ -82,7 +82,7 @@
     <h6 class="mb-3">{% trans "Contact Information" %}</h6>
     <p class="mb-1">{% trans "For any questions or concerns related to these Terms and Conditions, please contact:" %}</p>
     <p class="mb-1">{% trans "Email" %}: <a href="mailto:yarnguy.in@gmail.com">yarnguy.in@gmail.com</a></p>
-    <p class="mb-0">{% trans "Phone" %}: <a href="tel:+919961170396">+91 9961170396</a></p>
+    {% if site_settings.primary_phone %}<p class="mb-0">{% trans "Phone" %}: <a href="tel:{{ site_settings.primary_phone_tel }}">{{ site_settings.primary_phone }}</a></p>{% endif %}
   </div>
 </div>
 {% endblock %}

@@ -471,3 +471,79 @@ def timezone_local_time(value):
 
     local = timezone.localtime(value)
     return (local.hour, local.minute, local.second)
+
+
+class DynamicContactPhoneTests(TestCase):
+    """The phone entered in dashboard Settings is the only one the storefront shows."""
+
+    PAGES = (
+        "cms:homepage",
+        "core:contact-us",
+        "core:about-us",
+        "core:privacy-policy",
+        "core:shipping-policy",
+        "core:terms-of-service",
+        "core:refund-policy",
+    )
+
+    def _save_settings(self, **overrides):
+        from core.services import get_site_settings
+        from dashboard.forms import SiteSettingsForm
+
+        data = {
+            "site_name": "Yarn Guy",
+            "primary_color": "#0369A1",
+            "secondary_color": "#0B1220",
+            "font_family": "Inter, sans-serif",
+            "tax_rate_percent": "0",
+            "cod_delivery_charge": "50",
+            **overrides,
+        }
+        form = SiteSettingsForm(data, instance=get_site_settings())
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+    def test_every_page_shows_the_saved_number_and_no_hardcoded_one(self):
+        self._save_settings(contact_phone="+91 90000 11111", whatsapp_number="+919000022222")
+        for name in self.PAGES:
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn('href="tel:+919000011111"', html, name)
+            self.assertIn("+91 90000 11111", html, name)
+            self.assertNotIn("9961170396", html, name)
+            self.assertNotIn("503131065", html, name)
+        # WhatsApp float uses the WhatsApp number, not the contact phone
+        self.assertIn("https://wa.me/919000022222", self.client.get(reverse("cms:homepage")).content.decode())
+
+    def test_changing_the_number_updates_all_pages(self):
+        self._save_settings(contact_phone="+919000011111")
+        self._save_settings(contact_phone="+919333344444")
+        for name in self.PAGES:
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertIn("tel:+919333344444", html, name)
+            self.assertNotIn("9000011111", html, name)
+
+    def test_falls_back_to_whatsapp_number_when_phone_blank(self):
+        self._save_settings(contact_phone="", whatsapp_number="+919777788888")
+        html = self.client.get(reverse("core:contact-us")).content.decode()
+        self.assertIn("tel:+919777788888", html)
+
+    def test_no_numbers_configured_renders_no_phone_links(self):
+        self._save_settings(contact_phone="", whatsapp_number="")
+        for name in self.PAGES:
+            html = self.client.get(reverse(name)).content.decode()
+            self.assertNotIn("tel:", html, name)
+            self.assertNotIn("wa.me", html, name)
+
+    def test_invalid_phone_is_rejected(self):
+        from dashboard.forms import SiteSettingsForm
+
+        for bad in ("abc", "12", "+91 98-76x", "9+8765432101"):
+            form = SiteSettingsForm(
+                {
+                    "site_name": "Yarn Guy", "primary_color": "#0369A1", "secondary_color": "#0B1220",
+                    "font_family": "Inter", "tax_rate_percent": "0", "cod_delivery_charge": "50",
+                    "contact_phone": bad,
+                }
+            )
+            self.assertFalse(form.is_valid(), bad)
+            self.assertIn("contact_phone", form.errors)
