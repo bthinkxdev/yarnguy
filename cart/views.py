@@ -21,8 +21,21 @@ from cart.services import (
     remove_cart_item,
     toggle_wishlist,
 )
+from cart.models import CartItem
 from catalog.selectors import get_product_for_cart_add
+from core import meta_pixel
 from marketing.exceptions import InvalidCouponError
+
+
+def _line_event(name: str, *, product, variant, quantity: int, price, custom: bool = False) -> dict:
+    """Meta Pixel event for one cart / wishlist line."""
+    params = meta_pixel.product_params(product, price=price, quantity=quantity, variant=variant)
+    return meta_pixel.event(name, params, custom=custom)
+
+
+def _mpx_trigger(event: dict) -> dict:
+    """HX-Trigger fragment that makes meta_pixel.js fire ``event`` in the browser."""
+    return {"mpxEvent": event}
 
 
 def _cart_drawer_response(request: HttpRequest, *, error: str | None = None, error_item_id: int | None = None, hx_triggers: dict | None = None) -> HttpResponse:
@@ -92,6 +105,17 @@ def cart_page_view(request: HttpRequest) -> HttpResponse:
             "summary": summary,
             "cart_count": summary.item_count,
             "has_active_coupons": has_any_active_coupons(),
+            "mpx_events": (
+                [
+                    meta_pixel.event(
+                        "ViewCart",
+                        meta_pixel.lines_params(summary.lines, value=summary.subtotal, currency=cart.currency),
+                        custom=True,
+                    )
+                ]
+                if summary.lines
+                else []
+            ),
         },
     )
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
@@ -112,7 +136,6 @@ def cart_count_view(request: HttpRequest) -> HttpResponse:
 @require_GET
 def cart_status_view(request: HttpRequest) -> JsonResponse:
     """JSON endpoint returning active cart count, product IDs, and item keys for JS state sync."""
-    from cart.models import CartItem
     cart = get_cart_for_request(request=request)
     cart_item_keys = []
     count = 0
@@ -191,7 +214,13 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
         # If buy_now or not htmx, redirect back to referer
         return redirect(request.META.get("HTTP_REFERER", "/"))
 
+    add_event = _line_event(
+        "AddToCart", product=product, variant=variant, quantity=quantity, price=new_item.unit_price_at_add
+    )
+
     if buy_now:
+        #the redirect to checkout would discard an HX-Trigger event, so it rides the session
+        meta_pixel.queue_event(request, add_event["name"], add_event["params"])
         from django.urls import reverse
         checkout_url = reverse("checkout:checkout")
         if request.headers.get("HX-Request"):
@@ -200,39 +229,56 @@ def cart_add_view(request: HttpRequest) -> HttpResponse:
             return response
         return redirect("checkout:checkout")
 
+    if not request.headers.get("HX-Request"):
+        meta_pixel.queue_event(request, add_event["name"], add_event["params"])
+
     return _cart_drawer_response(
         request,
-        hx_triggers={"cartItemAdded": {"product_id": product.pk, "variant_id": variant.pk if variant else None}},
+        hx_triggers={
+            "cartItemAdded": {"product_id": product.pk, "variant_id": variant.pk if variant else None},
+            **_mpx_trigger(add_event),
+        },
     )
+
+
+def _remove_line(request: HttpRequest) -> dict:
+    """Remove the posted cart line; return the HX triggers (incl. the RemoveFromCart event)."""
+    cart = get_cart_for_request(request=request)
+    removed_product_id = None
+    removed_event = None
+    if cart:
+        cart_item_id = int(request.POST.get("cart_item_id", 0))
+        item = CartItem.objects.select_related("product__category", "variant").filter(
+            cart=cart, pk=cart_item_id
+        ).first()
+        removed_product_id = remove_cart_item(cart=cart, cart_item_id=cart_item_id)
+        if item:
+            removed_event = _line_event(
+                "RemoveFromCart",
+                product=item.product,
+                variant=item.variant,
+                quantity=item.quantity,
+                price=item.unit_price_at_add,
+                custom=True,
+            )
+
+    triggers = {"cartUpdated": None}
+    if removed_product_id:
+        triggers["cartItemRemoved"] = {"product_id": removed_product_id}
+    if removed_event:
+        triggers.update(_mpx_trigger(removed_event))
+    return triggers
 
 
 @require_POST
 def cart_remove_view(request: HttpRequest) -> HttpResponse:
     """Remove a cart line and return drawer partial."""
-    cart = get_cart_for_request(request=request)
-    removed_product_id = None
-    if cart:
-        removed_product_id = remove_cart_item(cart=cart, cart_item_id=int(request.POST.get("cart_item_id", 0)))
-    
-    triggers = {"cartUpdated": None}
-    if removed_product_id:
-        triggers["cartItemRemoved"] = {"product_id": removed_product_id}
-        
-    return _cart_drawer_response(request, hx_triggers=triggers)
+    return _cart_drawer_response(request, hx_triggers=_remove_line(request))
 
 
 @require_POST
 def cart_page_remove_view(request: HttpRequest) -> HttpResponse:
-    cart = get_cart_for_request(request=request)
-    removed_product_id = None
-    if cart:
-        removed_product_id = remove_cart_item(cart=cart, cart_item_id=int(request.POST.get("cart_item_id", 0)))
-    
-    triggers = {"cartUpdated": None}
-    if removed_product_id:
-        triggers["cartItemRemoved"] = {"product_id": removed_product_id}
-        
-    return _cart_page_response(request, hx_triggers=triggers)
+    return _cart_page_response(request, hx_triggers=_remove_line(request))
 
 
 @require_POST
@@ -250,8 +296,11 @@ def cart_quantity_view(request: HttpRequest) -> HttpResponse:
     if cart is None:
         raise Http404("Cart not found.")
 
+    previous = CartItem.objects.filter(cart=cart, pk=form.cleaned_data["cart_item_id"]).values_list(
+        "quantity", flat=True
+    ).first()
     try:
-        adjust_cart_item_quantity(
+        updated_item = adjust_cart_item_quantity(
             cart=cart,
             cart_item_id=form.cleaned_data["cart_item_id"],
             delta=form.cleaned_data["delta"],
@@ -266,9 +315,24 @@ def cart_quantity_view(request: HttpRequest) -> HttpResponse:
             return _cart_drawer_response(request, error=str(exc), error_item_id=item_id)
         return _cart_page_response(request, error=str(exc), error_item_id=item_id)
 
+    triggers = {"cartUpdated": None}
+    change = updated_item.quantity - (previous or updated_item.quantity)
+    if change:
+        triggers.update(
+            _mpx_trigger(
+                _line_event(
+                    "AddToCart" if change > 0 else "RemoveFromCart",
+                    product=updated_item.product,
+                    variant=updated_item.variant,
+                    quantity=abs(change),
+                    price=updated_item.unit_price_at_add,
+                    custom=change < 0,
+                )
+            )
+        )
     if is_drawer:
-        return _cart_drawer_response(request, hx_triggers={"cartUpdated": None})
-    return _cart_page_response(request, hx_triggers={"cartUpdated": None})
+        return _cart_drawer_response(request, hx_triggers=triggers)
+    return _cart_page_response(request, hx_triggers=triggers)
 
 
 @require_POST
@@ -305,6 +369,19 @@ def wishlist_toggle_view(request: HttpRequest) -> HttpResponse:
     product_id = int(request.POST.get("product_id", 0))
     added = toggle_wishlist(request=request, product_id=product_id)
     count = get_wishlist_count(request=request)
+    wishlist_product, _variant = get_product_for_cart_add(product_id=product_id, variant_id=None)
+    wishlist_event = (
+        _line_event(
+            "AddToWishlist" if added else "RemoveFromWishlist",
+            product=wishlist_product,
+            variant=None,
+            quantity=1,
+            price=getattr(wishlist_product, "effective_base_price", wishlist_product.base_price),
+            custom=not added,
+        )
+        if wishlist_product
+        else None
+    )
     if request.headers.get("HX-Request"):
         response = HttpResponse(
             json.dumps(
@@ -323,8 +400,13 @@ def wishlist_toggle_view(request: HttpRequest) -> HttpResponse:
                     "added": added,
                     "product_id": product_id,
                     "count": count,
-                }
+                },
+                **(_mpx_trigger(wishlist_event) if wishlist_event else {}),
             }
         )
         return response
+    if wishlist_event:
+        meta_pixel.queue_event(
+            request, wishlist_event["name"], wishlist_event["params"], custom=wishlist_event["custom"]
+        )
     return redirect(request.META.get("HTTP_REFERER", "/"))

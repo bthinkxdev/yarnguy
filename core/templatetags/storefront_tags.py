@@ -5,6 +5,9 @@ from __future__ import annotations
 from decimal import ROUND_HALF_UP, Decimal
 
 from django import template
+from django.utils.html import json_script
+
+from core import meta_pixel
 
 register = template.Library()
 
@@ -34,6 +37,25 @@ def in_display_currency(amount, currency) -> str:
         return _format_money_amount(base)
     converted = (base / rate).quantize(Decimal("0.01"), ROUND_HALF_UP)
     return _format_money_amount(converted)
+
+
+@register.simple_tag(takes_context=True)
+def meta_pixel_events(context) -> str:
+    """
+    Render this page's Meta Pixel events as ``<script id="mpx-events">`` JSON.
+
+    Events queued in the session by an earlier redirect come first, then the view's own
+    ``mpx_events``. HTMX requests never drain the queue: their markup is often
+    discarded by ``hx-select``, so the events would be lost without ever being sent.
+    """
+    request = context.get("request")
+    events = []
+    if request is not None and request.headers.get("HX-Request") != "true":
+        events.extend(meta_pixel.pop_queued_events(request))
+    events.extend(context.get("mpx_events") or [])
+    if not events:
+        return ""
+    return json_script(events, "mpx-events")
 
 
 @register.simple_tag

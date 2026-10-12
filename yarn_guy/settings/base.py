@@ -265,3 +265,10 @@ DELHIVERY_PICKUP_LOCATION = env("DELHIVERY_PICKUP_LOCATION", default="Primary")
 #this is deployment-only config for verifying payments.views.razorpay_webhook_view
 RAZORPAY_WEBHOOK_SECRET = env("RAZORPAY_WEBHOOK_SECRET", default="")
 
+#meta pixel — empty META_PIXEL_ID disables every browser event; the Conversions API
+#(server-side Purchase) additionally needs META_CAPI_ACCESS_TOKEN. See core/meta_pixel.py.
+META_PIXEL_ID = env("META_PIXEL_ID", default="").strip()
+META_CAPI_ACCESS_TOKEN = env("META_CAPI_ACCESS_TOKEN", default="").strip()
+META_TEST_EVENT_CODE = env("META_TEST_EVENT_CODE", default="").strip()
+META_API_VERSION = env("META_API_VERSION", default="v21.0")
+

@@ -6,6 +6,7 @@ from typing import Any
 
 from django.http import HttpRequest
 
+from core import meta_pixel
 from cart.selectors import (
     get_cart_count,
     get_cart_item_keys,
@@ -47,8 +48,11 @@ def storefront(request: HttpRequest) -> dict[str, Any]:
     
     from cms.models import Page
 
+    site_settings = get_site_settings()
+
     return {
-        "site_settings": get_site_settings(),
+        "meta_pixel_id": meta_pixel.pixel_id(site_settings),
+        "site_settings": site_settings,
         "category_tree": get_category_tree(),
         "cart_count": get_cart_count(request=request),
         "cart_product_ids": get_cart_product_ids(request=request),

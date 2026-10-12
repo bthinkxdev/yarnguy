@@ -14,6 +14,7 @@ from cart.selectors import get_cart_summary
 from catalog.services import adjust_stock
 from checkout.exceptions import CheckoutSessionError
 from checkout.models import CheckoutSession, CheckoutSessionStatus
+from core import meta_pixel
 
 from marketing.models import Coupon
 from marketing.services import record_coupon_redemption
@@ -306,5 +307,6 @@ def place_order(
 
         from notifications.tasks import dispatch_new_order_admin_notification
         transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
+        meta_pixel.dispatch_purchase_event(order)
 
     return order

@@ -55,8 +55,20 @@
   </div>
 </div>
 
+{% if meta_pixel_id %}{{ mpx_failure_params|json_script:"mpx-order-params" }}{% endif %}
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
+  // Meta Pixel: abandoned / failed online payments are reported as custom events;
+  // Purchase only ever fires on the confirmation page for a paid order.
+  function mpxPaymentEvent(name, extra) {
+    var node = document.getElementById("mpx-order-params");
+    if (!node || !window.mpx) return;
+    var params = {};
+    try { params = JSON.parse(node.textContent); } catch (e) { return; }
+    Object.keys(extra || {}).forEach(function (key) { params[key] = extra[key]; });
+    window.mpx.track(name, params, true);
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var options = {
       "key": "{{ razorpay_key_id }}",
@@ -82,6 +94,7 @@
       },
       "modal": {
         "ondismiss": function () {
+          mpxPaymentEvent("PaymentCancelled", {});
           var statusDiv = document.getElementById("payment-status-msg");
           if (statusDiv) {
             statusDiv.innerHTML = '<div class="alert alert-warning mb-3">{% trans "Payment window was closed. Click Pay Now below to try again." %}</div>';
@@ -99,6 +112,9 @@
     var rzp = new Razorpay(options);
 
     rzp.on('payment.failed', function (response) {
+      mpxPaymentEvent("PaymentFailed", {
+        failure_reason: (response.error && (response.error.reason || response.error.code)) || "unknown"
+      });
       var statusDiv = document.getElementById("payment-status-msg");
       if (statusDiv) {
         var errReason = (response.error && response.error.description) ? response.error.description : "{% trans 'Payment attempt failed. Please try again.' %}";

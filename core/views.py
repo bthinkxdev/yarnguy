@@ -16,6 +16,7 @@ from django.views.decorators.http import require_GET, require_POST
 from django.contrib import messages
 from django.shortcuts import get_object_or_404
 
+from core import meta_pixel
 from core.forms import ContactInquiryForm
 from core.page_rerender import is_htmx_request, rerender_app_shell
 from catalog.models import Product
@@ -125,6 +126,7 @@ def submit_inquiry_view(request: HttpRequest) -> HttpResponse:
             return redirect(request.META.get("HTTP_REFERER", "core:contact-us"))
 
         inquiry = form.save()
+        meta_pixel.queue_event(request, "Contact", {"contact_type": "inquiry"})
 
         site_settings = get_site_settings()
         
