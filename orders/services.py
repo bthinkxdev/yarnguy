@@ -130,10 +130,24 @@ def transition_order_status(
     #one-directional per ALLOWED_STATUS_TRANSITIONS, but staying idempotent costs
     #nothing and protects against a future transition map change re-entering them.
     became_sale = False
-    if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD) and order.success_at is None:
-        order.success_at = timezone.now()
-        update_fields.append("success_at")
-        became_sale = True
+    if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD):
+        if order.success_at is None:
+            order.success_at = timezone.now()
+            update_fields.append("success_at")
+            became_sale = True
+
+    if new_status == OrderStatus.CONFIRMED:
+        #at the exact moment the order is confirmed, lock in the active shipping carrier from settings
+        #guard: if the order already has an active waybill or barcode, never overwrite its locked carrier
+        has_waybill = hasattr(order, "delhivery_shipment") and getattr(order.delhivery_shipment, "waybill_number", None)
+        has_barcode = hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None)
+        if not (has_waybill or has_barcode):
+            from core.models import SiteSettings
+            site_settings = SiteSettings.objects.first()
+            carrier = getattr(site_settings, "shipping_carrier", "delhivery") or "delhivery"
+            order.delivery_partner = carrier
+            if "delivery_partner" not in update_fields:
+                update_fields.append("delivery_partner")
 
     order.save(update_fields=update_fields)
 

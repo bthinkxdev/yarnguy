@@ -29,11 +29,32 @@ class OrderAdmin(admin.ModelAdmin):
         "order_number",
         "customer_profile",
         "order_status",
+        "delivery_partner",
         "total_amount",
         "created_at",
     )
-    list_filter = ("order_status",)
+    list_filter = ("order_status", "delivery_partner")
     inlines = [OrderItemInline, OrderStatusHistoryInline]
+
+    actions = ["book_with_india_post"]
+
+    @admin.action(description="Book selected orders with India Post")
+    def book_with_india_post(self, request, queryset):
+        from indiapost.services import trigger_indiapost_shipment
+        success_count = 0
+        fail_count = 0
+        for order in queryset:
+            try:
+                if trigger_indiapost_shipment(order):
+                    success_count += 1
+                else:
+                    fail_count += 1
+            except Exception as e:
+                fail_count += 1
+        self.message_user(
+            request,
+            f"India Post booking result: {success_count} succeeded, {fail_count} failed."
+        )
 
     def save_model(self, request, obj, form, change) -> None:
         if change:

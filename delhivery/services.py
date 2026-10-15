@@ -16,6 +16,14 @@ def trigger_shipment_on_confirmed(order):
     """
     from delhivery.models import DelhiveryShipment
 
+    #mutual exclusivity guard: prevent Delhivery shipment if India Post barcode already exists
+    if hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None):
+        logger.warning(
+            f"trigger_shipment_on_confirmed: Order {order.order_number} already has active India Post "
+            f"barcode ({order.indiapost_shipment.barcode_number}). Delhivery dispatch aborted."
+        )
+        return False
+
     if DelhiveryShipment.objects.filter(order=order, waybill_number__gt="").exists():
         logger.info(f"Delhivery shipment already exists for order {order.order_number}; skipping.")
         return True
@@ -164,6 +172,9 @@ def trigger_shipment_on_confirmed(order):
                         "error_message": err_msg or str(result),
                     }
                 )
+                if order.delivery_partner != "delhivery":
+                    order.delivery_partner = "delhivery"
+                    order.save(update_fields=["delivery_partner", "updated_at"])
                 return result.get("success", True)
             except json.JSONDecodeError:
                 DelhiveryShipment.objects.update_or_create(

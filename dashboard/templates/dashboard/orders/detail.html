@@ -88,6 +88,7 @@
       </div>
     </div>
 
+    {% if order.get_delivery_partner == 'delhivery' or order.delhivery_shipment and not order.indiapost_shipment.barcode_number %}
     {% if order.delhivery_shipment %}
     <div class="card mb-3">
       <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
@@ -130,17 +131,70 @@
       </div>
     </div>
     {% endif %}
+    {% endif %}
+
+    {% if order.get_delivery_partner == 'indiapost' or order.indiapost_shipment and not order.delhivery_shipment.waybill_number %}
+    {% if order.indiapost_shipment %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
+        <h3 class="h5 mb-0">India Post Logistics</h3>
+        {% with status=order.indiapost_shipment.tracking_status|lower %}
+        {% if status == 'delivered' or status == 'out for delivery' or status == 'item_delivered' %}
+        <span class="badge bg-success-subtle text-success">{{ order.indiapost_shipment.tracking_status }}</span>
+        {% elif status == 'error' or 'error' in status or status == 'cancelled' or 'rto' in status or 'returned' in status %}
+        <span class="badge bg-danger-subtle text-danger">{{ order.indiapost_shipment.tracking_status }}</span>
+        {% elif status == 'in transit' or status == 'shipped' or status == 'dispatched' or 'dispatched' in status or 'bag' in status %}
+        <span class="badge bg-primary-subtle text-primary">{{ order.indiapost_shipment.tracking_status }}</span>
+        {% else %}
+        <span class="badge bg-warning-subtle text-warning">{{ order.indiapost_shipment.tracking_status }}</span>
+        {% endif %}
+        {% endwith %}
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <span class="text-secondary small d-block mb-1">Article / Barcode Number</span>
+            <strong>{{ order.indiapost_shipment.barcode_number|default:"Pending Allocation" }}</strong>
+            {% if order.indiapost_shipment.barcode_number %}
+            <div class="mt-2 d-flex gap-2">
+              <a href="https://www.indiapost.gov.in" target="_blank" class="btn btn-sm btn-outline-secondary"><i class="ti ti-external-link me-1"></i>Track on India Post</a>
+              {% if order.indiapost_shipment.label_pdf %}
+              <a href="{% url 'indiapost:download-label' order.pk %}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="ti ti-printer me-1"></i>Download Label</a>
+              {% endif %}
+            </div>
+            {% endif %}
+          </div>
+          <div class="col-md-6 border-start">
+            <span class="text-secondary small d-block mb-1">Service & Tariff</span>
+            <span class="fw-medium d-block">{{ order.indiapost_shipment.article_type }}</span>
+            <small class="text-muted">₹{{ order.indiapost_shipment.calculated_tariff|default:"0.00" }}</small>
+          </div>
+          {% if order.indiapost_shipment.error_message %}
+          <div class="col-12">
+            <div class="alert alert-danger bg-danger-subtle text-danger border-danger-subtle small mb-0 mt-2" role="alert">
+              <strong><i class="ti ti-alert-circle me-1"></i>Last Logs/Error:</strong> {{ order.indiapost_shipment.error_message }}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
   </div>
 
   <div class="col-12 col-lg-4">
     <div class="card mb-3">
-      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Update Tracking ID</h3></div>
+      <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
+        <h3 class="h5 mb-0">Update Tracking ID</h3>
+        <span class="badge bg-light text-dark border">{{ order.carrier_display_name }}</span>
+      </div>
       <div class="card-body p-4">
         <form method="post" action="{% url 'dashboard:order-tracking-update' order.pk %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">Waybill Number</label>
-            <input type="text" name="waybill_number" class="form-control" value="{{ order.delhivery_shipment.waybill_number|default:'' }}" placeholder="Enter Tracking ID">
+            <label class="form-label">{% if order.get_delivery_partner == 'indiapost' %}India Post Barcode Number{% else %}Delhivery Waybill Number{% endif %}</label>
+            <input type="text" name="waybill_number" class="form-control" value="{{ order.tracking_number|default:'' }}" placeholder="Enter Tracking ID">
           </div>
           <button type="submit" class="btn btn-primary w-100">Save Tracking ID</button>
         </form>

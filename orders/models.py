@@ -123,6 +123,20 @@ class Order(TimeStampedModel):
         ),
     )
 
+    DELIVERY_PARTNER_CHOICES = (
+        ("delhivery", "Delhivery Express"),
+        ("indiapost", "India Post"),
+    )
+    delivery_partner = models.CharField(
+        max_length=20,
+        choices=DELIVERY_PARTNER_CHOICES,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name="Delivery partner",
+        help_text="Active courier partner locked for this order at confirmation.",
+    )
+
     class Meta:
         verbose_name = "Order"
         verbose_name_plural = "Orders"
@@ -215,6 +229,70 @@ class Order(TimeStampedModel):
         if history:
             return history.changed_at
         return None
+
+    def get_delivery_partner(self) -> str | None:
+        """
+        Safely resolves the carrier partner for this order:
+        1. If explicitly recorded on the order, return it.
+        2. Production fallback for orders confirmed before delivery_partner field existed:
+           - Checks if indiapost_shipment is attached -> 'indiapost'
+           - Checks if delhivery_shipment is attached -> 'delhivery'
+        3. Returns None if unassigned or draft.
+        """
+        if self.delivery_partner:
+            return self.delivery_partner
+        if hasattr(self, "indiapost_shipment"):
+            return "indiapost"
+        if hasattr(self, "delhivery_shipment"):
+            return "delhivery"
+        return None
+
+    @property
+    def tracking_number(self) -> str | None:
+        """Returns the waybill or barcode number depending on the resolved carrier."""
+        partner = self.get_delivery_partner()
+        if partner == "indiapost" and hasattr(self, "indiapost_shipment"):
+            return self.indiapost_shipment.barcode_number
+        if partner == "delhivery" and hasattr(self, "delhivery_shipment"):
+            return self.delhivery_shipment.waybill_number
+        #fallback if unassigned partner but one of the shipment models exists
+        if hasattr(self, "indiapost_shipment") and self.indiapost_shipment.barcode_number:
+            return self.indiapost_shipment.barcode_number
+        if hasattr(self, "delhivery_shipment") and self.delhivery_shipment.waybill_number:
+            return self.delhivery_shipment.waybill_number
+        return None
+
+    @property
+    def tracking_url(self) -> str:
+        """Returns the appropriate live tracking portal URL for customer/storefront."""
+        partner = self.get_delivery_partner()
+        if partner == "indiapost":
+            return "https://www.indiapost.gov.in"
+        wb = getattr(getattr(self, "delhivery_shipment", None), "waybill_number", None)
+        if wb:
+            return f"https://www.delhivery.com/track-v2/package/{wb}"
+        return "https://www.delhivery.com/tracking"
+
+    @property
+    def carrier_display_name(self) -> str:
+        """Human-readable delivery partner label."""
+        partner = self.get_delivery_partner()
+        if partner == "indiapost":
+            return "India Post"
+        if partner == "delhivery":
+            return "Delhivery Express"
+        return "Standard Delivery"
+
+    @property
+    def active_shipment(self):
+        """Returns the active courier shipment instance (IndiaPostShipment or DelhiveryShipment)."""
+        partner = self.get_delivery_partner()
+        if partner == "indiapost" and hasattr(self, "indiapost_shipment"):
+            return self.indiapost_shipment
+        if partner == "delhivery" and hasattr(self, "delhivery_shipment"):
+            return self.delhivery_shipment
+        return getattr(self, "indiapost_shipment", None) or getattr(self, "delhivery_shipment", None)
+
 
 
 class OrderItem(TimeStampedModel):

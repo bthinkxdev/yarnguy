@@ -537,6 +537,7 @@ class SiteSettingsForm(forms.ModelForm):
         "order_notification_email",
         "tax_rate_percent",
         "cod_delivery_charge",
+        "shipping_carrier",
         "default_currency",
         "razorpay_key_id",
         "razorpay_key_secret",
@@ -567,6 +568,7 @@ class SiteSettingsForm(forms.ModelForm):
             "order_notification_email",
             "tax_rate_percent",
             "cod_delivery_charge",
+            "shipping_carrier",
             "razorpay_key_id",
             "razorpay_key_secret",
             "meta_pixel_id",
@@ -618,8 +620,14 @@ class SiteSettingsForm(forms.ModelForm):
     def clean_whatsapp_number(self):
         return self._clean_phone(self.cleaned_data.get("whatsapp_number"))
 
+    def clean_shipping_carrier(self):
+        val = self.cleaned_data.get("shipping_carrier")
+        return val if val else (self.instance.shipping_carrier or "delhivery")
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if "shipping_carrier" in self.fields:
+            self.fields["shipping_carrier"].required = False
         if self.instance.meta_capi_access_token:
             self.fields["meta_capi_access_token"].help_text = (
                 "A token is saved. Leave blank to keep it, or enter a new one to replace it."

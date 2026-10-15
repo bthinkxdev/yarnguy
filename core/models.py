@@ -251,6 +251,19 @@ class SiteSettings(TimeStampedModel):
     default_language = models.CharField(max_length=5, default="en")
     tax_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     cod_delivery_charge = models.DecimalField(max_digits=10, decimal_places=2, default=50, verbose_name="COD Delivery Charge")
+    
+    SHIPPING_CARRIER_CHOICES = (
+        ("delhivery", "Delhivery Express"),
+        ("indiapost", "India Post (Speed Post / Parcel)"),
+    )
+    shipping_carrier = models.CharField(
+        max_length=20,
+        choices=SHIPPING_CARRIER_CHOICES,
+        default="delhivery",
+        blank=True,
+        verbose_name="Active Shipping Carrier",
+        help_text="Select default courier used for automatic order dispatch.",
+    )
     card_gateway_public_key_env = models.CharField(
         max_length=80,
         default="CARD_GATEWAY_PUBLIC_KEY",

@@ -248,6 +248,7 @@ def place_order(
             order_number=generate_order_number(),
             idempotency_key=idempotency_key,
             order_status=initial_status,
+            #delivery_partner is set at confirmation time (transition_order_status to CONFIRMED)
             #COD orders succeed immediately at placement — this path never goes
             #through transition_order_status, which is where every other route to
             #CONFIRMED/PLACED_COD sets this same field.

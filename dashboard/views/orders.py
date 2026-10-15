@@ -278,23 +278,74 @@ def order_address_update(request: HttpRequest, pk: int) -> HttpResponse:
 @dashboard_required
 @require_POST
 def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
-    """Manually update or create the tracking ID (waybill number)."""
+    """Manually update or create the tracking ID (waybill number or India Post barcode)."""
     from delhivery.models import DelhiveryShipment
+    from indiapost.models import IndiaPostShipment
+    from core.models import SiteSettings
     
     order = get_object_or_404(Order, pk=pk)
-    waybill_number = request.POST.get("waybill_number", "").strip()
+    tracking_id = request.POST.get("waybill_number", "").strip()
+
+    carrier = order.get_delivery_partner()
+    if not carrier:
+        site_settings = SiteSettings.objects.first()
+        carrier = getattr(site_settings, "shipping_carrier", "delhivery") or "delhivery"
+
+    #india post workflow
+    if carrier == "indiapost":
+        #mutual exclusivity guard: prevent if Delhivery has active waybill
+        if hasattr(order, "delhivery_shipment") and getattr(order.delhivery_shipment, "waybill_number", None):
+            messages.error(
+                request,
+                f"Cannot assign India Post barcode: Delhivery waybill ({order.delhivery_shipment.waybill_number}) "
+                "is currently active on this order. Please clear Delhivery first."
+            )
+            return redirect("dashboard:order-detail", pk=pk)
+
+        if tracking_id:
+            shipment, created = IndiaPostShipment.objects.get_or_create(order=order)
+            shipment.barcode_number = tracking_id
+            if created:
+                shipment.tracking_status = "Initiated"
+            shipment.save(update_fields=["barcode_number", "tracking_status", "updated_at"] if not created else None)
+            
+            if order.delivery_partner != "indiapost":
+                order.delivery_partner = "indiapost"
+                order.save(update_fields=["delivery_partner", "updated_at"])
+
+            messages.success(request, f"India Post Tracking ID saved: {tracking_id}")
+        else:
+            if hasattr(order, "indiapost_shipment"):
+                order.indiapost_shipment.barcode_number = None
+                order.indiapost_shipment.save(update_fields=["barcode_number", "updated_at"])
+                messages.info(request, "India Post Tracking ID cleared.")
+        return redirect("dashboard:order-detail", pk=pk)
     
-    if waybill_number:
+    #delhivery workflow
+    if hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None):
+        messages.error(
+            request,
+            f"Cannot assign Delhivery waybill: India Post barcode ({order.indiapost_shipment.barcode_number}) "
+            "is currently active on this order. Please clear India Post first."
+        )
+        return redirect("dashboard:order-detail", pk=pk)
+
+    if tracking_id:
         shipment, created = DelhiveryShipment.objects.get_or_create(order=order)
-        shipment.waybill_number = waybill_number
+        shipment.waybill_number = tracking_id
         if created:
             shipment.tracking_status = "Initiated"
         shipment.save(update_fields=["waybill_number", "tracking_status", "updated_at"] if not created else None)
-        messages.success(request, f"Tracking ID saved: {waybill_number}")
+
+        if order.delivery_partner != "delhivery":
+            order.delivery_partner = "delhivery"
+            order.save(update_fields=["delivery_partner", "updated_at"])
+
+        messages.success(request, f"Delhivery Tracking ID saved: {tracking_id}")
     else:
-        if hasattr(order, 'delhivery_shipment'):
+        if hasattr(order, "delhivery_shipment"):
             order.delhivery_shipment.waybill_number = None
             order.delhivery_shipment.save(update_fields=["waybill_number", "updated_at"])
-            messages.info(request, "Tracking ID cleared.")
+            messages.info(request, "Delhivery Tracking ID cleared.")
             
     return redirect("dashboard:order-detail", pk=pk)
