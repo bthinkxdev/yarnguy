@@ -303,11 +303,16 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
             return redirect("dashboard:order-detail", pk=pk)
 
         if tracking_id:
-            shipment, created = IndiaPostShipment.objects.get_or_create(order=order)
-            shipment.barcode_number = tracking_id
-            if created:
-                shipment.tracking_status = "Initiated"
-            shipment.save(update_fields=["barcode_number", "tracking_status", "updated_at"] if not created else None)
+            from django.db import IntegrityError
+            try:
+                shipment, created = IndiaPostShipment.objects.get_or_create(order=order)
+                shipment.barcode_number = tracking_id
+                if created:
+                    shipment.tracking_status = "Initiated"
+                shipment.save(update_fields=["barcode_number", "tracking_status", "updated_at"] if not created else None)
+            except IntegrityError:
+                messages.error(request, f"Tracking ID {tracking_id} is already assigned to another order.")
+                return redirect("dashboard:order-detail", pk=pk)
             
             if order.delivery_partner != "indiapost":
                 order.delivery_partner = "indiapost"
@@ -331,11 +336,16 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
         return redirect("dashboard:order-detail", pk=pk)
 
     if tracking_id:
-        shipment, created = DelhiveryShipment.objects.get_or_create(order=order)
-        shipment.waybill_number = tracking_id
-        if created:
-            shipment.tracking_status = "Initiated"
-        shipment.save(update_fields=["waybill_number", "tracking_status", "updated_at"] if not created else None)
+        from django.db import IntegrityError
+        try:
+            shipment, created = DelhiveryShipment.objects.get_or_create(order=order)
+            shipment.waybill_number = tracking_id
+            if created:
+                shipment.tracking_status = "Initiated"
+            shipment.save(update_fields=["waybill_number", "tracking_status", "updated_at"] if not created else None)
+        except IntegrityError:
+            messages.error(request, f"Waybill {tracking_id} is already assigned to another order.")
+            return redirect("dashboard:order-detail", pk=pk)
 
         if order.delivery_partner != "delhivery":
             order.delivery_partner = "delhivery"

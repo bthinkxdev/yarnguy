@@ -267,6 +267,9 @@ class Order(TimeStampedModel):
         """Returns the appropriate live tracking portal URL for customer/storefront."""
         partner = self.get_delivery_partner()
         if partner == "indiapost":
+            barcode = self.tracking_number
+            if barcode:
+                return f"https://www.indiapost.gov.in/_layouts/15/dpt.cpt.application/tracking.aspx?trackingno={barcode}"
             return "https://www.indiapost.gov.in"
         wb = getattr(getattr(self, "delhivery_shipment", None), "waybill_number", None)
         if wb:

@@ -77,8 +77,8 @@ class IndiaPostClient:
             logger.error(f"Error connecting to India Post login endpoint: {exc}")
             raise IndiaPostClientError(f"Failed to authenticate with India Post: {exc}") from exc
 
-    def _get_auth_headers(self) -> dict[str, str]:
-        token = self.get_access_token()
+    def _get_auth_headers(self, force_refresh: bool = False) -> dict[str, str]:
+        token = self.get_access_token(force_refresh=force_refresh)
         return {
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
@@ -94,6 +94,8 @@ class IndiaPostClient:
 
         try:
             resp = requests.get(url, params=params, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                resp = requests.get(url, params=params, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             data = resp.json()
             return data if isinstance(data, list) else []
@@ -151,6 +153,8 @@ class IndiaPostClient:
         }
         try:
             resp = requests.get(url, params=params, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                resp = requests.get(url, params=params, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:
@@ -184,6 +188,8 @@ class IndiaPostClient:
         }
         try:
             resp = requests.get(url, params=params, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                resp = requests.get(url, params=params, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:
@@ -192,7 +198,7 @@ class IndiaPostClient:
 
     def book_articles(self, customer_id: str, articles: list[dict[str, Any]]) -> dict[str, Any]:
         """
-        Processes bulk booking of postal articles.
+        Processes bulk booking of postal articles with automatic 401 re-login retry.
         POST /process-articles/:customId
         """
         url = f"{self.base_url}/process-articles/{customer_id}"
@@ -200,11 +206,17 @@ class IndiaPostClient:
 
         try:
             resp = requests.post(url, json=payload, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                logger.warning("India Post 401 received. Refreshing token and retrying booking...")
+                cache.delete(CACHE_TOKEN_KEY)
+                resp = requests.post(url, json=payload, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:
             logger.error(f"Booking articles failed: {exc}")
             if hasattr(exc, "response") and exc.response is not None:
+                if exc.response.status_code == 401:
+                    cache.delete(CACHE_TOKEN_KEY)
                 try:
                     return exc.response.json()
                 except Exception:
@@ -213,7 +225,7 @@ class IndiaPostClient:
 
     def generate_domestic_label(self, label_articles: list[dict[str, Any]]) -> bytes:
         """
-        Generates address label PDF for domestic articles.
+        Generates address label PDF for domestic articles with automatic 401 retry.
         POST /v1/label/create/domestic
         Returns binary PDF content.
         """
@@ -221,6 +233,10 @@ class IndiaPostClient:
 
         try:
             resp = requests.post(url, json=label_articles, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                logger.warning("India Post 401 received. Refreshing token and retrying label generation...")
+                cache.delete(CACHE_TOKEN_KEY)
+                resp = requests.post(url, json=label_articles, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             return resp.content
         except requests.RequestException as exc:
@@ -229,7 +245,7 @@ class IndiaPostClient:
 
     def track_bulk(self, barcodes: list[str]) -> dict[str, Any]:
         """
-        Queries tracking details for up to 500 articles.
+        Queries tracking details for up to 500 articles with automatic 401 retry.
         POST /v1/tracking/bulk
         """
         url = f"{self.base_url}/v1/tracking/bulk"
@@ -237,6 +253,10 @@ class IndiaPostClient:
 
         try:
             resp = requests.post(url, json=payload, headers=self._get_auth_headers(), timeout=self.timeout)
+            if resp.status_code == 401:
+                logger.warning("India Post 401 received. Refreshing token and retrying tracking query...")
+                cache.delete(CACHE_TOKEN_KEY)
+                resp = requests.post(url, json=payload, headers=self._get_auth_headers(force_refresh=True), timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as exc:

@@ -159,6 +159,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.tasks.refresh_sitemap_cache",
         "schedule": crontab(hour=0, minute=45),
     },
+
+    "sync-indiapost-tracking-hourly": {
+        "task": "indiapost.tasks.sync_indiapost_tracking_task",
+        "schedule": 3600.0,
+    },
 }
 
 STATIC_URL = "/static/"
@@ -277,14 +282,15 @@ META_API_VERSION = env("META_API_VERSION", default="v21.0")
 INDIA_POST_BASE_URL = env("INDIA_POST_BASE_URL", default="https://test.cept.gov.in/beextcustomer").rstrip("/")
 INDIA_POST_USERNAME = env("INDIA_POST_USERNAME", default="")
 INDIA_POST_PASSWORD = env("INDIA_POST_PASSWORD", default="")
-INDIA_POST_CUSTOMER_ID = env("INDIA_POST_CUSTOMER_ID", default="3000064781")
-INDIA_POST_CONTRACT_ID_SP = env("INDIA_POST_CONTRACT_ID_SP", default="41585456")
-INDIA_POST_CONTRACT_ID_BP = env("INDIA_POST_CONTRACT_ID_BP", default="41367422")
-INDIA_POST_ORIGIN_PINCODE = env("INDIA_POST_ORIGIN_PINCODE", default="600001")
-INDIA_POST_ORIGIN_OFFICE_ID = env.int("INDIA_POST_ORIGIN_OFFICE_ID", default=21260024)
+INDIA_POST_CUSTOMER_ID = env("INDIA_POST_CUSTOMER_ID", default="")
+INDIA_POST_CONTRACT_ID_SP = env("INDIA_POST_CONTRACT_ID_SP", default="")
+INDIA_POST_CONTRACT_ID_BP = env("INDIA_POST_CONTRACT_ID_BP", default="")
+INDIA_POST_ORIGIN_PINCODE = env("INDIA_POST_ORIGIN_PINCODE", default="683105")
+INDIA_POST_ORIGIN_OFFICE_ID = env.int("INDIA_POST_ORIGIN_OFFICE_ID", default=0)
 INDIA_POST_SENDER_NAME = env("INDIA_POST_SENDER_NAME", default="YARN GUY")
-INDIA_POST_SENDER_MOBILE = env("INDIA_POST_SENDER_MOBILE", default="9234567890")
-INDIA_POST_SENDER_ADDRESS_LINE1 = env("INDIA_POST_SENDER_ADDRESS_LINE1", default="Chennai")
-INDIA_POST_SENDER_CITY = env("INDIA_POST_SENDER_CITY", default="CHENNAI")
-INDIA_POST_SENDER_STATE = env("INDIA_POST_SENDER_STATE", default="TAMIL NADU")
+INDIA_POST_SENDER_MOBILE = env("INDIA_POST_SENDER_MOBILE", default="")
+INDIA_POST_SENDER_ADDRESS_LINE1 = env("INDIA_POST_SENDER_ADDRESS_LINE1", default="Aluva - Perumbavoor KSRTC Road, valiyyaveettil building")
+INDIA_POST_SENDER_CITY = env("INDIA_POST_SENDER_CITY", default="Aluva")
+INDIA_POST_SENDER_STATE = env("INDIA_POST_SENDER_STATE", default="KERALA")
+INDIA_POST_WEBHOOK_TOKEN = env("INDIA_POST_WEBHOOK_TOKEN", default="")
 

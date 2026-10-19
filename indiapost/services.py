@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from indiapost.client import IndiaPostClient, IndiaPostClientError
 from indiapost.models import IndiaPostBarcodePool, IndiaPostShipment
-from orders.models import Order
+from orders.models import Order, OrderStatus
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,13 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
     """
     Creates an India Post booking for the given order and generates the shipping label.
     """
+    #guard: do not book cancelled or refunded orders
+    if order.order_status in (OrderStatus.CANCELLED, OrderStatus.REFUNDED):
+        logger.warning(
+            f"trigger_indiapost_shipment: Cannot book cancelled/refunded Order {order.order_number}."
+        )
+        return False
+
     #mutual exclusivity guard: prevent booking if Delhivery waybill already exists
     if hasattr(order, "delhivery_shipment") and getattr(order.delhivery_shipment, "waybill_number", None):
         logger.warning(
@@ -72,20 +79,49 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
         return False
 
     existing = IndiaPostShipment.objects.filter(order=order).first()
-    if existing and existing.barcode_number and not force:
+    if existing and existing.barcode_number and existing.tracking_status not in ("Failed", "Initiated") and not force:
         logger.info(f"India Post shipment already exists for order {order.order_number} ({existing.barcode_number})")
         return True
 
     shipment = existing or IndiaPostShipment(order=order)
 
-    #1.Address resolution
+    #1.Address resolution - Strictly validate without inventing fake address data
     addr = order.delivery_address_snapshot or {}
-    recipient_name = (addr.get("name") or addr.get("recipient_name") or "Customer")[:80]
-    line1 = (addr.get("line1") or "Address Line 1")[:80]
-    line2 = (addr.get("line2") or "")[:80]
-    city = (addr.get("city") or "City")[:80]
-    state = (addr.get("state") or "State")[:80]
-    destination_pin = str(addr.get("pin") or addr.get("pincode") or addr.get("postal_code") or "110001")[:6]
+    recipient_name = (addr.get("name") or addr.get("recipient_name") or "").strip()[:80]
+    if not recipient_name:
+        recipient_name = (order.customer_profile.name if order.customer_profile else "Customer")[:80]
+
+    line1 = (addr.get("line1") or "").strip()[:80]
+    line2 = (addr.get("line2") or "").strip()[:80]
+    city = (addr.get("city") or "").strip()[:80]
+    state = (addr.get("state") or "").strip()[:80]
+    raw_pin = str(addr.get("pin") or addr.get("pincode") or addr.get("postal_code") or "").strip()
+    destination_pin = re.sub(r"\D", "", raw_pin)[:6]
+
+    if len(destination_pin) != 6:
+        msg = f"Booking failed: Destination pincode is missing or invalid ('{raw_pin}'). Must be exactly 6 digits."
+        shipment.error_message = msg
+        shipment.tracking_status = "Failed"
+        shipment.save()
+        logger.error(f"Cannot book Order {order.order_number}: {msg}")
+        return False
+
+    if not line1:
+        msg = "Booking failed: Delivery address line 1 is required."
+        shipment.error_message = msg
+        shipment.tracking_status = "Failed"
+        shipment.save()
+        logger.error(f"Cannot book Order {order.order_number}: {msg}")
+        return False
+
+    if not city:
+        msg = "Booking failed: Delivery city is required."
+        shipment.error_message = msg
+        shipment.tracking_status = "Failed"
+        shipment.save()
+        logger.error(f"Cannot book Order {order.order_number}: {msg}")
+        return False
+
     sender_mobile = _sanitize_phone(getattr(settings, "INDIA_POST_SENDER_MOBILE", ""))
     receiver_mobile = _sanitize_phone(
         addr.get("phone") or (order.customer_profile.phone if order.customer_profile else "")
@@ -94,6 +130,7 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
     if not sender_mobile:
         msg = "Booking failed: INDIA_POST_SENDER_MOBILE is missing or invalid. Must be exactly 10 digits starting with 6, 7, 8, or 9."
         shipment.error_message = msg
+        shipment.tracking_status = "Failed"
         shipment.save()
         logger.error(f"Cannot book Order {order.order_number}: {msg}")
         return False
@@ -101,33 +138,27 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
     if not receiver_mobile:
         msg = "Booking failed: Customer mobile number is missing or invalid. India Post requires a 10-digit number starting with 6, 7, 8, or 9."
         shipment.error_message = msg
+        shipment.tracking_status = "Failed"
         shipment.save()
         logger.error(f"Cannot book Order {order.order_number}: {msg}")
         return False
 
-    #2.Package calculation
+    #2.Package calculation (All commercial merchandise/yarn products are parcels, not documents)
     weight_grams, length, width, height = _calculate_order_weight_and_dims(order)
-
-    #determine article type & contract id
-    if weight_grams < 500:
-        article_type = "SP_INLAND_DOC"
-        contract_id = getattr(settings, "INDIA_POST_CONTRACT_ID_SP", "41585456")
-        shape = "DOC"
-    else:
-        article_type = "SP_INLAND_PARCEL"
-        contract_id = getattr(settings, "INDIA_POST_CONTRACT_ID_SP", "41585456")
-        shape = "NROL"
+    article_type = "SP_INLAND_PARCEL"
+    contract_id = getattr(settings, "INDIA_POST_CONTRACT_ID_SP", "41585456")
+    shape = "NROL"
 
     customer_id = getattr(settings, "INDIA_POST_CUSTOMER_ID", "3000064781")
     barcode = shipment.barcode_number or IndiaPostBarcodePool.allocate_next_barcode()
 
     #3.Pickup vs Dropoff settings
-    origin_pincode = getattr(settings, "INDIA_POST_ORIGIN_PINCODE", "600001")
+    origin_pincode = getattr(settings, "INDIA_POST_ORIGIN_PINCODE", "683105")
     origin_office_id = getattr(settings, "INDIA_POST_ORIGIN_OFFICE_ID", 21260024)
     sender_name = getattr(settings, "INDIA_POST_SENDER_NAME", "YARN GUY")[:80]
-    sender_add1 = getattr(settings, "INDIA_POST_SENDER_ADDRESS_LINE1", "Chennai")[:80]
-    sender_city = getattr(settings, "INDIA_POST_SENDER_CITY", "CHENNAI")[:80]
-    sender_state = getattr(settings, "INDIA_POST_SENDER_STATE", "TAMIL NADU")[:80]
+    sender_add1 = getattr(settings, "INDIA_POST_SENDER_ADDRESS_LINE1", "Aluva - Perumbavoor KSRTC Road, valiyyaveettil building")[:80]
+    sender_city = getattr(settings, "INDIA_POST_SENDER_CITY", "Aluva")[:80]
+    sender_state = getattr(settings, "INDIA_POST_SENDER_STATE", "KERALA")[:80]
 
     #check payment method
     is_cod = hasattr(order, "payment_transactions") and order.payment_transactions.filter(gateway_key="cod").exists()
@@ -216,12 +247,20 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
 
     try:
         booking_resp = client.book_articles(customer_id=customer_id, articles=[article_payload])
-        shipment.barcode_number = barcode
-        shipment.article_type = article_type
-        shipment.contract_id = contract_id
         shipment.raw_booking_response = booking_resp
 
-        if booking_resp.get("success"):
+        error_articles = booking_resp.get("error_articles", [])
+        is_success = bool(
+            booking_resp.get("success")
+            and not error_articles
+            and booking_resp.get("summary", {}).get("success_count", 0) > 0
+        )
+
+        if is_success:
+            #barcode is only permanently associated with shipment on verified success
+            shipment.barcode_number = barcode
+            shipment.article_type = article_type
+            shipment.contract_id = contract_id
             shipment.batch_id = booking_resp.get("batch_id", "")
             shipment.mail_booking_dom_id = str(booking_resp.get("mail_booking_dom_id", ""))
             shipment.tracking_status = "Booked"
@@ -239,14 +278,19 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
             logger.info(f"Successfully booked India Post shipment {barcode} for Order {order.order_number}")
             return True
         else:
-            errors = booking_resp.get("errors") or booking_resp.get("error_articles") or booking_resp.get("message")
+            errors = error_articles or booking_resp.get("errors") or booking_resp.get("message")
             shipment.error_message = f"Booking rejected: {errors}"
+            shipment.tracking_status = "Failed"
+            #do not keep the barcode on failure so it can be cleanly re-allocated or re-tried
+            shipment.barcode_number = None
             shipment.save()
             logger.error(f"India Post booking error for Order {order.order_number}: {errors}")
             return False
 
     except IndiaPostClientError as err:
         shipment.error_message = str(err)
+        shipment.tracking_status = "Failed"
+        shipment.barcode_number = None
         shipment.save()
         logger.error(f"India Post API call failed for Order {order.order_number}: {err}")
         return False
@@ -254,7 +298,7 @@ def trigger_indiapost_shipment(order: Order, force: bool = False) -> bool:
 
 def generate_and_save_shipping_label(shipment: IndiaPostShipment, client: Optional[IndiaPostClient] = None) -> bool:
     """
-    Generates and saves the A6/A7 printable PDF shipping label.
+    Generates and saves the A6 printable PDF shipping label using real order dimensions and weights.
     """
     if not shipment.barcode_number:
         return False
@@ -264,17 +308,20 @@ def generate_and_save_shipping_label(shipment: IndiaPostShipment, client: Option
     addr = order.delivery_address_snapshot or {}
 
     customer_id = getattr(settings, "INDIA_POST_CUSTOMER_ID", "3000064781")
-    origin_pincode = getattr(settings, "INDIA_POST_ORIGIN_PINCODE", "600001")
+    origin_pincode = getattr(settings, "INDIA_POST_ORIGIN_PINCODE", "683105")
     sender_name = getattr(settings, "INDIA_POST_SENDER_NAME", "YARN GUY")
     sender_mobile = _sanitize_phone(getattr(settings, "INDIA_POST_SENDER_MOBILE", ""))
-    sender_add1 = getattr(settings, "INDIA_POST_SENDER_ADDRESS_LINE1", "Chennai")
-    sender_city = getattr(settings, "INDIA_POST_SENDER_CITY", "CHENNAI")
-    sender_state = getattr(settings, "INDIA_POST_SENDER_STATE", "TAMIL NADU")
+    sender_add1 = getattr(settings, "INDIA_POST_SENDER_ADDRESS_LINE1", "Aluva - Perumbavoor KSRTC Road, valiyyaveettil building")
+    sender_city = getattr(settings, "INDIA_POST_SENDER_CITY", "Aluva")
+    sender_state = getattr(settings, "INDIA_POST_SENDER_STATE", "KERALA")
+
+    weight_grams, length, width, height = _calculate_order_weight_and_dims(order)
+    is_cod = hasattr(order, "payment_transactions") and order.payment_transactions.filter(gateway_key="cod").exists()
 
     label_payload = [{
         "customer_id": int(customer_id),
         "delivery_office_name": "",
-        "destination_pin": str(addr.get("pin") or addr.get("pincode") or "110001")[:6],
+        "destination_pin": str(addr.get("pin") or addr.get("pincode") or "")[:6],
         "booking_datetime": timezone.now().strftime("%d-%m-%Y %H:%M:%S"),
         "channel_type": "E",
         "user_type": "R",
@@ -282,22 +329,22 @@ def generate_and_save_shipping_label(shipment: IndiaPostShipment, client: Option
         "barcode_no": shipment.barcode_number,
         "service_type": "SP",
         "booking_type": "COMMERCIAL",
-        "article_length": "14",
-        "article_breadth": "14",
-        "article_height": "2",
-        "charged_weight": 500,
-        "physical_weight": 500,
-        "volumetric_weight": 500,
+        "article_length": str(length),
+        "article_breadth": str(width),
+        "article_height": str(height),
+        "charged_weight": float(weight_grams),
+        "physical_weight": float(weight_grams),
+        "volumetric_weight": float(weight_grams),
         "insurance_flag": False,
         "insurance_value": 0,
-        "recipient_name": (addr.get("name") or "Customer")[:80],
+        "recipient_name": (addr.get("name") or addr.get("recipient_name") or "Customer")[:80],
         "recipient_mobile": _sanitize_phone(addr.get("phone") or (order.customer_profile.phone if order.customer_profile else "")),
-        "recipient_addressl1": (addr.get("line1") or "Address 1")[:80],
+        "recipient_addressl1": (addr.get("line1") or "")[:80],
         "recipient_addressl2": (addr.get("line2") or "")[:80],
         "recipient_addressl3": "",
-        "recipient_city": (addr.get("city") or "City")[:80],
-        "recipient_pin": str(addr.get("pin") or addr.get("pincode") or "110001")[:6],
-        "recipient_state": (addr.get("state") or "State")[:80],
+        "recipient_city": (addr.get("city") or "")[:80],
+        "recipient_pin": str(addr.get("pin") or addr.get("pincode") or "")[:6],
+        "recipient_state": (addr.get("state") or "")[:80],
         "sender_name": sender_name,
         "sender_mobile": sender_mobile,
         "sender_addressl1": sender_add1,
@@ -307,13 +354,13 @@ def generate_and_save_shipping_label(shipment: IndiaPostShipment, client: Option
         "sender_pin": str(origin_pincode),
         "sender_state": sender_state,
         "transmission_mode": "S",
-        "payment_mode": "CO",
+        "payment_mode": "COD" if is_cod else "CO",
         "routing_data": "",
         "booking_office_name": "Booking Counter",
         "booking_office_pin": str(origin_pincode),
         "size": "A6",
         "total_amount": float(shipment.calculated_tariff or 0),
-        "payment_status": "PC",
+        "payment_status": "PP" if is_cod else "PC",
         "value_added_services": "",
         "identifier": "Domestic",
         "bkg_ref_id": shipment.mail_booking_dom_id or str(order.order_number),
@@ -325,8 +372,15 @@ def generate_and_save_shipping_label(shipment: IndiaPostShipment, client: Option
         pdf_bytes = client.generate_domestic_label(label_payload)
         filename = f"label_{shipment.barcode_number}.pdf"
         shipment.label_pdf.save(filename, ContentFile(pdf_bytes), save=True)
+        #clear any prior label error if successful
+        if shipment.error_message and "label generation failed" in shipment.error_message.lower():
+            shipment.error_message = None
+            shipment.save(update_fields=["error_message", "updated_at"])
         logger.info(f"Saved shipping label for {shipment.barcode_number}")
         return True
     except Exception as exc:
+        err_text = f"Booking succeeded, but label generation failed: {exc}"
         logger.error(f"Failed to generate label for {shipment.barcode_number}: {exc}")
+        shipment.error_message = err_text
+        shipment.save(update_fields=["error_message", "updated_at"])
         return False

@@ -266,8 +266,10 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
     else:
         if not re.match(r'^\+?\d+$', guest_phone):
             errors["guest_phone"] = ["Phone number can only contain numbers."]
-        elif not re.match(r'^\+?\d{10,15}$', guest_phone):
-            errors["guest_phone"] = ["Enter a valid phone number."]
+        else:
+            raw_phone = re.sub(r'^\+91|^91|^0', '', guest_phone.strip())
+            if not re.match(r'^[6-9]\d{9}$', raw_phone):
+                errors["guest_phone"] = ["Enter a valid 10-digit Indian mobile number starting with 6-9."]
 
     if not address:
         guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
@@ -305,14 +307,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
 
         if not guest_pincode:
             errors["guest_pincode"] = ["PIN / Postal Code is required."]
-        elif re.fullmatch(r"^[a-zA-Z\s]+$", guest_pincode):
-            errors["guest_pincode"] = ["Postal code cannot contain alphabets only."]
-        elif re.fullmatch(r"^[^a-zA-Z0-9]+$", guest_pincode):
-            errors["guest_pincode"] = ["Postal code cannot contain special characters only."]
-        elif not guest_pincode.isdigit():
-            errors["guest_pincode"] = ["Postal code can only contain numbers."]
-        elif len(guest_pincode) < 3:
-            errors["guest_pincode"] = ["Enter a valid postal code."]
+        elif not re.match(r'^\d{6}$', guest_pincode):
+            errors["guest_pincode"] = ["Enter a valid 6-digit postal PIN code."]
 
     if errors:
         return render(

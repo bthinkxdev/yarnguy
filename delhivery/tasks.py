@@ -32,10 +32,10 @@ def create_shipment_for_order(*, order_id: int) -> bool:
         order.delivery_partner = carrier
         order.save(update_fields=["delivery_partner", "updated_at"])
 
-    #if carrier is India Post, route to India Post exclusively
+    #if carrier is India Post, route to India Post dedicated retry task
     if carrier == "indiapost":
-        from indiapost.services import trigger_indiapost_shipment
-        return trigger_indiapost_shipment(order)
+        from indiapost.tasks import create_indiapost_shipment_for_order
+        return create_indiapost_shipment_for_order(order_id=order.pk)
 
     #mutual exclusivity guard: If India Post barcode is already allocated, prevent Delhivery dispatch
     if hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None):

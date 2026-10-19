@@ -41,15 +41,27 @@ class OrderAdmin(admin.ModelAdmin):
     @admin.action(description="Book selected orders with India Post")
     def book_with_india_post(self, request, queryset):
         from indiapost.services import trigger_indiapost_shipment
+        from django.contrib import messages
+        import logging
+        admin_logger = logging.getLogger(__name__)
+
         success_count = 0
         fail_count = 0
         for order in queryset:
+            if order.order_status in (OrderStatus.CANCELLED, OrderStatus.REFUNDED):
+                self.message_user(
+                    request,
+                    f"Skipped Order #{order.order_number}: Cannot book {order.get_order_status_display()} order.",
+                    level=messages.WARNING,
+                )
+                continue
             try:
-                if trigger_indiapost_shipment(order):
+                if trigger_indiapost_shipment(order, force=True):
                     success_count += 1
                 else:
                     fail_count += 1
             except Exception as e:
+                admin_logger.error(f"Error booking order {order.order_number} with India Post: {e}", exc_info=True)
                 fail_count += 1
         self.message_user(
             request,

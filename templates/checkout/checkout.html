@@ -339,9 +339,12 @@
         } else if (!/^\+?\d+$/.test(guestPhone)) {
           document.getElementById('error-guest_phone').innerText = 'Phone number can only contain numbers.';
           isValid = false;
-        } else if (!/^\+?\d{10,15}$/.test(guestPhone)) {
-          document.getElementById('error-guest_phone').innerText = 'Enter a valid phone number.';
-          isValid = false;
+        } else {
+          var cleanPhone = guestPhone.replace(/^\+91|^91|^0/, '').trim();
+          if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+            document.getElementById('error-guest_phone').innerText = 'Enter a valid 10-digit Indian mobile number starting with 6-9.';
+            isValid = false;
+          }
         }
 
         var selectedAddr = document.querySelector('input[name="address_id"]:checked');
@@ -398,17 +401,8 @@
           if (!pincode) {
             document.getElementById('error-guest_pincode').innerText = 'PIN / Postal Code is required.';
             isValid = false;
-          } else if (/^[a-zA-Z\s]+$/.test(pincode)) {
-            document.getElementById('error-guest_pincode').innerText = 'Postal code cannot contain alphabets only.';
-            isValid = false;
-          } else if (/^[^a-zA-Z0-9]+$/.test(pincode)) {
-            document.getElementById('error-guest_pincode').innerText = 'Postal code cannot contain special characters only.';
-            isValid = false;
-          } else if (!/^\d+$/.test(pincode)) {
-            document.getElementById('error-guest_pincode').innerText = 'Postal code can only contain numbers.';
-            isValid = false;
-          } else if (pincode.length < 3) {
-            document.getElementById('error-guest_pincode').innerText = 'Enter a valid postal code.';
+          } else if (!/^\d{6}$/.test(pincode)) {
+            document.getElementById('error-guest_pincode').innerText = 'Enter a valid 6-digit postal PIN code.';
             isValid = false;
           }
         }
@@ -480,10 +474,17 @@
       if (/^[^a-zA-Z]+$/.test(val)) return "City cannot consist of only numbers and special characters.";
       return "";
     });
+    setupInputListener('input[name="guest_phone"]', 'error-guest_phone', function(val) {
+      if (!val) return "";
+      if (!/^\+?\d+$/.test(val)) return "Phone number can only contain numbers.";
+      var clean = val.replace(/^\+91|^91|^0/, '').trim();
+      if (clean.length === 10 && !/^[6-9]\d{9}$/.test(clean)) return "Enter a valid 10-digit Indian mobile number starting with 6-9.";
+      return "";
+    });
     setupInputListener('input[name="guest_pincode"]', 'error-guest_pincode', function(val) {
-      if (/^[a-zA-Z\s]+$/.test(val)) return "Postal code cannot contain alphabets only.";
-      if (/^[^a-zA-Z0-9]+$/.test(val)) return "Postal code cannot contain special characters only.";
+      if (!val) return "";
       if (!/^\d+$/.test(val)) return "Postal code can only contain numbers.";
+      if (val.length === 6 && !/^\d{6}$/.test(val)) return "Enter a valid 6-digit postal PIN code.";
       return "";
     });
   });

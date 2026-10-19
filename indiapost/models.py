@@ -1,5 +1,22 @@
-from django.db import models
+from django.db import models, transaction
 from core.models import TimeStampedModel
+
+
+def calculate_upu_s10_check_digit(serial_8_digits: int) -> int:
+    """
+    Computes the standard UPU S10 Modulo 11 check digit for a 13-character AWB.
+    Weights: 8, 6, 4, 2, 3, 5, 9, 7.
+    """
+    digits_str = f"{serial_8_digits:08d}"[-8:]
+    weights = [8, 6, 4, 2, 3, 5, 9, 7]
+    weighted_sum = sum(int(d) * w for d, w in zip(digits_str, weights))
+    remainder = weighted_sum % 11
+    if remainder == 0:
+        return 5
+    elif remainder == 1:
+        return 0
+    else:
+        return 11 - remainder
 
 
 class IndiaPostBarcodePool(TimeStampedModel):
@@ -20,27 +37,34 @@ class IndiaPostBarcodePool(TimeStampedModel):
     @classmethod
     def allocate_next_barcode(cls) -> str:
         """
-        Allocates the next sequential barcode from the active pool.
+        Atomically allocates the next sequential barcode from the active pool
+        with UPU S10 check digit calculation and exhaustion prevention.
         """
-        pool = cls.objects.filter(is_active=True).first()
-        if not pool:
-            #create default UAT test range if none exists
-            pool = cls.objects.create(
-                prefix="ET",
-                current_number=21433001,
-                end_number=21434000,
-                suffix="IN",
-                is_active=True,
-            )
+        with transaction.atomic():
+            pool = cls.objects.select_for_update().filter(is_active=True).first()
+            if not pool:
+                #create default UAT test range if none exists
+                pool = cls.objects.create(
+                    prefix="ET",
+                    current_number=21433001,
+                    end_number=21434000,
+                    suffix="IN",
+                    is_active=True,
+                )
 
-        num = pool.current_number
-        pool.current_number = num + 1
-        pool.save(update_fields=["current_number", "updated_at"])
+            if pool.current_number > pool.end_number:
+                raise RuntimeError(
+                    f"India Post barcode pool is exhausted ({pool.current_number} > {pool.end_number}). "
+                    "Please configure a new barcode series in Django Admin."
+                )
 
-        #format 13-character barcode: prefix (2) + 9 digits or padded + suffix (2)
-        #e.g. ET214330011IN -> 13 chars total
-        #in the doc: "ET21433001XIN" has 2 prefix, 8 digits, 1 check/digit, 2 suffix = 13 chars.
-        return f"{pool.prefix}{num:08d}0{pool.suffix}"[:13]
+            num = pool.current_number
+            pool.current_number = num + 1
+            pool.save(update_fields=["current_number", "updated_at"])
+
+            check_digit = calculate_upu_s10_check_digit(num)
+            return f"{pool.prefix}{num:08d}{check_digit}{pool.suffix}"
+
 
 
 class IndiaPostShipment(TimeStampedModel):
