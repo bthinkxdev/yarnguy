@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load i18n storefront_tags %}
+
+{% block title %}{{ return_request.return_number }} | Yarn Guy{% endblock %}
+
+{% block content %}
+{% with r=return_request order=return_request.order %}
+<div class="container page-container py-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <h1 class="section-title mb-0 fs-3">{% trans "Return" %} <span class="fw-bold">{{ r.return_number }}</span></h1>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{% url 'orders:detail' order.pk %}" class="btn btn-light border btn-sm px-3">{% trans "View order" %}</a>
+      <a href="{% url 'returns:list' %}" class="btn btn-light border btn-sm px-3">{% trans "All returns" %}</a>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white border-bottom p-3 d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0 fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.5px;">{% trans "Items" %}</h2>
+          <span class="badge bg-light text-dark border px-2 py-1 fw-normal">{{ r.get_status_display }}</span>
+        </div>
+        <ul class="list-group list-group-flush">
+          {% for i in r.items.all %}
+          <li class="list-group-item p-3">
+            <span class="fw-bold d-block">{{ i.order_item.product.name }}{% if i.order_item.variant %} <small class="text-muted fw-normal">({{ i.order_item.variant.name }})</small>{% endif %}</span>
+            <small class="text-muted">{% trans "Quantity" %}: {{ i.quantity }} &middot; {{ i.get_reason_display }}</small>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if r.customer_note %}
+      <div class="card border-0 shadow-sm rounded-3 mb-4"><div class="card-body"><span class="text-muted small d-block mb-1">{% trans "Your note" %}</span>{{ r.customer_note|linebreaksbr }}</div></div>
+      {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-body">
+          <h2 class="h6 fw-bold text-uppercase text-muted mb-1" style="font-size: 0.8rem; letter-spacing: 0.5px;">{% trans "Status" %}</h2>
+          <p class="text-muted small mb-3">{% trans "You asked for" %}: <strong>{{ r.get_resolution_display }}</strong></p>
+          {% if r.status == 'requested' %}
+          <p class="mb-3">{% trans "We are reviewing your request. We will email you once it is approved." %}</p>
+          <form method="post" action="{% url 'returns:cancel' r.pk %}" onsubmit="return confirm('{% trans "Cancel this return request?" %}');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-secondary btn-sm">{% trans "Cancel request" %}</button>
+          </form>
+          {% elif r.status == 'approved' %}
+          <p class="mb-0">{% if r.pickup_is_app_managed %}{% trans "Approved. We will arrange a pickup and email you the date and tracking details." %}{% else %}{% trans "Approved. Our team will contact you with instructions for sending the items back." %}{% endif %}</p>
+          {% elif r.status == 'rejected' %}
+          <p class="mb-1">{% trans "Your request was not accepted." %}</p>
+          {% if r.admin_note %}<p class="text-muted small mb-0">{{ r.admin_note }}</p>{% endif %}
+          {% elif r.status == 'cancelled' %}
+          <p class="mb-0">{% trans "You cancelled this request." %}</p>
+          {% else %}
+          {% if r.pickup_day %}<p class="mb-1">{% trans "Pickup" %}: <strong>{{ r.pickup_day|date:"M d, Y" }}{% if r.pickup_slot %}, {{ r.pickup_slot }}{% endif %}</strong></p>{% endif %}
+          {% if r.reverse_tracking_number %}<p class="mb-1">{% trans "Tracking number" %}: <strong>{{ r.reverse_tracking_number }}</strong></p>{% endif %}
+          {% if r.status == 'received' %}<p class="mb-0 text-muted small">{% if r.resolution == 'replacement' %}{% trans "We received your items. Your replacement is being prepared." %}{% else %}{% trans "We received your items. Your refund is being processed." %}{% endif %}</p>{% endif %}
+          {% if r.status == 'refunded' %}<p class="mb-0">{% trans "Refunded" %}: <strong>{% money_label r.refund_amount order.currency %}</strong></p>{% endif %}
+          {% if r.status == 'replaced' %}<p class="mb-1">{% trans "Your replacement has been sent." %}</p>{% if r.replacement_tracking %}<p class="mb-0">{% trans "Tracking number" %}: <strong>{{ r.replacement_tracking }}</strong></p>{% endif %}{% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endwith %}
+{% endblock %}

@@ -29,6 +29,9 @@
               <div class="row align-items-center">
                 <div class="col-8 col-sm-6">
                   <span class="fw-bold d-block">{{ item.product.name }}</span>
+                  {% if item.pk in returnable_item_ids %}
+                  <a href="{% url 'returns:request' order.pk %}?item={{ item.pk }}" class="btn btn-sm btn-outline-secondary mt-1 py-0 px-2" style="font-size: 0.75rem;">{% trans "Return this item" %}</a>
+                  {% endif %}
                   {% if item.variant %}
                   <small class="text-muted">{{ item.variant.name }}</small>
                   {% endif %}
@@ -87,6 +90,26 @@
           </ul>
         </div>
       </div>
+
+      {% if return_eligibility.allowed or return_requests %}
+      <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white border-bottom p-3 p-md-4">
+          <h2 class="h6 mb-0 fw-bold text-uppercase text-muted" style="font-size: 0.8rem; letter-spacing: 0.5px;">{% trans "Returns" %}</h2>
+        </div>
+        <div class="card-body p-3 p-md-4">
+          {% if return_eligibility.allowed %}
+          <p class="mb-2">{{ return_eligibility.message }}</p>
+          <a href="{% url 'returns:request' order.pk %}" class="btn btn-floward btn-sm px-3">{% trans "Request a return" %}</a>
+          {% endif %}
+          {% for r in return_requests %}
+          <div class="d-flex justify-content-between align-items-center {% if return_eligibility.allowed or not forloop.first %}border-top pt-2 mt-3{% endif %}">
+            <a class="text-decoration-none fw-medium" href="{% url 'returns:detail' r.pk %}">{{ r.return_number }}</a>
+            <span class="badge bg-light text-dark border px-2 py-1 fw-normal">{{ r.get_status_display }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
 
       <div class="card border-0 shadow-sm rounded-3">
         <div class="card-header bg-white border-bottom p-3 p-md-4">

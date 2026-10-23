@@ -304,16 +304,18 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
 
         if tracking_id:
             from django.db import IntegrityError
+            from indiapost.models import ShipmentStatus
             try:
-                shipment, created = IndiaPostShipment.objects.get_or_create(order=order)
+                shipment, _created = IndiaPostShipment.objects.get_or_create(order=order)
                 shipment.barcode_number = tracking_id
-                if created:
-                    shipment.tracking_status = "Initiated"
-                shipment.save(update_fields=["barcode_number", "tracking_status", "updated_at"] if not created else None)
+                #Manual = entered by hand: tracked like any booked article, never auto-submitted
+                shipment.tracking_status = ShipmentStatus.MANUAL
+                shipment.error_message = ""
+                shipment.save(update_fields=["barcode_number", "tracking_status", "error_message", "updated_at"])
             except IntegrityError:
                 messages.error(request, f"Tracking ID {tracking_id} is already assigned to another order.")
                 return redirect("dashboard:order-detail", pk=pk)
-            
+
             if order.delivery_partner != "indiapost":
                 order.delivery_partner = "indiapost"
                 order.save(update_fields=["delivery_partner", "updated_at"])
@@ -321,8 +323,10 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
             messages.success(request, f"India Post Tracking ID saved: {tracking_id}")
         else:
             if hasattr(order, "indiapost_shipment"):
+                from indiapost.models import ShipmentStatus
                 order.indiapost_shipment.barcode_number = None
-                order.indiapost_shipment.save(update_fields=["barcode_number", "updated_at"])
+                order.indiapost_shipment.tracking_status = ShipmentStatus.INITIATED
+                order.indiapost_shipment.save(update_fields=["barcode_number", "tracking_status", "updated_at"])
                 messages.info(request, "India Post Tracking ID cleared.")
         return redirect("dashboard:order-detail", pk=pk)
     

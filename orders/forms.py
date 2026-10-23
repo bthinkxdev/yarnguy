@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from django import forms
 
+from core.validators import validate_indian_mobile, validate_indian_pincode
+
 
 class OrderAddressForm(forms.Form):
     """
@@ -15,12 +17,12 @@ class OrderAddressForm(forms.Form):
 
     name = forms.CharField(max_length=255, required=False)
     email = forms.EmailField(max_length=255, required=False)
-    phone = forms.CharField(max_length=20, required=False)
+    phone = forms.CharField(max_length=20, required=False, validators=[validate_indian_mobile])
     line1 = forms.CharField(max_length=255, label="Address line 1")
     line2 = forms.CharField(max_length=255, required=False, label="Address line 2")
     city = forms.CharField(max_length=120)
     state = forms.CharField(max_length=120, required=False)
-    pincode = forms.CharField(max_length=20, required=False)
+    pincode = forms.CharField(max_length=20, required=False, validators=[validate_indian_pincode])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

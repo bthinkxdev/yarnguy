@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n storefront_tags %}
+
+{% block title %}{% trans "Return items" %} | Yarn Guy{% endblock %}
+
+{% block content %}
+<div class="container page-container py-4">
+  <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+    <h1 class="section-title mb-0 fs-3">{% trans "Return items from order" %} <span class="fw-bold">#{{ order.order_number }}</span></h1>
+    <a href="{% url 'orders:detail' order.pk %}" class="btn btn-light border btn-sm fw-medium px-3">{% trans "Back to order" %}</a>
+  </div>
+
+  {% if not eligibility.allowed %}
+  <div class="alert alert-warning mb-0">{{ eligibility.message }}</div>
+  {% else %}
+  <p class="text-muted">{{ eligibility.message }} {% trans "Choose the quantity and a reason for every product you want to return." %}</p>
+
+  <form method="post" action="{% url 'returns:request' order.pk %}">
+    {% csrf_token %}
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+      <ul class="list-group list-group-flush">
+        {% for row in rows %}
+        {% with entry=row.entry item=row.entry.order_item %}
+        <li class="list-group-item p-3">
+          <div class="row g-3 align-items-center">
+            <div class="col-12 col-md-5">
+              <span class="fw-bold d-block">{{ item.product.name }}</span>
+              {% if item.variant %}<small class="text-muted">{{ item.variant.name }}</small>{% endif %}
+              <small class="text-muted d-block">{% trans "Bought" %}: {{ item.quantity }} &middot; {% trans "Returnable" %}: {{ entry.available }} &middot; {% money_label item.unit_price order.currency %}</small>
+            </div>
+            <div class="col-5 col-md-2">
+              <label class="form-label small mb-1" for="qty_{{ item.pk }}">{% trans "Quantity to return" %}</label>
+              <input type="number" class="form-control form-control-sm" id="qty_{{ item.pk }}" name="qty_{{ item.pk }}"
+                     min="0" max="{{ entry.available }}"
+                     value="{{ row.quantity }}">
+            </div>
+            <div class="col-7 col-md-5">
+              <label class="form-label small mb-1" for="reason_{{ item.pk }}">{% trans "Reason" %}</label>
+              <select class="form-select form-select-sm" id="reason_{{ item.pk }}" name="reason_{{ item.pk }}">
+                <option value="">{% trans "Select a reason" %}</option>
+                {% for value, label in reasons %}<option value="{{ value }}" {% if value == row.reason %}selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+          </div>
+        </li>
+        {% endwith %}
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="mb-4">
+      <span class="form-label fw-medium d-block">{% trans "What would you like?" %}</span>
+      {% for value, label in resolutions %}
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="resolution" id="resolution_{{ value }}" value="{{ value }}" {% if value == resolution %}checked{% endif %}>
+        <label class="form-check-label" for="resolution_{{ value }}">{{ label }}</label>
+      </div>
+      {% endfor %}
+      <small class="text-muted d-block mt-1">{% trans "A replacement is the same item sent again once we have received your return (subject to stock)." %}</small>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label fw-medium" for="note">{% trans "Anything else we should know? (optional)" %}</label>
+      <textarea class="form-control" id="note" name="note" rows="3" maxlength="1000">{{ note }}</textarea>
+    </div>
+
+    <p class="text-muted small">{% trans "If your request is approved we will collect the items from your delivery address and email you the pickup details." %}</p>
+    <button type="submit" class="btn btn-floward px-4">{% trans "Submit return request" %}</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

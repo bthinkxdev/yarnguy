@@ -7,7 +7,7 @@
                 <div class="row">
                     {% for product in section.products %}
                     <div class="col-6 col-md-4 col-lg-3 mb-4">
-                        {% include "catalog/partials/product_card.html" with product=product %}
+                        {% include "catalog/partials/product_card.html" with product=product show_free_delivery=True %}
                     </div>
                     {% endfor %}
                 </div>

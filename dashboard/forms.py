@@ -537,6 +537,7 @@ class SiteSettingsForm(forms.ModelForm):
         "order_notification_email",
         "tax_rate_percent",
         "cod_delivery_charge",
+        "return_window_days",
         "shipping_carrier",
         "default_currency",
         "razorpay_key_id",
@@ -568,6 +569,7 @@ class SiteSettingsForm(forms.ModelForm):
             "order_notification_email",
             "tax_rate_percent",
             "cod_delivery_charge",
+            "return_window_days",
             "shipping_carrier",
             "razorpay_key_id",
             "razorpay_key_secret",
@@ -620,6 +622,14 @@ class SiteSettingsForm(forms.ModelForm):
     def clean_whatsapp_number(self):
         return self._clean_phone(self.cleaned_data.get("whatsapp_number"))
 
+    def clean_return_window_days(self):
+        days = self.cleaned_data.get("return_window_days")
+        if days is None:  # left blank: keep what is saved
+            return self.instance.return_window_days
+        if days > 365:
+            raise forms.ValidationError("The return window cannot be longer than 365 days.")
+        return days
+
     def clean_shipping_carrier(self):
         val = self.cleaned_data.get("shipping_carrier")
         return val if val else (self.instance.shipping_carrier or "delhivery")
@@ -628,6 +638,7 @@ class SiteSettingsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if "shipping_carrier" in self.fields:
             self.fields["shipping_carrier"].required = False
+        self.fields["return_window_days"].required = False
         if self.instance.meta_capi_access_token:
             self.fields["meta_capi_access_token"].help_text = (
                 "A token is saved. Leave blank to keep it, or enter a new one to replace it."

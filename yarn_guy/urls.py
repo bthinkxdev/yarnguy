@@ -42,6 +42,7 @@ urlpatterns = [
     path("dashboard/", include("dashboard.urls")),
     path("delhivery/", include("delhivery.urls")),
     path("indiapost/", include("indiapost.urls")),
+    path("returns/", include("returns.urls")),
 ]
 
 if settings.DEBUG:

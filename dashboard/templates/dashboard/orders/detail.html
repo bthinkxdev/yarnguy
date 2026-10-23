@@ -51,6 +51,23 @@
       </div>
     </div>
 
+    {% if order.return_requests.all %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Returns</h3></div>
+      <ul class="list-group list-group-flush">
+        {% for rr in order.return_requests.all %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <a href="{% url 'dashboard:return-detail' rr.pk %}" class="fw-semibold">{{ rr.return_number }}</a>
+            <div class="small text-secondary">{{ rr.get_resolution_display }} &middot; {{ rr.created_at|date:"M d, Y" }}</div>
+          </div>
+          <span class="badge bg-secondary-subtle text-secondary">{{ rr.get_status_display }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
     <div class="card mb-3">
       <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Status History</h3></div>
       <ul class="list-group list-group-flush">

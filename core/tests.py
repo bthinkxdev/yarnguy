@@ -368,3 +368,30 @@ class StorefrontEventTests(MetaPixelTestBase):
         with override_settings(META_PIXEL_ID="123');alert(1);//"):
             response = self.client.get(reverse("catalog:plp"))
         self.assertNotContains(response, "fbevents.js")
+
+
+class FreeDeliveryBadgeTests(MetaPixelTestBase):
+    """The Free Delivery badge sits beside the price on the home page, listing and product page."""
+
+    MARKER = 'class="jm-free-delivery"'
+
+    def test_shown_on_plp_and_pdp(self):
+        self.assertContains(self.client.get(reverse("catalog:plp")), self.MARKER)
+        self.assertContains(self.client.get(reverse("catalog:pdp", kwargs={"slug": self.product.slug})), self.MARKER)
+
+    def test_shown_on_every_homepage_product_section(self):
+        from django.template.loader import render_to_string
+
+        products = [self.product]
+        sections = {
+            "cms/sections/best_sellers.html": {"section_context": {"products": products}},
+            "cms/sections/featured_products.html": {"section_context": {"products": products}},
+            "cms/sections/new_arrivals.html": {"section_context": {"title": "New", "products": products}},
+            "cms/sections/category_products.html": {
+                "section_context": {"category_sections": [{"category": self.product.category, "products": products}]}
+            },
+        }
+        request = self.client.get(reverse("cms:homepage")).wsgi_request
+        for template, context in sections.items():
+            html = render_to_string(template, {**context, "display_currency": self.currency}, request=request)
+            self.assertIn(self.MARKER, html, template)

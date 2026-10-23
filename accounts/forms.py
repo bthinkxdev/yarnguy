@@ -7,6 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm
 import socket
 from recurring.models import RecurrenceFrequency 
 from accounts.models import Address
+from core.validators import validate_indian_mobile, validate_indian_pincode
 
 
 def validate_real_email_domain(email: str) -> str:
@@ -261,10 +262,10 @@ class CustomerProfileEditForm(forms.Form):
     
     name = forms.CharField(max_length=150, label="Full name", widget=forms.TextInput(attrs={"class": "form-control"}))
     email = forms.EmailField(label="Email", required=False, widget=forms.EmailInput(attrs={"class": "form-control", "readonly": True}))
-    phone = forms.CharField(max_length=20, label="Phone number", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
-    
+    phone = forms.CharField(max_length=20, label="Phone number", required=False, validators=[validate_indian_mobile], widget=forms.TextInput(attrs={"class": "form-control"}))
+
     address_line1 = forms.CharField(max_length=255, label="Address Line 1", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     address_line2 = forms.CharField(max_length=255, label="Address Line 2", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     city = forms.CharField(label="City", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     state = forms.CharField(max_length=120, label="State / Province", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
-    pincode = forms.CharField(max_length=20, label="PIN / Postal Code", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
+    pincode = forms.CharField(max_length=20, label="PIN / Postal Code", required=False, validators=[validate_indian_pincode], widget=forms.TextInput(attrs={"class": "form-control"}))

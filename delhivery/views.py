@@ -153,6 +153,13 @@ def delhivery_webhook(request):
     if not target_status or target_status == order.order_status:
         return JsonResponse({"status": "success"})
 
+    #a courier return/cancel scan never overrides an order that is already delivered or closed
+    if target_status == OrderStatus.CANCELLED and order.order_status in (
+        OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REFUNDED,
+    ):
+        logger.warning(f"Ignoring Delhivery '{event['status']}' for {order.order_status} order {order.order_number}")
+        return JsonResponse({"status": "ignored_closed_order"})
+
     #6. regression guard — a stale/out-of-order scan must never move status backward.
     #CANCELLED/REFUNDED are absorbing and always allowed: an RTO/cancel can legitimately
     #arrive from any fulfillment rank.

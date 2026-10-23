@@ -4599,6 +4599,34 @@ body.mobile-search-open .jm-wa-float {
   white-space: nowrap;
 }
 
+/* small "Free Delivery" tag beside the price (product cards and the product page) */
+.jm-free-delivery {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0.12rem 0.38rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--jm-success) 14%, transparent);
+  color: var(--jm-success);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.jm-pdp-buybox__price-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.jm-pdp-buybox__price-group .jm-free-delivery {
+  font-size: 0.65rem;
+  padding: 0.18rem 0.5rem;
+}
+
 .jm-product-card .product-price {
   font-size: 0.95rem;
   font-weight: 800;

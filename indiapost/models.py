@@ -2,6 +2,23 @@ from django.db import models, transaction
 from core.models import TimeStampedModel
 
 
+class ShipmentStatus:
+    """Lifecycle of an IndiaPostShipment before India Post's own tracking events take over."""
+
+    INITIATED = "Initiated"  # row exists, nothing sent yet
+    BOOKING = "Booking"      # a worker holds the booking claim (guards double submission)
+    BOOKED = "Booked"        # India Post accepted the booking
+    FAILED = "Failed"        # last attempt failed; error_message says why
+    MANUAL = "Manual"        # tracking number entered by hand, never auto-booked
+
+    #states in which a barcode, if present, is only a reservation — nothing is booked yet
+    NOT_BOOKED = (INITIATED, BOOKING, FAILED)
+
+
+class BarcodePoolError(RuntimeError):
+    """No usable barcode series is configured or the active one is used up."""
+
+
 def calculate_upu_s10_check_digit(serial_8_digits: int) -> int:
     """
     Computes the standard UPU S10 Modulo 11 check digit for a 13-character AWB.
@@ -21,8 +38,11 @@ def calculate_upu_s10_check_digit(serial_8_digits: int) -> int:
 
 class IndiaPostBarcodePool(TimeStampedModel):
     """
-    Tracks sequential allocation of India Post barcodes (AWB series).
-    For UAT testing: ET21433001XIN to ET21434000XIN.
+    A series of India Post barcodes (article numbers) allocated to this account.
+
+    Pools are created explicitly — in Django admin or with
+    ``manage.py seed_indiapost_pool`` — never implicitly, so a production deployment can
+    not silently start issuing test-range numbers.
     """
     prefix = models.CharField(max_length=5, default="ET")
     current_number = models.PositiveIntegerField(default=21433001)
@@ -37,25 +57,22 @@ class IndiaPostBarcodePool(TimeStampedModel):
     @classmethod
     def allocate_next_barcode(cls) -> str:
         """
-        Atomically allocates the next sequential barcode from the active pool
-        with UPU S10 check digit calculation and exhaustion prevention.
+        Atomically allocate the next barcode of the active pool, with its S10 check digit.
+
+        Raises:
+            BarcodePoolError: no active pool exists, or it is exhausted.
         """
         with transaction.atomic():
             pool = cls.objects.select_for_update().filter(is_active=True).first()
-            if not pool:
-                #create default UAT test range if none exists
-                pool = cls.objects.create(
-                    prefix="ET",
-                    current_number=21433001,
-                    end_number=21434000,
-                    suffix="IN",
-                    is_active=True,
+            if pool is None:
+                raise BarcodePoolError(
+                    "No active India Post barcode pool is configured. Add one in Django admin "
+                    "(India Post Barcode Pools) with the series issued to your account."
                 )
-
             if pool.current_number > pool.end_number:
-                raise RuntimeError(
+                raise BarcodePoolError(
                     f"India Post barcode pool is exhausted ({pool.current_number} > {pool.end_number}). "
-                    "Please configure a new barcode series in Django Admin."
+                    "Add a new barcode series in Django admin."
                 )
 
             num = pool.current_number
@@ -64,7 +81,6 @@ class IndiaPostBarcodePool(TimeStampedModel):
 
             check_digit = calculate_upu_s10_check_digit(num)
             return f"{pool.prefix}{num:08d}{check_digit}{pool.suffix}"
-
 
 
 class IndiaPostShipment(TimeStampedModel):
@@ -109,7 +125,7 @@ class IndiaPostShipment(TimeStampedModel):
     )
     tracking_status = models.CharField(
         max_length=100,
-        default="Initiated",
+        default=ShipmentStatus.INITIATED,
         db_index=True,
         verbose_name="Tracking Status",
     )
@@ -159,3 +175,8 @@ class IndiaPostShipment(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"India Post Shipment for Order {self.order.order_number} ({self.barcode_number or 'No AWB'})"
+
+    @property
+    def is_booked(self) -> bool:
+        """True once a barcode is tied to a real booking (or was entered manually)."""
+        return bool(self.barcode_number) and self.tracking_status not in ShipmentStatus.NOT_BOOKED

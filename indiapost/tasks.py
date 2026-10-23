@@ -1,119 +1,99 @@
+"""Celery tasks for the India Post integration."""
+
+from __future__ import annotations
+
 import logging
+
 from celery import shared_task
-from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import F
+
+from indiapost.client import IndiaPostClient, IndiaPostClientError
+from indiapost.models import IndiaPostShipment, ShipmentStatus
+from indiapost.services import (
+    CLOSED_ORDER_STATUSES,
+    IndiaPostBookingError,
+    apply_tracking_event,
+    book_shipment,
+    extract_tracking_items,
+)
+from orders.models import Order
 
 logger = logging.getLogger(__name__)
 
+#India Post accepts up to 500 articles per tracking call
+TRACKING_BATCH_SIZE = 200
+MAX_RETRY_DELAY_SECONDS = 1800
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
-def create_indiapost_shipment_for_order(self, order_id: int):
-    """
-    Async Celery task to create an India Post booking and label for an order.
-    """
-    from indiapost.services import trigger_indiapost_shipment
-    from orders.models import Order
 
-    try:
-        order = Order.objects.get(pk=order_id)
-    except ObjectDoesNotExist:
-        logger.error(f"Cannot trigger India Post shipment: Order {order_id} does not exist.")
+@shared_task(bind=True, max_retries=5)
+def create_indiapost_shipment_for_order(self, order_id: int) -> bool:
+    """
+    Book an order with India Post. Transient failures are retried with exponential
+    backoff; permanent ones (bad address, missing config, rejected booking) are recorded
+    on the shipment for the admin and not retried.
+    """
+    order = Order.objects.filter(pk=order_id).first()
+    if order is None:
+        logger.error("Cannot book with India Post: order %s does not exist.", order_id)
         return False
 
     try:
-        success = trigger_indiapost_shipment(order)
-        if not success:
-            err_msg = getattr(order, "indiapost_shipment", None) and order.indiapost_shipment.error_message
-            logger.warning(f"India Post booking did not succeed for Order {order.order_number}: {err_msg}")
-            raise RuntimeError(f"India Post booking failed: {err_msg}")
-        return success
-    except Exception as exc:
-        logger.error(f"Exception during India Post shipment creation for Order {order_id}: {exc}")
-        raise self.retry(exc=exc)
+        book_shipment(order)
+    except IndiaPostBookingError as exc:
+        if exc.retryable and self.request.retries < self.max_retries:
+            delay = min(60 * 2 ** self.request.retries, MAX_RETRY_DELAY_SECONDS)
+            logger.warning("India Post booking for %s will be retried in %ss: %s", order.order_number, delay, exc)
+            raise self.retry(exc=exc, countdown=delay)
+        logger.error("India Post booking for %s gave up: %s", order.order_number, exc)
+        return False
+    return True
 
 
 @shared_task
-def sync_indiapost_tracking_task():
+def sync_indiapost_tracking_task() -> int:
     """
-    Periodic task to poll India Post bulk tracking API for in-transit shipments
-    and sync their latest status.
-    """
-    from django.utils import timezone
-    from indiapost.client import IndiaPostClient
-    from indiapost.models import IndiaPostShipment
-    from indiapost.views import INDIA_POST_TO_ORDER_STATUS
-    from orders.models import OrderStatus
-    from orders.services import ORDER_STATUS_RANK, transition_order_status
+    Poll India Post's bulk tracking API for every shipment whose order is still open.
 
-    #target active, non-delivered shipments that have an allocated barcode
-    active_shipments = list(
-        IndiaPostShipment.objects.filter(
-            barcode_number__isnull=False,
-        ).exclude(
-            tracking_status__in=["DELIVERED", "Delivered", "Cancelled", "Failed"]
-        ).select_related("order")[:200]
+    Least recently synced shipments go first, so no shipment starves when there are
+    more open shipments than fit one run. Returns the number of shipments updated.
+    """
+    open_shipments = (
+        IndiaPostShipment.objects.filter(barcode_number__isnull=False)
+        .exclude(tracking_status__in=ShipmentStatus.NOT_BOOKED)
+        .exclude(order__order_status__in=CLOSED_ORDER_STATUSES)
+        .select_related("order")
+        .order_by(F("last_status_at").asc(nulls_first=True), "pk")
     )
 
-    if not active_shipments:
-        logger.info("No active India Post shipments to sync tracking for.")
-        return 0
-
-    barcode_map = {s.barcode_number: s for s in active_shipments if s.barcode_number}
-    barcodes = list(barcode_map.keys())
-
     client = IndiaPostClient()
-    try:
-        data = client.track_bulk(barcodes)
-    except Exception as exc:
-        logger.error(f"Failed to fetch bulk tracking from India Post: {exc}")
-        return 0
+    updated = 0
+    batch: list[IndiaPostShipment] = []
 
-    #the API returns a list or dict of tracking summaries
-    articles = data if isinstance(data, list) else data.get("tracking_data") or data.get("articles") or []
-    updated_count = 0
-
-    for item in articles:
-        if not isinstance(item, dict):
-            continue
-        barcode = item.get("article_number") or item.get("barcode_no") or item.get("article_no")
-        shipment = barcode_map.get(barcode)
-        if not shipment:
-            continue
-
-        event_code = (item.get("event_code") or item.get("status") or item.get("event") or "").strip().upper()
-        event_desc = item.get("event_description") or item.get("remarks") or ""
-
-        #deduplication check
-        if shipment.last_event_code == event_code and shipment.last_event_description == event_desc[:255]:
-            continue
-
-        shipment.last_event_code = event_code
-        shipment.last_event_description = event_desc[:255]
-        shipment.last_status_at = timezone.now()
-        shipment.tracking_status = event_code or shipment.tracking_status
-        shipment.save(update_fields=["last_event_code", "last_event_description", "last_status_at", "tracking_status", "updated_at"])
-
-        target_status = INDIA_POST_TO_ORDER_STATUS.get(event_code)
-        if target_status and shipment.order:
-            order = shipment.order
-            current_rank = ORDER_STATUS_RANK.get(order.order_status, 0)
-            target_rank = ORDER_STATUS_RANK.get(target_status, 0)
-
-            is_return_or_cancel = target_status == OrderStatus.CANCELLED
-            if is_return_or_cancel and order.order_status == OrderStatus.DELIVERED:
+    def flush() -> None:
+        nonlocal updated, batch
+        if not batch:
+            return
+        by_barcode = {s.barcode_number: s for s in batch}
+        batch = []
+        try:
+            data = client.track_bulk(list(by_barcode))
+        except IndiaPostClientError as exc:
+            logger.error("India Post bulk tracking failed: %s", exc)
+            return
+        for item in extract_tracking_items(data):
+            shipment = by_barcode.get(item["article_number"])
+            if shipment is None:
                 continue
-            elif (is_return_or_cancel and order.order_status != OrderStatus.CANCELLED) or target_rank >= current_rank:
-                try:
-                    transition_order_status(
-                        order=order,
-                        new_status=target_status,
-                        force=True,
-                        actor=None,
-                        note=f"India Post Periodic Tracking sync: {event_code} ({event_desc})",
-                    )
-                except Exception as exc:
-                    logger.warning(f"Error transitioning order {order.order_number}: {exc}")
+            if apply_tracking_event(
+                shipment, item["event_code"], item["event_description"], source="tracking sync", returning=item["rts"]
+            ):
+                updated += 1
 
-        updated_count += 1
+    for shipment in open_shipments.iterator(chunk_size=TRACKING_BATCH_SIZE):
+        batch.append(shipment)
+        if len(batch) >= TRACKING_BATCH_SIZE:
+            flush()
+    flush()
 
-    logger.info(f"India Post tracking sync updated {updated_count} shipments.")
-    return updated_count
+    logger.info("India Post tracking sync updated %s shipments.", updated)
+    return updated

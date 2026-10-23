@@ -252,6 +252,15 @@ class SiteSettings(TimeStampedModel):
     tax_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     cod_delivery_charge = models.DecimalField(max_digits=10, decimal_places=2, default=50, verbose_name="COD Delivery Charge")
     
+    return_window_days = models.PositiveSmallIntegerField(
+        default=7,
+        verbose_name="Return window (days)",
+        help_text=(
+            "Customers can request a return within this many days of delivery. "
+            "Set 0 to turn customer returns off."
+        ),
+    )
+
     SHIPPING_CARRIER_CHOICES = (
         ("delhivery", "Delhivery Express"),
         ("indiapost", "India Post (Speed Post / Parcel)"),

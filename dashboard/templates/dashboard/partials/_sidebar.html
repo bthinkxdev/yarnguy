@@ -20,6 +20,11 @@
       </a>
     </li>
     <li>
+      <a class="nav-link {% if nav_section == 'returns' %}active{% endif %}" href="{% url 'dashboard:return-list' %}">
+        <i class="ti ti-arrow-back-up"></i><span class="nav-text">Returns</span>{% if pending_returns_count %}<span class="badge bg-warning-subtle text-warning ms-auto nav-text">{{ pending_returns_count }}</span>{% endif %}
+      </a>
+    </li>
+    <li>
       <a class="nav-link {% if nav_section == 'reports' %}active{% endif %}" href="{% url 'dashboard:reports' %}">
         <i class="ti ti-chart-bar"></i><span class="nav-text">Reports</span>
       </a>

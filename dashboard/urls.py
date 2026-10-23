@@ -14,6 +14,7 @@ from dashboard.views import (
     misc,
     orders,
     reports,
+    returns,
 )
 
 app_name = "dashboard"
@@ -41,6 +42,9 @@ urlpatterns = [
     path("orders/<int:pk>/payment-transition/", orders.order_payment_transition, name="order-payment-transition"),
     path("orders/<int:pk>/tracking-update/", orders.order_tracking_update, name="order-tracking-update"),
     path("orders/<int:pk>/address/", orders.order_address_update, name="order-address-update"),
+    path("returns/", returns.return_list, name="return-list"),
+    path("returns/<int:pk>/", returns.return_detail, name="return-detail"),
+    path("returns/<int:pk>/<str:action>/", returns.return_action, name="return-action"),
     path("reports/", reports.reports_view, name="reports"),
     path("reports/export/", reports.reports_export_csv, name="reports-export"),
     path("reports/recompute/", reports.reports_recompute, name="reports-recompute"),

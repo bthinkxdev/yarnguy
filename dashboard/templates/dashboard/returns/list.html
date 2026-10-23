@@ -1,0 +1,53 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Returns{% endblock %}
+{% block page_title %}Returns{% endblock %}
+
+{% block content %}
+<form method="get" class="row g-2 align-items-center mb-3">
+  <div class="col-12 col-md-4">
+    <input type="text" name="q" value="{{ search_query }}" class="form-control" placeholder="Search return #, order #, tracking...">
+  </div>
+  <div class="col-6 col-md-auto">
+    <select name="status" class="form-select" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for value, label in statuses %}<option value="{{ value }}" {% if value == current_status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Filter</button></div>
+  {% if open_count %}<div class="col-auto"><span class="badge bg-warning-subtle text-warning">{{ open_count }} awaiting review</span></div>{% endif %}
+</form>
+
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr><th>Return</th><th>Order</th><th>Customer</th><th>Items</th><th>Wants</th><th>Courier</th><th>Status</th><th>Requested</th></tr>
+      </thead>
+      <tbody>
+        {% for r in returns %}
+        <tr>
+          <td><a href="{% url 'dashboard:return-detail' r.pk %}" class="fw-semibold">{{ r.return_number }}</a></td>
+          <td><a href="{% url 'dashboard:order-detail' r.order.pk %}">{{ r.order.order_number }}</a></td>
+          <td>{{ r.order.customer_display_name }}</td>
+          <td class="small">{% for i in r.items.all %}{{ i.order_item.product.name }} x{{ i.quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+          <td>{{ r.get_resolution_display }}</td>
+          <td>{{ r.carrier|title|default:"-" }}</td>
+          <td><span class="badge bg-secondary-subtle text-secondary">{{ r.get_status_display }}</span></td>
+          <td>{{ r.created_at|date:"M d, Y" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-secondary py-4">No returns found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% if page_obj.has_other_pages %}
+<nav class="mt-3 d-flex gap-2">
+  {% if page_obj.has_previous %}<a class="btn btn-light btn-sm" href="?page={{ page_obj.previous_page_number }}&status={{ current_status }}&q={{ search_query }}">Previous</a>{% endif %}
+  <span class="align-self-center small text-secondary">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a class="btn btn-light btn-sm" href="?page={{ page_obj.next_page_number }}&status={{ current_status }}&q={{ search_query }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

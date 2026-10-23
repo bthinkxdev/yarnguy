@@ -5,6 +5,7 @@ from __future__ import annotations
 from django.http import HttpRequest
 
 from notifications.models import Notification
+from returns.models import ReturnRequest, ReturnStatus
 
 
 def dashboard_chrome(request: HttpRequest) -> dict:
@@ -27,4 +28,5 @@ def dashboard_chrome(request: HttpRequest) -> dict:
     return {
         "dashboard_notifications": notifications,
         "dashboard_unread_count": unread_count,
+        "pending_returns_count": ReturnRequest.objects.filter(status=ReturnStatus.REQUESTED).count(),
     }

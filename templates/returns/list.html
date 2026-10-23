@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "My returns" %} | Yarn Guy{% endblock %}
+
+{% block content %}
+<div class="container page-container py-4">
+  <h1 class="section-title fs-3 mb-4">{% trans "My returns" %}</h1>
+  {% if returns %}
+  <div class="card border-0 shadow-sm rounded-3">
+    <ul class="list-group list-group-flush">
+      {% for r in returns %}
+      <li class="list-group-item p-3">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            <a class="fw-bold text-decoration-none" href="{% url 'returns:detail' r.pk %}">{{ r.return_number }}</a>
+            <small class="text-muted d-block">{% trans "Order" %} #{{ r.order.order_number }} &middot; {{ r.created_at|date:"M d, Y" }}</small>
+            <small class="text-muted">{% for i in r.items.all %}{{ i.order_item.product.name }} x{{ i.quantity }}{% if not forloop.last %}, {% endif %}{% endfor %}</small>
+          </div>
+          <span class="badge bg-light text-dark border px-2 py-1 fw-normal">{{ r.get_status_display }}</span>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% else %}
+  <p class="text-muted">{% trans "You have not requested any returns." %}</p>
+  {% endif %}
+  <a href="{% url 'orders:list' %}" class="btn btn-light border btn-sm mt-3">{% trans "Back to orders" %}</a>
+</div>
+{% endblock %}

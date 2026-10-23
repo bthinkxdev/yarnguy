@@ -8,6 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
 from orders.selectors import get_order_tracking_view, get_customer_orders
+from returns.services import get_eligibility
 
 
 @login_required
@@ -62,6 +63,7 @@ def order_detail_view(request: HttpRequest, order_id: int) -> HttpResponse:
     if tracking is None:
         raise Http404("Order not found.")
     
+    eligibility = get_eligibility(tracking.order)
     return render(
         request,
         "orders/order_detail.html",
@@ -69,5 +71,8 @@ def order_detail_view(request: HttpRequest, order_id: int) -> HttpResponse:
             "order": tracking.order,
             "items": tracking.order.items.all(),
             "tracking": tracking,
+            "return_eligibility": eligibility,
+            "returnable_item_ids": {entry.order_item.pk for entry in eligibility.items},
+            "return_requests": tracking.order.return_requests.all(),
         },
     )

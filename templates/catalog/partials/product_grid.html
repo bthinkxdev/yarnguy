@@ -2,7 +2,7 @@
 <div class="row g-3 product-grid-inner">
   {% for product in plp.results %}
   <div class="col-6 col-md-4 col-lg-3 product-grid-item">
-    {% include "catalog/partials/product_card.html" with product=product %}
+    {% include "catalog/partials/product_card.html" with product=product show_free_delivery=True %}
   </div>
   {% empty %}
   <div class="col-12 text-center py-5">

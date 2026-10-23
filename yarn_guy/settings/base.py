@@ -39,6 +39,7 @@ LOCAL_APPS = [
     "dashboard",
     "delhivery",
     "indiapost",
+    "returns",
 ]
 
 INSTALLED_APPS = [
@@ -279,7 +280,8 @@ META_TEST_EVENT_CODE = env("META_TEST_EVENT_CODE", default="").strip()
 META_API_VERSION = env("META_API_VERSION", default="v21.0")
 
 #india post settings
-INDIA_POST_BASE_URL = env("INDIA_POST_BASE_URL", default="https://test.cept.gov.in/beextcustomer").rstrip("/")
+#no default on purpose: a missing value must fail loudly rather than quietly talk to the test server
+INDIA_POST_BASE_URL = env("INDIA_POST_BASE_URL", default="").rstrip("/")
 INDIA_POST_USERNAME = env("INDIA_POST_USERNAME", default="")
 INDIA_POST_PASSWORD = env("INDIA_POST_PASSWORD", default="")
 INDIA_POST_CUSTOMER_ID = env("INDIA_POST_CUSTOMER_ID", default="")

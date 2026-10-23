@@ -32,10 +32,12 @@ def create_shipment_for_order(*, order_id: int) -> bool:
         order.delivery_partner = carrier
         order.save(update_fields=["delivery_partner", "updated_at"])
 
-    #if carrier is India Post, route to India Post dedicated retry task
+    #India Post bookings run as their own Celery task so transient failures are retried
+    #with backoff (calling it inline would re-raise instead of rescheduling)
     if carrier == "indiapost":
         from indiapost.tasks import create_indiapost_shipment_for_order
-        return create_indiapost_shipment_for_order(order_id=order.pk)
+        create_indiapost_shipment_for_order.delay(order_id=order.pk)
+        return True
 
     #mutual exclusivity guard: If India Post barcode is already allocated, prevent Delhivery dispatch
     if hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None):

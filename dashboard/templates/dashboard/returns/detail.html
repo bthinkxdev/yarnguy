@@ -1,0 +1,173 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Return {{ r.return_number }}{% endblock %}
+{% block page_title %}Return {{ r.return_number }}{% endblock %}
+{% block breadcrumbs %}<p class="mb-0 text-secondary">Requested {{ r.created_at|date:"M d, Y H:i" }} &middot; Order <a href="{% url 'dashboard:order-detail' order.pk %}">{{ order.order_number }}</a></p>{% endblock %}
+{% block page_actions %}<a href="{% url 'dashboard:return-list' %}" class="btn btn-light"><i class="ti ti-arrow-left me-1"></i>Back to returns</a>{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+  <div class="col-12 col-lg-8">
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
+        <h3 class="h5 mb-0">Items to return</h3>
+        <div>
+          <span class="badge bg-info-subtle text-info me-1">Wants: {{ r.get_resolution_display }}</span>
+          <span class="badge bg-secondary-subtle text-secondary">{{ r.get_status_display }}</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table mb-0 align-middle">
+          <thead class="table-light"><tr><th>Product</th><th>Variant</th><th>Qty</th><th>Reason</th><th>Unit price</th><th>Restocked</th></tr></thead>
+          <tbody>
+            {% for i in r.items.all %}
+            <tr>
+              <td>{{ i.order_item.product.name }}</td>
+              <td>{{ i.order_item.variant.name|default:"-" }}</td>
+              <td>{{ i.quantity }}</td>
+              <td>{{ i.get_reason_display }}</td>
+              <td>{{ i.order_item.unit_price }}</td>
+              <td>{% if i.restock is None %}-{% elif i.restock %}Yes{% else %}No (damaged){% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-body border-top"><span class="text-secondary">Value of returned items:</span> <strong>{{ r.items_value }}</strong></div>
+    </div>
+
+    {% if r.customer_note %}
+    <div class="card mb-3"><div class="card-body"><span class="text-secondary small d-block mb-1">Customer note</span>{{ r.customer_note|linebreaksbr }}</div></div>
+    {% endif %}
+
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Pickup</h3></div>
+      <div class="card-body">
+        <p class="mb-1">Order delivered by: <strong>{{ r.carrier|title|default:"-" }}</strong></p>
+        {% if r.pickup_day %}<p class="mb-1">Pickup: <strong>{{ r.pickup_day|date:"M d, Y" }}{% if r.pickup_slot %}, {{ r.pickup_slot }}{% endif %}</strong></p>{% endif %}
+        {% if r.has_confirmed_pickup %}<p class="mb-1">Tracking number: <strong>{{ r.reverse_tracking_number }}</strong>{% if r.pickup_tariff %} &middot; tariff {{ r.pickup_tariff }}{% endif %}</p>{% endif %}
+        {% if r.pickup_error %}<div class="alert alert-danger mb-0 mt-2"><strong>Pickup could not be booked:</strong> {{ r.pickup_error }}</div>{% endif %}
+        {% if not r.pickup_is_app_managed %}<p class="text-secondary mb-0">Not an India Post order, so there is no pickup to arrange here. The items are collected outside the app.</p>{% endif %}
+        {% if r.pickup_is_app_managed and not r.pickup_day and not r.pickup_error %}<p class="text-secondary mb-0">No pickup initiated yet.</p>{% endif %}
+        {% if r.replacement_tracking %}<p class="mt-2 mb-0">Replacement tracking: <strong>{{ r.replacement_tracking }}</strong></p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Customer</h3></div>
+      <div class="card-body">
+        <p class="mb-1 fw-semibold">{{ order.customer_display_name }}</p>
+        {% with a=order.delivery_address_snapshot %}
+        <p class="mb-0 small text-secondary">{{ a.line1 }}{% if a.line2 %}, {{ a.line2 }}{% endif %}<br>{{ a.city }}{% if a.state %}, {{ a.state }}{% endif %} {{ a.pincode }}<br>{{ a.phone }}</p>
+        {% endwith %}
+      </div>
+    </div>
+
+    {% if r.status == 'requested' %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Review this request</h3></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'approve' %}" class="mb-3">
+          {% csrf_token %}
+          <button class="btn btn-success w-100" type="submit"><i class="ti ti-check me-1"></i>Approve</button>
+        </form>
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'reject' %}">
+          {% csrf_token %}
+          <label class="form-label small">Rejection reason (sent to the customer)</label>
+          <textarea name="reason" class="form-control mb-2" rows="2" required></textarea>
+          <button class="btn btn-outline-danger w-100" type="submit"><i class="ti ti-x me-1"></i>Reject</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if r.status == 'approved' and r.pickup_is_app_managed %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">{% if r.pickup_error %}Retry pickup{% else %}Initiate pickup{% endif %}</h3></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'initiate-pickup' %}" class="mb-3">
+          {% csrf_token %}
+          <label class="form-label small">Pickup date</label>
+          <input type="date" name="pickup_day" class="form-control mb-2" value="{{ default_day }}" min="{{ min_day }}" required>
+          <label class="form-label small">Pickup slot</label>
+          <select name="pickup_slot" class="form-select mb-3">{% for s in slots %}<option value="{{ s }}" {% if s == default_slot %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+          <button class="btn btn-primary w-100" type="submit">{% if r.pickup_error %}Retry{% else %}Initiate{% endif %} India Post pickup</button>
+        </form>
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'manual-pickup' %}">
+          {% csrf_token %}
+          <p class="small text-secondary mb-2">Or arrange it yourself and enter the tracking number:</p>
+          <input type="text" name="tracking_number" class="form-control mb-2" placeholder="Tracking number" required>
+          <button class="btn btn-outline-secondary w-100" type="submit">Save pickup details</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if r.status == 'approved' and not r.pickup_is_app_managed %}
+    <div class="alert alert-info">Approved. This order was not delivered by India Post, so there is no pickup to initiate. Mark the items received once they are back.</div>
+    {% endif %}
+
+    {% if r.status == 'pickup_scheduled' %}
+    <div class="card mb-3"><div class="card-body">
+      <form method="post" action="{% url 'dashboard:return-action' r.pk 'picked-up' %}">{% csrf_token %}<button class="btn btn-primary w-100" type="submit">Mark picked up</button></form>
+    </div></div>
+    {% endif %}
+
+    {% if r.status == 'approved' or r.status == 'pickup_scheduled' or r.status == 'picked_up' %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Items received</h3></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'received' %}">
+          {% csrf_token %}
+          <p class="small text-secondary">Tick the lines that are in good, resellable condition. Those go back into stock.</p>
+          {% for i in r.items.all %}
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" name="resellable" value="{{ i.pk }}" id="rs{{ i.pk }}" checked>
+            <label class="form-check-label" for="rs{{ i.pk }}">{{ i.order_item.product.name }} x{{ i.quantity }}</label>
+          </div>
+          {% endfor %}
+          <button class="btn btn-success w-100 mt-3" type="submit">Mark received</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if r.status == 'received' and r.resolution == 'refund' %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Refund</h3></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'refunded' %}">
+          {% csrf_token %}
+          <label class="form-label small">Amount refunded</label>
+          <input type="number" step="0.01" min="0" name="amount" class="form-control mb-2" value="{{ suggested_refund }}">
+          <p class="small text-secondary">This records the refund only. Return the money through your payment provider (e.g. the Razorpay dashboard).</p>
+          <button class="btn btn-success w-100" type="submit">Record refund</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if r.status == 'received' and r.resolution == 'replacement' %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3"><h3 class="h5 mb-0">Send replacement</h3></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'dashboard:return-action' r.pk 'replaced' %}">
+          {% csrf_token %}
+          <label class="form-label small">Replacement tracking number (optional)</label>
+          <input type="text" name="tracking_number" class="form-control mb-2">
+          <p class="small text-secondary">The same items and quantities are taken out of stock. If any line is out of stock nothing changes.</p>
+          <button class="btn btn-success w-100" type="submit">Record replacement sent</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if r.status == 'refunded' %}<div class="alert alert-success">Refunded {{ r.refund_amount }} on {{ r.refunded_at|date:"M d, Y" }}.</div>{% endif %}
+    {% if r.status == 'replaced' %}<div class="alert alert-success">Replacement sent on {{ r.replaced_at|date:"M d, Y" }}.</div>{% endif %}
+    {% if r.status == 'rejected' %}<div class="alert alert-secondary"><strong>Rejected.</strong> {{ r.admin_note }}</div>{% endif %}
+    {% if r.status == 'cancelled' %}<div class="alert alert-secondary">Cancelled by the customer.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}

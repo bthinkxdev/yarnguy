@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.contrib import admin
+from django.contrib import admin, messages
 
 from orders.models import Order, OrderItem, OrderStatusHistory, ProofOfDelivery
 from orders.services import transition_order_status
@@ -40,32 +40,29 @@ class OrderAdmin(admin.ModelAdmin):
 
     @admin.action(description="Book selected orders with India Post")
     def book_with_india_post(self, request, queryset):
-        from indiapost.services import trigger_indiapost_shipment
-        from django.contrib import messages
-        import logging
-        admin_logger = logging.getLogger(__name__)
+        """
+        Idempotent: an order that is already booked is reported as such and nothing is
+        re-sent to India Post. A failed order is retried, reusing its reserved barcode.
+        """
+        from indiapost.services import IndiaPostBookingError, book_shipment
 
-        success_count = 0
-        fail_count = 0
-        for order in queryset:
-            if order.order_status in (OrderStatus.CANCELLED, OrderStatus.REFUNDED):
-                self.message_user(
-                    request,
-                    f"Skipped Order #{order.order_number}: Cannot book {order.get_order_status_display()} order.",
-                    level=messages.WARNING,
-                )
-                continue
+        booked = already = failed = 0
+        for order in queryset.select_related("customer_profile__user"):
+            had_barcode_before = hasattr(order, "indiapost_shipment") and order.indiapost_shipment.is_booked
             try:
-                if trigger_indiapost_shipment(order, force=True):
-                    success_count += 1
-                else:
-                    fail_count += 1
-            except Exception as e:
-                admin_logger.error(f"Error booking order {order.order_number} with India Post: {e}", exc_info=True)
-                fail_count += 1
+                book_shipment(order)
+            except IndiaPostBookingError as exc:
+                failed += 1
+                self.message_user(request, f"Order {order.order_number}: {exc}", level=messages.ERROR)
+                continue
+            if had_barcode_before:
+                already += 1
+            else:
+                booked += 1
         self.message_user(
             request,
-            f"India Post booking result: {success_count} succeeded, {fail_count} failed."
+            f"India Post: {booked} booked, {already} already booked, {failed} failed.",
+            level=messages.WARNING if failed else messages.SUCCESS,
         )
 
     def save_model(self, request, obj, form, change) -> None:

@@ -5,6 +5,8 @@ import urllib.parse
 import urllib.error
 from django.conf import settings
 
+from core.validators import normalize_indian_mobile, normalize_pincode
+
 logger = logging.getLogger(__name__)
 
 def trigger_shipment_on_confirmed(order):
@@ -44,9 +46,29 @@ def trigger_shipment_on_confirmed(order):
         return False
 
     customer_name = addr.get("name") or addr.get("recipient_name") or "Customer"
-    phone = addr.get("phone") or ""
-    if not phone and order.customer_profile and order.customer_profile.phone:
-        phone = order.customer_profile.phone
+    phone_raw = addr.get("phone") or ""
+    if not phone_raw and order.customer_profile and order.customer_profile.phone:
+        phone_raw = order.customer_profile.phone
+
+    #never invent delivery data: a shipment to a made-up PIN or number is worse than no shipment
+    pincode = normalize_pincode(addr.get("pin") or addr.get("pincode") or addr.get("postal_code") or "")
+    phone = normalize_indian_mobile(phone_raw)
+    city = (addr.get("city") or "").strip()
+    address_line = f"{addr.get('line1', '')} {addr.get('line2', '')}".strip()
+    problem = (
+        "Delivery PIN code is missing or invalid (must be 6 digits)." if not pincode
+        else "Delivery address is missing." if not address_line
+        else "Delivery city is missing." if not city
+        else "Customer mobile number is missing or invalid." if not phone
+        else ""
+    )
+    if problem:
+        logger.error(f"Cannot book Delhivery for order {order.order_number}: {problem}")
+        from delhivery.models import DelhiveryShipment
+        DelhiveryShipment.objects.update_or_create(
+            order=order, defaults={"tracking_status": "Error", "error_message": problem}
+        )
+        return False
 
     #check payment method
     is_cod = hasattr(order, 'payment_transactions') and order.payment_transactions.filter(gateway_key="cod").exists()
@@ -100,12 +122,12 @@ def trigger_shipment_on_confirmed(order):
     #construct B2C package payload
     shipment_payload = {
         "name": customer_name,
-        "add": f"{addr.get('line1', '')} {addr.get('line2', '')}".strip() or "Shipping Address",
-        "pin": addr.get("pin") or addr.get("pincode") or addr.get("postal_code") or "110001",
-        "city": addr.get("city", "") or "New Delhi",
-        "state": addr.get("state", "") or "Delhi",
+        "add": address_line,
+        "pin": pincode,
+        "city": city,
+        "state": addr.get("state", "") or "",
         "country": addr.get("country", "") or "India",
-        "phone": phone or "9999999999",
+        "phone": phone,
         "order": order.order_number,
         "payment_mode": "COD" if is_cod else "Prepaid",
         "return_pin": "",
@@ -120,7 +142,6 @@ def trigger_shipment_on_confirmed(order):
         "breadth": float(max_width or 10),
         "height": float(max_height or 5),
     }
-    print("shipment_payload -------- :", shipment_payload)
     url = f"{base_url}/api/cmu/create.json"
     
     #format according to Delhivery B2C specs - pickup_location must be an object, not a bare string

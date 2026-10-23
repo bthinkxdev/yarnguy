@@ -128,6 +128,9 @@
       </p>
       {% endif %}
       {% endif %}
+      {% if show_free_delivery %}
+      <span class="jm-free-delivery">{% trans "Free Delivery" %}</span>
+      {% endif %}
     </div>
 
     <a class="stretched-link jm-product-card__stretch" href="{% url 'catalog:pdp' slug=product.slug %}"

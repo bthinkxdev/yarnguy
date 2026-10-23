@@ -6,6 +6,7 @@ from django.conf import settings
 from django.db import models
 
 from core.models import TimeStampedModel
+from core.validators import validate_indian_pincode
 
 
 class OTPPurpose(models.TextChoices):
@@ -146,6 +147,7 @@ class Address(TimeStampedModel):
         default="",
         verbose_name="PIN / Postal code",
         help_text="6-digit PIN code for shipping.",
+        validators=[validate_indian_pincode],
     )
     is_default = models.BooleanField(
         default=False,

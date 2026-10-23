@@ -9,7 +9,7 @@
     <div class="jm-product-grid jm-product-grid--2" role="list">
       {% for product in section_context.products %}
       <div class="jm-product-grid__item" role="listitem">
-        {% include "catalog/partials/product_card.html" with product=product force_badge='bestseller' %}
+        {% include "catalog/partials/product_card.html" with product=product force_badge='bestseller' show_free_delivery=True %}
       </div>
       {% empty %}
       <p class="text-muted small mb-0">{% trans "No products available." %}</p>

@@ -19,12 +19,22 @@ from cart.services import get_or_create_cart
 from checkout.forms import CheckoutAddressForm, CheckoutDeliveryForm, CheckoutPaymentForm
 from checkout.selectors import get_checkout_session_by_id
 from checkout.services import create_checkout_session, place_order, update_checkout_session
+from core.validators import MOBILE_ERROR, PINCODE_ERROR, normalize_indian_mobile, normalize_pincode
 from core import meta_pixel
 
 from payments.registry import PAYMENT_GATEWAYS
 from payments.services import process_payment
 
 logger = logging.getLogger(__name__)
+
+
+def _post_office_mode(site_settings=None) -> bool:
+    """India Post is the active courier: it delivers via a post office, so checkout asks for one."""
+    if site_settings is None:
+        from core.services import get_site_settings
+
+        site_settings = get_site_settings()
+    return site_settings.shipping_carrier == "indiapost"
 
 
 def _get_checkout_cart(request: HttpRequest, create: bool = False):
@@ -197,6 +207,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "active_cities": active_cities,
             "indian_states": INDIAN_STATES,
             "settings": settings,
+            "post_office_mode": _post_office_mode(settings),
 
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,
@@ -264,14 +275,18 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
     if not guest_phone:
         errors["guest_phone"] = ["Phone is required."]
     else:
-        if not re.match(r'^\+?\d+$', guest_phone):
+        if not re.match(r'^[+\d\s\-()]+$', guest_phone):
             errors["guest_phone"] = ["Phone number can only contain numbers."]
-        else:
-            raw_phone = re.sub(r'^\+91|^91|^0', '', guest_phone.strip())
-            if not re.match(r'^[6-9]\d{9}$', raw_phone):
-                errors["guest_phone"] = ["Enter a valid 10-digit Indian mobile number starting with 6-9."]
+        elif not normalize_indian_mobile(guest_phone):
+            errors["guest_phone"] = [MOBILE_ERROR]
 
-    if not address:
+    if address:
+        #a saved address skips the guest-field checks below, but it is what gets shipped
+        if not normalize_pincode(address.pincode):
+            errors["address_id"] = [
+                "The PIN code on your saved address is missing or invalid. Please correct the address and try again."
+            ]
+    else:
         guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
         guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
         guest_city = request.POST.get("guest_city", "").strip()
@@ -286,6 +301,12 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             errors["guest_address_line1"] = ["Address cannot consist of special characters only."]
         elif not re.search(r"[a-zA-Z]", guest_address_line1):
             errors["guest_address_line1"] = ["Enter a valid address containing letters."]
+
+        if _post_office_mode():
+            if not guest_address_line2:
+                errors["guest_address_line2"] = ["Post Office is required."]
+            elif not re.search(r"[a-zA-Z]", guest_address_line2):
+                errors["guest_address_line2"] = ["Enter a valid post office name."]
 
         if not guest_city:
             errors["guest_city"] = ["City is required."]
@@ -307,8 +328,8 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
 
         if not guest_pincode:
             errors["guest_pincode"] = ["PIN / Postal Code is required."]
-        elif not re.match(r'^\d{6}$', guest_pincode):
-            errors["guest_pincode"] = ["Enter a valid 6-digit postal PIN code."]
+        elif not normalize_pincode(guest_pincode):
+            errors["guest_pincode"] = [PINCODE_ERROR]
 
     if errors:
         return render(

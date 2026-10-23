@@ -13,7 +13,7 @@
         <div class="product-rail-scroll jm-featured__track jm-product-rail__track" role="list" data-rail-track>
           {% for product in section_context.products %}
           <div class="product-rail-item" role="listitem">
-            {% include "catalog/partials/product_card.html" with product=product force_badge='featured' %}
+            {% include "catalog/partials/product_card.html" with product=product force_badge='featured' show_free_delivery=True %}
           </div>
           {% empty %}
           <p class="text-muted small px-2">{% trans "No products available." %}</p>
