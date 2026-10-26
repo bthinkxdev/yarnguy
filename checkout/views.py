@@ -19,7 +19,7 @@ from cart.services import get_or_create_cart
 from checkout.forms import CheckoutAddressForm, CheckoutDeliveryForm, CheckoutPaymentForm
 from checkout.selectors import get_checkout_session_by_id
 from checkout.services import create_checkout_session, place_order, update_checkout_session
-from core.validators import MOBILE_ERROR, PINCODE_ERROR, normalize_indian_mobile, normalize_pincode
+from core.validators import MOBILE_ERROR, PINCODE_ERROR, normalize_indian_mobile, normalize_pincode, post_office_error
 from core import meta_pixel
 
 from payments.registry import PAYMENT_GATEWAYS
@@ -286,6 +286,14 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             errors["address_id"] = [
                 "The PIN code on your saved address is missing or invalid. Please correct the address and try again."
             ]
+        elif _post_office_mode():
+            #india Post delivers via the local post office, so a saved address needs one too
+            problem = post_office_error(address.line2)
+            if problem:
+                errors["address_id"] = [
+                    f'Your saved address "{address.label}" needs a Post Office: {problem} '
+                    'Please update it in your profile, or choose "Add a new address".'
+                ]
     else:
         guest_address_line1 = request.POST.get("guest_address_line1", "").strip()
         guest_address_line2 = request.POST.get("guest_address_line2", "").strip()
@@ -303,10 +311,9 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             errors["guest_address_line1"] = ["Enter a valid address containing letters."]
 
         if _post_office_mode():
-            if not guest_address_line2:
-                errors["guest_address_line2"] = ["Post Office is required."]
-            elif not re.search(r"[a-zA-Z]", guest_address_line2):
-                errors["guest_address_line2"] = ["Enter a valid post office name."]
+            problem = post_office_error(guest_address_line2)
+            if problem:
+                errors["guest_address_line2"] = [problem]
 
         if not guest_city:
             errors["guest_city"] = ["City is required."]

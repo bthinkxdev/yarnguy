@@ -7,7 +7,7 @@ from django.contrib.auth.forms import AuthenticationForm
 import socket
 from recurring.models import RecurrenceFrequency 
 from accounts.models import Address
-from core.validators import validate_indian_mobile, validate_indian_pincode
+from core.validators import post_office_error, validate_indian_mobile, validate_indian_pincode
 
 
 def validate_real_email_domain(email: str) -> str:
@@ -207,6 +207,17 @@ class AddressForm(forms.ModelForm):
 
         self.fields["city"].queryset = City.objects.filter(is_active=True)
 
+    def clean_line2(self) -> str:
+        """With India Post as the courier, line 2 holds the post office and is required."""
+        from core.services import is_post_office_mode
+
+        line2 = (self.cleaned_data.get("line2") or "").strip()
+        if is_post_office_mode():
+            problem = post_office_error(line2)
+            if problem:
+                raise forms.ValidationError(problem)
+        return line2
+
 
 class SubscriptionCreateForm(forms.Form):
     product_id = forms.IntegerField(widget=forms.HiddenInput)
@@ -269,3 +280,22 @@ class CustomerProfileEditForm(forms.Form):
     city = forms.CharField(label="City", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     state = forms.CharField(max_length=120, label="State / Province", required=False, widget=forms.TextInput(attrs={"class": "form-control"}))
     pincode = forms.CharField(max_length=20, label="PIN / Postal Code", required=False, validators=[validate_indian_pincode], widget=forms.TextInput(attrs={"class": "form-control"}))
+
+    def __init__(self, *args, post_office_mode: bool = False, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        #with India Post as the courier, address line 2 holds the (required) post office
+        self.post_office_mode = post_office_mode
+        if post_office_mode:
+            self.fields["address_line2"].label = "Post Office"
+            self.fields["address_line2"].widget.attrs.update(
+                {"placeholder": "Your nearest / delivery post office", "maxlength": "80"}
+            )
+
+    def clean(self):
+        cleaned = super().clean()
+        #the address is only saved when line 1 is filled, so only then is the post office checked
+        if self.post_office_mode and cleaned.get("address_line1"):
+            problem = post_office_error(cleaned.get("address_line2"))
+            if problem:
+                self.add_error("address_line2", problem)
+        return cleaned

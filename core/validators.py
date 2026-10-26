@@ -44,6 +44,22 @@ def normalize_pincode(raw: object) -> str:
     return value if _PINCODE_RE.fullmatch(value) else ""
 
 
+POST_OFFICE_MIN_LENGTH = 3
+POST_OFFICE_MAX_LENGTH = 80
+
+
+def post_office_error(raw: object) -> str:
+
+    value = str(raw or "").strip()
+    if not value:
+        return "Post Office is required."
+    if not re.search(r"[a-zA-Z]", value):
+        return "Enter a valid post office name."
+    if not POST_OFFICE_MIN_LENGTH <= len(value) <= POST_OFFICE_MAX_LENGTH:
+        return f"Post Office must be between {POST_OFFICE_MIN_LENGTH} and {POST_OFFICE_MAX_LENGTH} characters."
+    return ""
+
+
 def validate_indian_mobile(value: object) -> None:
     if not normalize_indian_mobile(value):
         raise ValidationError(MOBILE_ERROR, code="invalid_mobile")

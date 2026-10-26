@@ -21,6 +21,11 @@ def get_site_settings() -> SiteSettings:
     return settings
 
 
+def is_post_office_mode() -> bool:
+    """True when India Post is the active courier: addresses then need a post office (in line 2)."""
+    return get_site_settings().shipping_carrier == "indiapost"
+
+
 @transaction.atomic
 def create_currency(
     *,

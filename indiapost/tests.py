@@ -682,6 +682,83 @@ class Fix13SavedAddressPincodeTests(IndiaPostTestCase):
         self.assertFalse(Order.objects.filter(delivery_address_snapshot__line1="a", customer_profile=self.profile, order_status=OrderStatus.CHECKOUT_PENDING).exists())
 
 
+class SavedAddressPostOfficeTests(IndiaPostTestCase):
+    """With India Post as the courier, saved addresses need a post office just like guest checkout."""
+
+    def _set_carrier(self, carrier):
+        site = SiteSettings.objects.first() or SiteSettings.objects.create()
+        site.shipping_carrier = carrier
+        site.save()
+
+    def _checkout_with(self, address):
+        self.client.force_login(self.user)
+        self.client.post(reverse("cart:add"), {"product_id": self.product.pk, "quantity": 1}, HTTP_HX_REQUEST="true")
+        page = self.client.get(reverse("checkout:checkout")).content.decode()
+        response = self.client.post(
+            reverse("checkout:place-order"),
+            {"gateway_key": "cod", "idempotency_key": "k", "address_id": address.pk, "guest_name": "Asha Nair",
+             "guest_email": "buyer@example.com", "guest_phone": "9876543210"},
+            HTTP_HX_REQUEST="true",
+        )
+        return page, response.content.decode()
+
+    def _address(self, line2):
+        return Address.objects.create(
+            customer_profile=self.profile, label="Home", line1="12 MG Road", line2=line2,
+            city="Kochi", state="Kerala", pincode="682001",
+        )
+
+    def test_checkout_rejects_a_saved_address_without_a_post_office(self):
+        self._set_carrier("indiapost")
+        page, result = self._checkout_with(self._address(""))
+        self.assertIn("Post Office missing", page)
+        self.assertIn("Your saved address &quot;Home&quot; needs a Post Office: Post Office is required.", result)
+
+    def test_checkout_rejects_a_saved_address_with_a_too_short_post_office(self):
+        self._set_carrier("indiapost")
+        _, result = self._checkout_with(self._address("HO"))
+        self.assertIn("between 3 and 80 characters", result)
+
+    def test_checkout_accepts_a_saved_address_with_a_post_office(self):
+        self._set_carrier("indiapost")
+        page, result = self._checkout_with(self._address("Aluva H.O"))
+        self.assertNotIn("Post Office missing", page)
+        self.assertNotIn("needs a Post Office", result)
+
+    def test_other_carriers_do_not_need_a_post_office_on_saved_addresses(self):
+        self._set_carrier("delhivery")
+        page, result = self._checkout_with(self._address(""))
+        self.assertNotIn("Post Office missing", page)
+        self.assertNotIn("needs a Post Office", result)
+
+    def test_profile_form_requires_a_post_office_only_in_india_post_mode(self):
+        data = {"name": "A B", "phone": "9876543210", "address_line1": "12 MG Road", "city": "Kochi",
+                "state": "Kerala", "pincode": "682001", "address_line2": ""}
+        form = CustomerProfileEditForm(data, post_office_mode=True)
+        self.assertFalse(form.is_valid())
+        self.assertIn("Post Office is required.", form.errors["address_line2"])
+        self.assertFalse(CustomerProfileEditForm({**data, "address_line2": "HO"}, post_office_mode=True).is_valid())
+        self.assertTrue(CustomerProfileEditForm({**data, "address_line2": "Aluva H.O"}, post_office_mode=True).is_valid())
+        self.assertTrue(CustomerProfileEditForm(data, post_office_mode=False).is_valid())
+        #no address being saved (line 1 empty) -> nothing to check
+        self.assertTrue(CustomerProfileEditForm({"name": "A B", "phone": "9876543210"}, post_office_mode=True).is_valid())
+
+    def test_profile_page_labels_the_field_post_office(self):
+        self._set_carrier("indiapost")
+        self.client.force_login(self.user)
+        html = self.client.get(reverse("accounts:edit-profile")).content.decode()
+        self.assertIn("Post Office", html)
+        self.assertNotIn("Address Line 2 (Optional)", html)
+
+    def test_address_form_requires_a_post_office_only_in_india_post_mode(self):
+        data = {"label": "Home", "line1": "12 MG Road", "city": "Kochi", "state": "Kerala", "pincode": "682001"}
+        self._set_carrier("indiapost")
+        self.assertIn("line2", AddressForm(data).errors)
+        self.assertTrue(AddressForm({**data, "line2": "Aluva H.O"}).is_valid(), AddressForm({**data, "line2": "Aluva H.O"}).errors)
+        self._set_carrier("delhivery")
+        self.assertTrue(AddressForm(data).is_valid())
+
+
 class Fix14ConcurrencyTests(IndiaPostTestCase):
     def test_a_booking_in_progress_blocks_a_second_one(self):
         order = self.make_order()
@@ -907,6 +984,37 @@ class PostOfficeCheckoutTests(IndiaPostTestCase):
         book_shipment(order)
         self.assertEqual(self.net.booking_calls()[0]["json"]["articles"][0]["receiver_add_line_2"], "Aluva H.O")
 
+    def test_post_office_must_be_3_to_80_characters(self):
+        """India Post rejects an address line 2 outside 3-80 characters, so checkout does too."""
+        self._set_carrier("indiapost")
+        self._page()
+        self.assertIn("between 3 and 80 characters", self._place(guest_address_line2="HO"))
+        self.assertIn("between 3 and 80 characters", self._place(guest_address_line2="A" * 81))
+        self.assertNotIn("between 3 and 80 characters", self._place(guest_address_line2="Aluva H.O"))
+        self.assertIn('maxlength="80"', self._page())
+
+    def test_post_office_error_is_cleared_before_each_validation(self):
+        """A fixed Post Office must not keep showing the error from the previous attempt."""
+        self._set_carrier("indiapost")
+        html = self._page()
+        error_ids = html.split("var errorIds = [", 1)[1].split("];", 1)[0]
+        self.assertIn("'error-guest_address_line2'", error_ids)
+
+    def test_short_line_2_on_an_existing_address_is_made_india_post_safe(self):
+        """Addresses saved before the 3-character rule must not make the booking fail."""
+        order = self.make_order(address={
+            "name": "R", "phone": "9876543210", "line1": "12 MG Road", "line2": "HO",
+            "city": "Kochi", "state": "Kerala", "pincode": "682001"})
+        book_shipment(order)
+        self.assertEqual(self.net.booking_calls()[0]["json"]["articles"][0]["receiver_add_line_2"], "HO.")
+
+    def test_blank_line_2_stays_blank(self):
+        order = self.make_order(address={
+            "name": "R", "phone": "9876543210", "line1": "12 MG Road", "line2": "",
+            "city": "Kochi", "state": "Kerala", "pincode": "682001"})
+        book_shipment(order)
+        self.assertEqual(self.net.booking_calls()[0]["json"]["articles"][0]["receiver_add_line_2"], "")
+
 
 # ============================================================================ API specification
 
@@ -1038,6 +1146,17 @@ class ReversePickupTests(IndiaPostTestCase):
         self.assertEqual(article["bulk_reference"], "RET-1")
         self.assertEqual(booking.barcode, article["barcode_no"])
         self.assertEqual(booking.tariff, Decimal("55.5"))
+
+    def test_short_customer_line_2_is_made_india_post_safe_on_returns(self):
+        from dataclasses import replace
+
+        from indiapost.services import resolve_recipient
+
+        customer = replace(resolve_recipient(self.make_order()), line2="HO")
+        self._book(pickup_from=customer)
+        article = self.net.booking_calls()[0]["json"]["articles"][0]
+        self.assertEqual(article["sender_add_line_2"], "HO.")
+        self.assertEqual(article["pickup_address_line2"], "HO.")
 
     def test_pickup_fields_follow_the_documented_formats(self):
         self._book()

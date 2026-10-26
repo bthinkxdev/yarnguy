@@ -202,6 +202,15 @@ def _min3(value: str) -> str:
     return value if len(value) >= 3 else value.ljust(3, ".")
 
 
+def _optional_line(value: str) -> str:
+    """
+    An optional address line: blank stays blank, anything else is 3-80 characters.
+
+    """
+    value = (value or "").strip()[:80]
+    return _min3(value) if value else ""
+
+
 @dataclass(frozen=True)
 class Party:
     """A sender or receiver of an article."""
@@ -328,7 +337,7 @@ def build_article_payload(
         "sender_name": _min3(sender.name[:80]),
         "sender_company": _min3(sender.name[:80]),
         "sender_add_line_1": _min3(sender.line1[:80]),
-        "sender_add_line_2": sender.line2[:80],
+        "sender_add_line_2": _optional_line(sender.line2),
         "sender_city": _min3(sender.city[:80]),
         "sender_state": sender.state[:80],
         "sender_pincode": sender.pincode,
@@ -339,7 +348,7 @@ def build_article_payload(
         "receiver_name": _min3(receiver.name[:80]),
         "receiver_company": _min3(receiver.name[:80]),
         "receiver_add_line_1": _min3(receiver.line1[:80]),
-        "receiver_add_line_2": receiver.line2[:80],
+        "receiver_add_line_2": _optional_line(receiver.line2),
         "receiver_city": _min3(receiver.city[:80]),
         "receiver_state": receiver.state[:80],
         "receiver_pincode": receiver.pincode,
@@ -366,7 +375,7 @@ def build_article_payload(
         "pickup_addressee_name": _min3(sender.name[:80]) if pickup else "",
         "pickup_company_name": _min3(sender.name[:80]) if pickup else "",
         "pickup_address_line1": _min3(sender.line1[:80]) if pickup else "",
-        "pickup_address_line2": sender.line2[:80] if pickup else "",
+        "pickup_address_line2": _optional_line(sender.line2) if pickup else "",
         "pickup_address_line3": "",
         "pickup_city": _min3(sender.city[:80]) if pickup else "",
         "pickup_state": sender.state[:80] if pickup else "",

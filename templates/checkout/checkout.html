@@ -69,7 +69,7 @@
             <div class="form-check mb-2">
               <input class="form-check-input address-radio" type="radio" name="address_id" value="{{ address.pk }}"
                 id="addr-{{ address.pk }}" {% if forloop.first %}checked{% endif %}>
-              <label class="form-check-label small" for="addr-{{ address.pk }}">{{ address.label }} — {{ address.line1 }}, {{ address.city }}{% if address.pincode %} - {{ address.pincode }}{% endif %}</label>
+              <label class="form-check-label small" for="addr-{{ address.pk }}">{{ address.label }} — {{ address.line1 }}{% if address.line2 %}, {{ address.line2 }}{% endif %}, {{ address.city }}{% if address.pincode %} - {{ address.pincode }}{% endif %}{% if post_office_mode and not address.line2 %} <span class="text-danger">({% trans "Post Office missing" %})</span>{% endif %}</label>
             </div>
             {% endfor %}
             <div class="form-check mb-2">
@@ -90,7 +90,7 @@
               {% if post_office_mode %}
               {# India Post delivers via the local post office, so it replaces the free-text second address line #}
               <label class="form-label small">{% trans "Post Office" %} <span class="text-danger">*</span></label>
-              <input type="text" name="guest_address_line2" class="form-control form-control-sm" placeholder="{% trans 'Your nearest / delivery post office' %}" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
+              <input type="text" maxlength="80" name="guest_address_line2" class="form-control form-control-sm" placeholder="{% trans 'Your nearest / delivery post office' %}" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
               <div id="error-guest_address_line2" class="text-danger small mt-1"></div>
               {% else %}
               <label class="form-label small">{% trans "Address Line 2 (Optional)" %}</label>
@@ -331,7 +331,7 @@
         var guestEmail = guestEmailEl ? guestEmailEl.value.trim() : '';
         var guestPhone = guestPhoneEl ? guestPhoneEl.value.trim() : '';
         
-        var errorIds = ['error-guest_name', 'error-guest_email', 'error-guest_phone', 'error-guest_address_line1', 'error-guest_city', 'error-guest_state', 'error-guest_pincode'];
+        var errorIds = ['error-guest_name', 'error-guest_email', 'error-guest_phone', 'error-guest_address_line1', 'error-guest_address_line2', 'error-guest_city', 'error-guest_state', 'error-guest_pincode'];
         errorIds.forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.innerText = '';
@@ -401,6 +401,9 @@
               isValid = false;
             } else if (!/[a-zA-Z]/.test(postOffice)) {
               postOfficeError.innerText = 'Enter a valid post office name.';
+              isValid = false;
+            } else if (postOffice.length < 3 || postOffice.length > 80) {
+              postOfficeError.innerText = 'Post Office must be between 3 and 80 characters.';
               isValid = false;
             }
           }

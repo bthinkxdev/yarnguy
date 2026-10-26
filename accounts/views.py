@@ -473,8 +473,11 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
             "pincode": address.pincode,
         })
         
+    from core.services import is_post_office_mode
+
+    post_office_mode = is_post_office_mode()
     if request.method == "POST":
-        form = CustomerProfileEditForm(request.POST, initial=initial)
+        form = CustomerProfileEditForm(request.POST, initial=initial, post_office_mode=post_office_mode)
         if form.is_valid():
             name = form.cleaned_data["name"]
             if name:
@@ -519,9 +522,9 @@ def edit_profile_view(request: HttpRequest) -> HttpResponse:
             messages.success(request, "Profile updated successfully.")
             return redirect("accounts:dashboard")
     else:
-        form = CustomerProfileEditForm(initial=initial)
+        form = CustomerProfileEditForm(initial=initial, post_office_mode=post_office_mode)
         
-    return render(request, "accounts/edit_profile.html", {"form": form})
+    return render(request, "accounts/edit_profile.html", {"form": form, "post_office_mode": post_office_mode})
 
 
 @login_required
