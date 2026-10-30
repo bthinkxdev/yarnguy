@@ -165,6 +165,20 @@ def line_weight_grams(product: Any, quantity: int) -> int:
     return int(Decimal(str(product.weight)) * 1000) * (quantity or 1)
 
 
+def box_dimensions(products: Iterable[Any]) -> tuple[int, int, int]:
+    """
+    ``(length, width, height)`` in whole cm of the box for ``products``: the largest declared
+    size on each side, never below the parcel minimum of 14 x 9 x 1 cm (also the size used when
+    no product declares one).
+    """
+    length, width, height = PARCEL_LIMITS["length"][0], PARCEL_LIMITS["width"][0], PARCEL_LIMITS["height"][0]
+    for product in products:
+        length = max(length, math.ceil(float(product.length or 0)))
+        width = max(width, math.ceil(float(product.width or 0)))
+        height = max(height, math.ceil(float(product.height or 0)))
+    return length, width, height
+
+
 def plan_parcel(lines: Iterable[tuple[Any, int]]) -> Parcel:
     """
     Weight, dimensions and India Post article type for ``(product, quantity)`` lines.
@@ -177,16 +191,9 @@ def plan_parcel(lines: Iterable[tuple[Any, int]]) -> Parcel:
     Raises:
         IndiaPostBookingError: over 35 kg, or a side over 150 cm (India Post's limits).
     """
-    total_weight_grams = 0
-    length, width, height = PARCEL_LIMITS["length"][0], PARCEL_LIMITS["width"][0], PARCEL_LIMITS["height"][0]
-
-    for product, quantity in lines:
-        total_weight_grams += line_weight_grams(product, quantity)
-        length = max(length, math.ceil(float(product.length or 0)))
-        width = max(width, math.ceil(float(product.width or 0)))
-        height = max(height, math.ceil(float(product.height or 0)))
-
-    weight = total_weight_grams or DOC_MAX_GRAMS
+    lines = list(lines)
+    length, width, height = box_dimensions(product for product, _quantity in lines)
+    weight = sum(line_weight_grams(product, quantity) for product, quantity in lines) or DOC_MAX_GRAMS
     if weight > PARCEL_MAX_GRAMS:
         raise IndiaPostBookingError(f"Parcel weighs {weight} g; India Post's maximum is {PARCEL_MAX_GRAMS} g.")
     if not _fits(PARCEL_LIMITS, length, width, height):

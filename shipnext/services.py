@@ -13,6 +13,7 @@ from django.utils import timezone
 
 from indiapost.services import (
     IndiaPostBookingError,
+    box_dimensions,
     is_cod_order,
     line_weight_grams,
     normalize_event_name,
@@ -32,6 +33,8 @@ CLAIM_STALE_AFTER = timedelta(minutes=10)
 #sent as-is in Ship Next's financial_status: COD is "pending" (cash still to collect), prepaid is "Paid"
 FINANCIAL_STATUS_COD = "pending"
 FINANCIAL_STATUS_PREPAID = "Paid"
+#pkg_shape values Ship Next accepts: "nrol" is a box, "rol" a cylinder
+PACKAGE_SHAPE_BOX = "nrol"
 
 #status words Ship Next may call back with -> internal order status (matched after normalize_event_name).
 #"fulfilled" means the courier booking exists and the tracking number is ready.
@@ -110,11 +113,17 @@ def build_payload(order: Order) -> dict[str, Any]:
         recipient = resolve_recipient(order)
     except IndiaPostBookingError as exc:
         raise ShipNextError(str(exc)) from exc
+    length, breadth, height = box_dimensions(item.product for item in order.items.select_related("product"))
 
     return {
         "name": order.order_number,
         "total_price": float(order.total_amount),
         "total_weight": order_weight_grams(order),
+        "pkg_length": length,
+        "pkg_breadth": breadth,
+        "pkg_height": height,
+        #everything we sell ships in a box; "rol" (a cylinder: length + diameter) is never used
+        "pkg_shape": PACKAGE_SHAPE_BOX,
         "financial_status": FINANCIAL_STATUS_COD if is_cod_order(order) else FINANCIAL_STATUS_PREPAID,
         "shipping_address": {
             "name": recipient.name,
