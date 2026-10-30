@@ -36,7 +36,7 @@
               </div>
               <div class="col-md-2 text-md-end">
                 <a href="{% url 'orders:detail' order_id=order.pk %}" class="btn btn-outline-floward btn-sm w-100 mb-2 fw-medium">{% trans "View Details" %}</a>
-                <a href="{{ order.tracking_url }}" target="_blank" class="btn btn-light border btn-sm w-100">{% trans "Track" %}</a>
+                {% if order.tracking_url %}<a href="{{ order.tracking_url }}" target="_blank" class="btn btn-light border btn-sm w-100">{% trans "Track" %}</a>{% endif %}
               </div>
             </div>
           </div>

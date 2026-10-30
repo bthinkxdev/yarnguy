@@ -28,13 +28,22 @@ from payments.services import process_payment
 logger = logging.getLogger(__name__)
 
 
-def _post_office_mode(site_settings=None) -> bool:
-    """India Post is the active courier: it delivers via a post office, so checkout asks for one."""
+def _carrier(site_settings=None) -> str:
     if site_settings is None:
         from core.services import get_site_settings
 
         site_settings = get_site_settings()
-    return site_settings.shipping_carrier == "indiapost"
+    return site_settings.shipping_carrier
+
+
+def _post_office_mode(site_settings=None) -> bool:
+    """India Post and Ship Next deliver via a post office, so checkout asks for one."""
+    return _carrier(site_settings) in ("indiapost", "shipnext")
+
+
+def _post_office_lookup(site_settings=None) -> bool:
+    """Ship Next: the post office is chosen from a list fetched for the PIN code, not typed."""
+    return _carrier(site_settings) == "shipnext"
 
 
 def _get_checkout_cart(request: HttpRequest, create: bool = False):
@@ -208,6 +217,7 @@ def checkout_view(request: HttpRequest) -> HttpResponse:
             "indian_states": INDIAN_STATES,
             "settings": settings,
             "post_office_mode": _post_office_mode(settings),
+            "post_office_lookup": _post_office_lookup(settings),
 
             "payment_gateways": available_gateways,
             "selected_gateway_key": selected_gateway_key,

@@ -97,8 +97,14 @@ def order_weight_grams(order: Order) -> int:
     return total or DEFAULT_WEIGHT_GRAMS
 
 
-def _line_name(item: Any) -> str:
-    return f"{item.product.name} - {item.variant_name}" if item.variant_name else item.product.name
+def _line_sku(item: Any) -> str:
+    """
+    The code Ship Next shows for a line: the variant's SKU, or the product's SKU when the line has
+    no variant or the variant has none. ``sku_suffix`` already holds the variant's complete code
+    (it is not appended to the product SKU), and "0" is the catalog's placeholder for "not set".
+    """
+    variant_sku = (item.variant.sku_suffix or "").strip() if item.variant else ""
+    return variant_sku if variant_sku and variant_sku != "0" else item.product.sku
 
 
 def build_payload(order: Order) -> dict[str, Any]:
@@ -138,11 +144,11 @@ def build_payload(order: Order) -> dict[str, Any]:
         "line_items": [
             {
                 "order_id": order.order_number,
-                "name": _line_name(item),
+                "name": _line_sku(item),
                 "price": float(item.unit_price),
-                "quantity": item.quantity,
+                "fulfillable_quantity": item.quantity,
             }
-            for item in order.items.select_related("product")
+            for item in order.items.select_related("product", "variant")
         ],
     }
 
@@ -222,6 +228,8 @@ def send_order(order: Order) -> ShipNextShipment:
 
     try:
         status_code, body = _post(url, build_payload(order))
+        print("Payload:", build_payload(order))
+        print("Request Body:", body)
         accepted = status_code in (200, 201) and isinstance(body, dict) and body.get("success") is True
         if not accepted:
             #5xx / 429: Ship Next is struggling, try again later. Other 4xx or success=false: our data is rejected
@@ -243,7 +251,13 @@ def send_order(order: Order) -> ShipNextShipment:
     shipment.sent_at = timezone.now()
     shipment.raw_response = body
     shipment.error_message = ""
-    shipment.save(update_fields=["send_status", "external_order_id", "sent_at", "raw_response", "error_message", "updated_at"])
+    update_fields = ["send_status", "external_order_id", "sent_at", "raw_response", "error_message", "updated_at"]
+    #the booking answer carries the tracking number; never blank out one entered by hand or by a callback
+    tracking = str(body.get("tracking_number") or "").strip()[:50]
+    if tracking:
+        shipment.tracking_number = tracking
+        update_fields.append("tracking_number")
+    shipment.save(update_fields=update_fields)
     if order.delivery_partner != "shipnext":
         order.delivery_partner = "shipnext"
         order.save(update_fields=["delivery_partner", "updated_at"])

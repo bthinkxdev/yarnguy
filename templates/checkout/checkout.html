@@ -86,17 +86,12 @@
               <input type="text" name="guest_address_line1" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.line1|default:'' }}{% endif %}">
               <div id="error-guest_address_line1" class="text-danger small mt-1"></div>
             </div>
+            {% if not post_office_mode %}
             <div class="mb-3">
-              {% if post_office_mode %}
-              {# India Post delivers via the local post office, so it replaces the free-text second address line #}
-              <label class="form-label small">{% trans "Post Office" %} <span class="text-danger">*</span></label>
-              <input type="text" name="guest_address_line2" class="form-control form-control-sm" placeholder="{% trans 'Your nearest / delivery post office' %}" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
-              <div id="error-guest_address_line2" class="text-danger small mt-1"></div>
-              {% else %}
               <label class="form-label small">{% trans "Address Line 2 (Optional)" %}</label>
               <input type="text" name="guest_address_line2" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
-              {% endif %}
             </div>
+            {% endif %}
             <div class="mb-3">
               <label class="form-label small">{% trans "City" %} <span class="text-danger">*</span></label>
               <input type="text" name="guest_city" class="form-control form-control-sm" value="{% if not addresses %}{{ checkout_session.address.city|default:'' }}{% endif %}">
@@ -121,6 +116,23 @@
                 <div id="error-guest_pincode" class="text-danger small mt-1"></div>
               </div>
             </div>
+            {% if post_office_mode %}
+            {# India Post / Ship Next deliver via the local post office, so it replaces the free-text second address line; it comes after the PIN because Ship Next lists the offices for that PIN #}
+            <div class="mb-3">
+              <label class="form-label small">{% trans "Post Office" %} <span class="text-danger">*</span></label>
+              {% if post_office_lookup %}
+              {# Ship Next: filled from the PIN code (see the post office script below); the typed box is only a fallback if that lookup fails #}
+              <select name="guest_address_line2" id="post-office-select" class="form-select form-select-sm" disabled data-initial="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
+                <option value="">{% trans "Enter your PIN code first" %}</option>
+              </select>
+              <input type="text" name="guest_address_line2" id="post-office-manual" class="form-control form-control-sm d-none" disabled placeholder="{% trans 'Your delivery post office' %}">
+              <div id="post-office-hint" class="text-muted small mt-1"></div>
+              {% else %}
+              <input type="text" name="guest_address_line2" class="form-control form-control-sm" placeholder="{% trans 'Your nearest / delivery post office' %}" value="{% if not addresses %}{{ checkout_session.address.line2|default:'' }}{% endif %}">
+              {% endif %}
+              <div id="error-guest_address_line2" class="text-danger small mt-1"></div>
+            </div>
+            {% endif %}
           </div>
         </div>
 
@@ -319,6 +331,101 @@
       });
     }
 
+    {% if post_office_lookup %}
+    // Ship Next: the Post Office is picked from a list fetched for the PIN code once it is complete.
+    var poSelect = document.getElementById('post-office-select');
+    var pinInput = document.querySelector('input[name="guest_pincode"]');
+    if (poSelect && pinInput) {
+      var poManual = document.getElementById('post-office-manual');
+      var poHint = document.getElementById('post-office-hint');
+      var poLookupId = 0;      // bumped on every change so a slow answer for an old PIN is ignored
+      var poTimer = null;
+      var poWanted = poSelect.dataset.initial || '';  // re-selected after a reload / failed order
+
+      function setPostOfficeControls(useSelect, selectDisabled) {
+        poSelect.classList.toggle('d-none', !useSelect);
+        poSelect.disabled = !useSelect || selectDisabled;
+        poManual.classList.toggle('d-none', useSelect);
+        poManual.disabled = useSelect;
+      }
+
+      function resetPostOffices(placeholder, hint) {
+        poLookupId++;
+        poSelect.innerHTML = '';
+        poSelect.appendChild(new Option(placeholder, ''));
+        setPostOfficeControls(true, true);
+        poHint.textContent = hint || '';
+      }
+
+      // The list is unavailable (service down, or PIN unknown to it): never block the order, let them type it.
+      function typePostOffice(hint) {
+        poSelect.innerHTML = '';
+        poSelect.appendChild(new Option('', ''));
+        setPostOfficeControls(false, true);
+        if (!poManual.value && poWanted) poManual.value = poWanted;
+        poHint.textContent = hint;
+      }
+
+      function fillPostOffices(offices) {
+        var names = [];
+        offices.forEach(function(office) {
+          if (office.Name && names.indexOf(office.Name) === -1) names.push(office.Name);
+        });
+        poSelect.innerHTML = '';
+        poSelect.appendChild(new Option('Select your post office', ''));
+        names.forEach(function(name) { poSelect.appendChild(new Option(name, name)); });
+        setPostOfficeControls(true, false);
+        poSelect.value = names.indexOf(poWanted) !== -1 ? poWanted : '';
+        poHint.textContent = names.length + (names.length === 1 ? ' post office' : ' post offices') + ' found for this PIN code.';
+      }
+
+      function lookupPostOffices(pin) {
+        var id = ++poLookupId;
+        poSelect.innerHTML = '';
+        poSelect.appendChild(new Option('Loading post offices…', ''));
+        setPostOfficeControls(true, true);
+        poHint.textContent = '';
+        fetch('https://api.postalpincode.in/pincode/' + encodeURIComponent(pin), { headers: { Accept: 'application/json' } })
+          .then(function(response) {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .then(function(data) {
+            if (id !== poLookupId) return;
+            var result = Array.isArray(data) ? data[0] : null;
+            var offices = result && result.Status === 'Success' && Array.isArray(result.PostOffice) ? result.PostOffice : [];
+            // offices that do not deliver cannot be the delivery post office, unless the list has nothing else
+            var delivering = offices.filter(function(office) { return office.DeliveryStatus === 'Delivery'; });
+            offices = delivering.length ? delivering : offices;
+            if (offices.length) {
+              fillPostOffices(offices);
+            } else {
+              typePostOffice('No post office was found for this PIN code. Check the PIN, or type your post office.');
+            }
+          })
+          .catch(function() {
+            if (id !== poLookupId) return;
+            typePostOffice('Could not load the post offices. Please type your post office.');
+          });
+      }
+
+      function onPinChange() {
+        clearTimeout(poTimer);
+        var pin = pinInput.value.trim();
+        if (/^[1-9]\d{5}$/.test(pin)) {
+          poTimer = setTimeout(function() { lookupPostOffices(pin); }, 250);
+        } else {
+          resetPostOffices('Enter your PIN code first', 'Enter a valid 6-digit PIN code to choose your post office.');
+        }
+      }
+
+      poSelect.addEventListener('change', function() { poWanted = poSelect.value; });
+      poManual.addEventListener('input', function() { poWanted = poManual.value; });
+      pinInput.addEventListener('input', onPinChange);
+      if (/^[1-9]\d{5}$/.test(pinInput.value.trim())) lookupPostOffices(pinInput.value.trim());
+    }
+    {% endif %}
+
     var checkoutForm = document.getElementById('checkout-form');
     if (checkoutForm) {
       function validateCheckoutForm() {
@@ -331,7 +438,7 @@
         var guestEmail = guestEmailEl ? guestEmailEl.value.trim() : '';
         var guestPhone = guestPhoneEl ? guestPhoneEl.value.trim() : '';
         
-        var errorIds = ['error-guest_name', 'error-guest_email', 'error-guest_phone', 'error-guest_address_line1', 'error-guest_city', 'error-guest_state', 'error-guest_pincode'];
+        var errorIds = ['error-guest_name', 'error-guest_email', 'error-guest_phone', 'error-guest_address_line1', 'error-guest_address_line2', 'error-guest_city', 'error-guest_state', 'error-guest_pincode'];
         errorIds.forEach(function(id) {
           var el = document.getElementById(id);
           if (el) el.innerText = '';
@@ -394,10 +501,13 @@
           }
 
           if (postOfficeMode) {
-            var postOffice = checkoutForm.querySelector('input[name="guest_address_line2"]')?.value.trim() || '';
+            //with the dropdown there are two controls named guest_address_line2; only the enabled one counts
+            var postOffice = checkoutForm.querySelector('[name="guest_address_line2"]:not(:disabled)')?.value.trim() || '';
             var postOfficeError = document.getElementById('error-guest_address_line2');
             if (!postOffice) {
-              postOfficeError.innerText = 'Post Office is required.';
+              postOfficeError.innerText = document.getElementById('post-office-select')
+                ? 'Enter your PIN code and select your post office.'
+                : 'Post Office is required.';
               isValid = false;
             } else if (!/[a-zA-Z]/.test(postOffice)) {
               postOfficeError.innerText = 'Enter a valid post office name.';

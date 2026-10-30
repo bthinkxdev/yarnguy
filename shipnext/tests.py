@@ -14,7 +14,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from catalog.models import Category, Product
+from catalog.models import Category, Product, ProductVariant
 from core.models import Currency, SiteSettings
 from delhivery.models import DelhiveryShipment
 from delhivery.tasks import create_shipment_for_order
@@ -51,6 +51,9 @@ class ShipNextTestCase(TestCase):
             name="Hoodie", slug="hoodie", sku="H1", category=category, base_price="500", mrp="500",
             purchase_price="300", stock_quantity=20, weight="0.400",
         )
+        self.hoodie_variant = ProductVariant.objects.create(
+            product=self.hoodie, variant_type="size", name="Black / L", sku_suffix="L BLK HOOD", stock_quantity=20
+        )
         self.cap = Product.objects.create(
             name="Cap", slug="cap", sku="C1", category=category, base_price="200", mrp="200",
             purchase_price="100", stock_quantity=20, weight="0.150",
@@ -63,9 +66,10 @@ class ShipNextTestCase(TestCase):
             subtotal=Decimal("1200"), total_amount=Decimal("1200"), currency=self.currency,
             delivery_address_snapshot=ADDRESS if address is None else address,
         )
-        for product, quantity, variant in items or [(self.hoodie, 2, "Black / L"), (self.cap, 1, "")]:
+        for product, quantity, variant in items or [(self.hoodie, 2, self.hoodie_variant), (self.cap, 1, None)]:
             OrderItem.objects.create(
-                order=order, product=product, quantity=quantity, unit_price=product.base_price, variant_name=variant
+                order=order, product=product, quantity=quantity, unit_price=product.base_price,
+                variant=variant, variant_name=variant.name if variant else "",
             )
         PaymentTransaction.objects.create(
             order=order, gateway_key="cod" if cod else "razorpay_upi", amount=order.total_amount,
@@ -85,11 +89,26 @@ class PayloadTests(ShipNextTestCase):
             "city": "Kochi", "province": "Kerala", "zip": "682001", "country": "India",
         })
         self.assertEqual(payload["line_items"][0], {
-            "order_id": payload["name"], "name": "Hoodie - Black / L", "price": 500.0, "quantity": 2,
+            "order_id": payload["name"], "name": "L BLK HOOD", "price": 500.0, "fulfillable_quantity": 2,
         })
-        self.assertEqual(payload["line_items"][1]["name"], "Cap")
+        self.assertEqual(payload["line_items"][1]["name"], "C1")
         self.assertNotIn("shipping_phone", payload)
         self.assertNotIn("shipping_zip", payload)
+
+    def test_a_line_is_named_by_its_variant_sku_falling_back_to_the_product_sku(self):
+        def names(variant):
+            order = self.make_order(items=[(self.hoodie, 1, variant)])
+            return [line["name"] for line in build_payload(order)["line_items"]]
+
+        self.assertEqual(names(self.hoodie_variant), ["L BLK HOOD"])
+        self.assertEqual(names(None), ["H1"])  # no variant
+        for unset in ("", "  ", "0"):  # variant without a SKU ("0" is the catalog's "not set")
+            ProductVariant.objects.filter(pk=self.hoodie_variant.pk).update(sku_suffix=unset)
+            self.hoodie_variant.refresh_from_db()
+            self.assertEqual(names(self.hoodie_variant), ["H1"], repr(unset))
+        ProductVariant.objects.filter(pk=self.hoodie_variant.pk).update(sku_suffix="  M DST BLK  ")
+        self.hoodie_variant.refresh_from_db()
+        self.assertEqual(names(self.hoodie_variant), ["M DST BLK"])
 
     def test_cod_is_pending_and_prepaid_is_paid(self):
         self.assertEqual(build_payload(self.make_order(cod=True))["financial_status"], "pending")
@@ -103,6 +122,20 @@ class PayloadTests(ShipNextTestCase):
         self.cap.save()
         self.assertEqual(order_weight_grams(self.make_order()), 500)
         self.assertIsInstance(build_payload(self.make_order())["total_weight"], int)
+
+    def test_package_size_and_shape(self):
+        #no product declares a size: India Post's parcel minimum, as a box
+        payload = build_payload(self.make_order())
+        self.assertEqual(
+            (payload["pkg_length"], payload["pkg_breadth"], payload["pkg_height"], payload["pkg_shape"]),
+            (14, 9, 1, "nrol"),
+        )
+        #the largest declared side wins, rounded up to whole cm
+        Product.objects.filter(pk=self.hoodie.pk).update(length="30.2", width="22", height="4")
+        Product.objects.filter(pk=self.cap.pk).update(length="20", width="25.5", height="2")
+        payload = build_payload(self.make_order())
+        self.assertEqual((payload["pkg_length"], payload["pkg_breadth"], payload["pkg_height"]), (31, 26, 4))
+        self.assertTrue(all(isinstance(payload[key], int) for key in ("pkg_length", "pkg_breadth", "pkg_height")))
 
     def test_bad_delivery_data_is_a_permanent_error(self):
         order = self.make_order(address={**ADDRESS, "pincode": "123"})
@@ -123,7 +156,40 @@ class SendTests(ShipNextTestCase):
         self.assertIsNotNone(shipment.sent_at)
         order.refresh_from_db()
         self.assertEqual(order.delivery_partner, "shipnext")
-        self.assertEqual(order.carrier_display_name, "India Post")
+        self.assertEqual(order.carrier_display_name, "Ship Next")
+
+    def test_the_tracking_number_in_the_response_is_saved_and_drives_the_track_link(self):
+        order = self.make_order()
+        body = {
+            "success": True, "message": "Order processed successfully", "order_id": 7091,
+            "tracking_number": "EY453950670IN", "shipping_status": "pickup/drop-off waiting",
+        }
+        with patch("shipnext.services.requests.post", return_value=reply(201, body)):
+            shipment = send_order(order)
+        self.assertEqual(shipment.tracking_number, "EY453950670IN")
+        order.refresh_from_db()
+        self.assertEqual(order.tracking_number, "EY453950670IN")
+        self.assertEqual(order.tracking_url, "https://ship-next.com/trace-order/EY453950670IN")
+
+    def test_there_is_no_track_link_until_a_tracking_number_exists(self):
+        order = self.make_order()
+        with patch("shipnext.services.requests.post", return_value=reply()):  # no tracking_number in the reply
+            send_order(order)
+        order.refresh_from_db()
+        self.assertEqual(order.tracking_url, "")
+
+    def test_a_reply_without_tracking_never_blanks_a_saved_number(self):
+        order = self.make_order()
+        ShipNextShipment.objects.create(order=order, tracking_number="EM1IN")
+        with patch("shipnext.services.requests.post", return_value=reply()):
+            send_order(order)
+        self.assertEqual(ShipNextShipment.objects.get(order=order).tracking_number, "EM1IN")
+
+    def test_other_couriers_keep_their_own_tracking_pages(self):
+        order = self.make_order()
+        order.delivery_partner = "delhivery"
+        DelhiveryShipment.objects.create(order=order, waybill_number="DL1", tracking_status="Initiated")
+        self.assertEqual(order.tracking_url, "https://www.delhivery.com/track-v2/package/DL1")
 
     def test_sending_twice_posts_once(self):
         order = self.make_order()
@@ -512,3 +578,58 @@ class CallbackTests(ShipNextTestCase):
         order = self.shipnext_order()
         response = self.client.get(reverse("shipnext:webhook", args=[order.order_number.lstrip("#")]))
         self.assertEqual(response.status_code, 405)
+
+
+class CheckoutPostOfficeTests(ShipNextTestCase):
+    """With Ship Next as the courier, checkout picks the Post Office from a list fetched for the PIN."""
+
+    def set_carrier(self, carrier):
+        SiteSettings.objects.first() or SiteSettings.objects.create()
+        SiteSettings.objects.update(shipping_carrier=carrier)
+
+    def page(self):
+        self.client.post(reverse("cart:add"), {"product_id": self.cap.pk, "quantity": 1}, HTTP_HX_REQUEST="true")
+        return self.client.get(reverse("checkout:checkout")).content.decode()
+
+    def place(self, **overrides):
+        data = {
+            "gateway_key": "cod", "idempotency_key": "k", "guest_name": "Ravi K", "guest_email": "r@example.com",
+            "guest_phone": "9876543210", "guest_address_line1": "12 MG Road", "guest_address_line2": "",
+            "guest_city": "Kochi", "guest_state": "Kerala", "guest_pincode": "682030", **overrides,
+        }
+        return self.client.post(reverse("checkout:place-order"), data, HTTP_HX_REQUEST="true").content.decode()
+
+    def test_ship_next_shows_a_post_office_dropdown_that_waits_for_the_pin(self):
+        self.set_carrier("shipnext")
+        html = self.page()
+        self.assertIn('id="post-office-select"', html)
+        self.assertIn("api.postalpincode.in/pincode/", html)
+        self.assertIn("var postOfficeMode = true;", html)
+        self.assertNotIn("Address Line 2 (Optional)", html)
+        select = html.split('id="post-office-select"')[1].split(">")[0]
+        self.assertIn("disabled", select)  # nothing to choose until a complete PIN has been looked up
+
+    def test_other_carriers_do_not_get_the_dropdown(self):
+        for carrier, optional_line2 in (("delhivery", True), ("indiapost", False)):
+            self.set_carrier(carrier)
+            html = self.page()
+            self.assertNotIn('id="post-office-select"', html, carrier)
+            self.assertNotIn("api.postalpincode.in", html, carrier)
+            self.assertEqual("Address Line 2 (Optional)" in html, optional_line2, carrier)
+
+    def test_the_post_office_is_required_server_side_with_ship_next(self):
+        self.set_carrier("shipnext")
+        self.page()
+        self.assertIn("Post Office is required.", self.place())
+        self.assertIn("valid post office name", self.place(guest_address_line2="12345"))
+        self.assertNotIn("Post Office is required.", self.place(guest_address_line2="Kakkanad"))
+
+    def test_the_chosen_post_office_reaches_ship_next_as_address_line_2(self):
+        self.set_carrier("shipnext")
+        self.page()
+        self.place(guest_address_line2="Kakkanad West")
+        order = Order.objects.exclude(order_status=OrderStatus.CHECKOUT_PENDING).filter(
+            delivery_address_snapshot__line2="Kakkanad West"
+        ).first()
+        self.assertIsNotNone(order)
+        self.assertEqual(build_payload(order)["shipping_address"]["address2"], "Kakkanad West")

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from django.conf import settings
 from django.db import models
 
@@ -251,6 +253,24 @@ class Order(TimeStampedModel):
         return None
 
     @property
+    def post_office(self) -> str:
+        """
+        The post office the customer chose, for an order delivered through one ("" otherwise).
+
+        Checkout stores it as address line 2. An order not yet confirmed (a COD order awaiting
+        confirmation) has no courier locked, so it follows the store's active courier.
+        """
+        line2 = str((self.delivery_address_snapshot or {}).get("line2") or "").strip()
+        if not line2:
+            return ""
+        partner = self.get_delivery_partner()
+        if partner is None:
+            from core.services import get_site_settings
+
+            partner = get_site_settings().shipping_carrier
+        return line2 if partner in ("indiapost", "shipnext") else ""
+
+    @property
     def tracking_number(self) -> str | None:
         """Returns the waybill or barcode number depending on the resolved carrier."""
         partner = self.get_delivery_partner()
@@ -271,8 +291,11 @@ class Order(TimeStampedModel):
     def tracking_url(self) -> str:
         """Returns the appropriate live tracking portal URL for customer/storefront."""
         partner = self.get_delivery_partner()
-        #Ship Next books India Post, so its parcels are tracked on the India Post portal
-        if partner in ("indiapost", "shipnext"):
+        #Ship Next parcels are tracked on Ship Next's own page; there is nothing to show until booked
+        if partner == "shipnext":
+            number = self.tracking_number
+            return f"https://ship-next.com/trace-order/{quote(number, safe='')}" if number else ""
+        if partner == "indiapost":
             barcode = self.tracking_number
             if barcode:
                 return f"https://www.indiapost.gov.in/_layouts/15/dpt.cpt.application/tracking.aspx?trackingno={barcode}"
@@ -286,8 +309,10 @@ class Order(TimeStampedModel):
     def carrier_display_name(self) -> str:
         """Human-readable delivery partner label."""
         partner = self.get_delivery_partner()
-        if partner in ("indiapost", "shipnext"):
+        if partner == "indiapost":
             return "India Post"
+        if partner == "shipnext":
+            return "Ship Next"
         if partner == "delhivery":
             return "Delhivery Express"
         return "Standard Delivery"
