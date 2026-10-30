@@ -126,6 +126,7 @@ class Order(TimeStampedModel):
     DELIVERY_PARTNER_CHOICES = (
         ("delhivery", "Delhivery Express"),
         ("indiapost", "India Post"),
+        ("shipnext", "Ship Next"),
     )
     delivery_partner = models.CharField(
         max_length=20,
@@ -245,6 +246,8 @@ class Order(TimeStampedModel):
             return "indiapost"
         if hasattr(self, "delhivery_shipment"):
             return "delhivery"
+        if hasattr(self, "shipnext_shipment"):
+            return "shipnext"
         return None
 
     @property
@@ -253,6 +256,8 @@ class Order(TimeStampedModel):
         partner = self.get_delivery_partner()
         if partner == "indiapost" and hasattr(self, "indiapost_shipment"):
             return self.indiapost_shipment.barcode_number
+        if partner == "shipnext" and hasattr(self, "shipnext_shipment"):
+            return self.shipnext_shipment.tracking_number or None
         if partner == "delhivery" and hasattr(self, "delhivery_shipment"):
             return self.delhivery_shipment.waybill_number
         #fallback if unassigned partner but one of the shipment models exists
@@ -266,7 +271,8 @@ class Order(TimeStampedModel):
     def tracking_url(self) -> str:
         """Returns the appropriate live tracking portal URL for customer/storefront."""
         partner = self.get_delivery_partner()
-        if partner == "indiapost":
+        #Ship Next books India Post, so its parcels are tracked on the India Post portal
+        if partner in ("indiapost", "shipnext"):
             barcode = self.tracking_number
             if barcode:
                 return f"https://www.indiapost.gov.in/_layouts/15/dpt.cpt.application/tracking.aspx?trackingno={barcode}"
@@ -280,7 +286,7 @@ class Order(TimeStampedModel):
     def carrier_display_name(self) -> str:
         """Human-readable delivery partner label."""
         partner = self.get_delivery_partner()
-        if partner == "indiapost":
+        if partner in ("indiapost", "shipnext"):
             return "India Post"
         if partner == "delhivery":
             return "Delhivery Express"
@@ -294,7 +300,13 @@ class Order(TimeStampedModel):
             return self.indiapost_shipment
         if partner == "delhivery" and hasattr(self, "delhivery_shipment"):
             return self.delhivery_shipment
-        return getattr(self, "indiapost_shipment", None) or getattr(self, "delhivery_shipment", None)
+        if partner == "shipnext" and hasattr(self, "shipnext_shipment"):
+            return self.shipnext_shipment
+        return (
+            getattr(self, "indiapost_shipment", None)
+            or getattr(self, "delhivery_shipment", None)
+            or getattr(self, "shipnext_shipment", None)
+        )
 
 
 

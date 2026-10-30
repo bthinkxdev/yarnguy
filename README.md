@@ -205,7 +205,6 @@ celery -A yarn_guy beat --loglevel=info
 
 ```env
 DATABASE_URL=postgres://floward:floward@localhost:5432/yarn_guy
-DB_CONN_MAX_AGE=600
 DB_POOL_MIN_SIZE=2
 DB_POOL_MAX_SIZE=10
 DB_STATEMENT_TIMEOUT_OPTIONS=-c statement_timeout=30000

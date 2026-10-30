@@ -158,6 +158,13 @@ def _fits(limits: dict[str, tuple[int, int]], length: int, width: int, height: i
     return all(lo <= value <= hi for value, (lo, hi) in zip((length, width, height), (limits["length"], limits["width"], limits["height"])))
 
 
+def line_weight_grams(product: Any, quantity: int) -> int:
+    """Weight of ``quantity`` units of ``product`` in grams (``Product.weight`` is in kg); 0 when unset."""
+    if not product.weight:
+        return 0
+    return int(Decimal(str(product.weight)) * 1000) * (quantity or 1)
+
+
 def plan_parcel(lines: Iterable[tuple[Any, int]]) -> Parcel:
     """
     Weight, dimensions and India Post article type for ``(product, quantity)`` lines.
@@ -174,8 +181,7 @@ def plan_parcel(lines: Iterable[tuple[Any, int]]) -> Parcel:
     length, width, height = PARCEL_LIMITS["length"][0], PARCEL_LIMITS["width"][0], PARCEL_LIMITS["height"][0]
 
     for product, quantity in lines:
-        if product.weight:
-            total_weight_grams += int(Decimal(str(product.weight)) * 1000) * (quantity or 1)
+        total_weight_grams += line_weight_grams(product, quantity)
         length = max(length, math.ceil(float(product.length or 0)))
         width = max(width, math.ceil(float(product.width or 0)))
         height = max(height, math.ceil(float(product.height or 0)))

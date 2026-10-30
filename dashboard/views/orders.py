@@ -5,7 +5,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import F
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -19,6 +19,7 @@ from orders.services import (
     transition_order_status,
     update_order_delivery_address,
 )
+from shipnext.services import needs_initiation
 
 _STATUS_LABELS = dict(OrderStatus.choices)
 
@@ -38,7 +39,7 @@ def order_list(request: HttpRequest) -> HttpResponse:
     if view not in ("orders", "abandoned"):
         view = "orders"
 
-    qs = Order.objects.select_related("customer_profile__user", "currency")
+    qs = Order.objects.select_related("customer_profile__user", "currency", "shipnext_shipment")
 
     if view == "abandoned":
         #These never reach success_at (still CHECKOUT_PENDING), so sort by last
@@ -78,6 +79,8 @@ def order_list(request: HttpRequest) -> HttpResponse:
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page"))
+    for order in page_obj.object_list:
+        order.shipnext_needs_initiation = needs_initiation(order)
 
     params = request.GET.copy()
     params.pop("page", None)
@@ -291,6 +294,19 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
         site_settings = SiteSettings.objects.first()
         carrier = getattr(site_settings, "shipping_carrier", "delhivery") or "delhivery"
 
+    #ship next workflow: the tracking number is read off the Ship Next panel and entered by hand
+    if carrier == "shipnext":
+        from shipnext.models import ShipNextShipment
+
+        shipment, _created = ShipNextShipment.objects.get_or_create(order=order)
+        shipment.tracking_number = tracking_id
+        shipment.save(update_fields=["tracking_number", "updated_at"])
+        if order.delivery_partner != "shipnext":
+            order.delivery_partner = "shipnext"
+            order.save(update_fields=["delivery_partner", "updated_at"])
+        messages.success(request, f"Ship Next Tracking ID saved: {tracking_id}" if tracking_id else "Ship Next Tracking ID cleared.")
+        return redirect("dashboard:order-detail", pk=pk)
+
     #india post workflow
     if carrier == "indiapost":
         #mutual exclusivity guard: prevent if Delhivery has active waybill
@@ -362,4 +378,40 @@ def order_tracking_update(request: HttpRequest, pk: int) -> HttpResponse:
             order.delhivery_shipment.save(update_fields=["waybill_number", "updated_at"])
             messages.info(request, "Delhivery Tracking ID cleared.")
             
+    return redirect("dashboard:order-detail", pk=pk)
+
+
+@dashboard_required
+@require_POST
+def order_shipnext_send(request: HttpRequest, pk: int) -> HttpResponse:
+    """
+    Initiate (or re-initiate, after a failure) an order's delivery with Ship Next.
+
+    The order list calls this with fetch() and shows the JSON outcome in a pop-up; a plain
+    form post (the order page) gets a flash message and a redirect instead.
+    """
+    from shipnext.services import ShipNextError, send_order
+
+    order = get_object_or_404(Order, pk=pk)
+    shipment = None
+    if order.get_delivery_partner() not in (None, "shipnext"):
+        error = f"This order is locked to {order.carrier_display_name}; it cannot be sent to Ship Next."
+    else:
+        try:
+            shipment = send_order(order)
+            error = ""
+        except ShipNextError as exc:
+            error = str(exc)
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "ok": not error,
+            "status": shipment.send_status if shipment else "Failed",
+            "message": error or "Delivery initiated successfully with India Post.",
+            "order_id": shipment.external_order_id if shipment else "",
+        })
+    if error:
+        messages.error(request, f"Ship Next: {error}")
+    else:
+        messages.success(request, f"Order sent to Ship Next (order ID {shipment.external_order_id or 'n/a'}).")
     return redirect("dashboard:order-detail", pk=pk)

@@ -39,6 +39,12 @@ def create_shipment_for_order(*, order_id: int) -> bool:
         create_indiapost_shipment_for_order.delay(order_id=order.pk)
         return True
 
+    #Ship Next runs as its own task for the same retry-with-backoff reason
+    if carrier == "shipnext":
+        from shipnext.tasks import send_order_to_shipnext
+        send_order_to_shipnext.delay(order_id=order.pk)
+        return True
+
     #mutual exclusivity guard: If India Post barcode is already allocated, prevent Delhivery dispatch
     if hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None):
         logger.warning(

@@ -68,7 +68,7 @@
           <thead class="table-light">
             <tr>
               <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="select-all-orders"></th>
-              <th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Order Date</th><th class="text-center">Invoice</th><th class="text-end">Actions</th>
+              <th>Order #</th><th>Customer</th><th>Status</th><th>Payment</th><th>Total</th><th>Order Date</th><th>Delivery</th><th class="text-center">Invoice</th><th class="text-end">Actions</th>
             </tr>
           </thead>
         <tbody>
@@ -102,6 +102,21 @@
                 <span class="text-secondary" title="Placed Date (Not Confirmed)">{{ order.created_at|date:"M d, Y H:i" }}</span>
               {% endif %}
             </td>
+            <td>
+              {% if order.shipnext_shipment.is_sent %}
+              <span class="badge bg-success-subtle text-success"><i class="ti ti-check"></i> Initiated · India Post</span>
+              {% elif order.delivery_partner == 'shipnext' and order.shipnext_needs_initiation %}
+              <span class="badge {% if order.shipnext_shipment.send_status == 'Failed' %}bg-danger-subtle text-danger{% else %}bg-warning-subtle text-warning{% endif %}">
+                {% if order.shipnext_shipment.send_status == 'Failed' %}Delivery failed{% else %}Not initiated{% endif %}
+              </span>
+              <button type="button" class="btn btn-sm btn-outline-primary ms-1 js-reinitiate"
+                data-url="{% url 'dashboard:order-shipnext-send' order.pk %}" data-order="{{ order.order_number }}">
+                <i class="ti ti-refresh"></i> {% if order.shipnext_shipment %}Reinitiate{% else %}Initiate{% endif %}
+              </button>
+              {% else %}
+              <span class="text-secondary">—</span>
+              {% endif %}
+            </td>
             <td class="text-center">
               <a href="{% url 'dashboard:order-invoice' order.pk %}" class="btn btn-sm btn-outline-secondary" title="View Invoice" target="_blank"><i class="ti ti-file-invoice"></i> View</a>
             </td>
@@ -110,13 +125,31 @@
             </td>
           </tr>
           {% empty %}
-          <tr><td colspan="9" class="text-center text-secondary py-5">No orders found.</td></tr>
+          <tr><td colspan="10" class="text-center text-secondary py-5">No orders found.</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     </form>
     {% include "dashboard/partials/_pagination.html" %}
+  </div>
+</div>
+
+<div class="modal fade" id="delivery-result-modal" tabindex="-1" aria-labelledby="delivery-result-title" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="delivery-result-title">Delivery initiation</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2"><span id="delivery-result-badge" class="badge"></span></p>
+        <p class="mb-0" id="delivery-result-message" style="white-space: pre-wrap; word-break: break-word;"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
@@ -160,6 +193,46 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    //Initiate / Reinitiate delivery with Ship Next and show the exact outcome in a pop-up
+    const resultModalEl = document.getElementById('delivery-result-modal');
+    const resultModal = resultModalEl ? new bootstrap.Modal(resultModalEl) : null;
+    let reloadOnClose = false;
+    if (resultModalEl) {
+        resultModalEl.addEventListener('hidden.bs.modal', function() {
+            if (reloadOnClose) window.location.reload();
+        });
+    }
+
+    function showResult(orderNumber, ok, status, message) {
+        document.getElementById('delivery-result-title').textContent = 'Order ' + orderNumber;
+        const badge = document.getElementById('delivery-result-badge');
+        badge.textContent = ok ? 'Initiated successfully' : (status || 'Failed');
+        badge.className = 'badge ' + (ok ? 'bg-success' : 'bg-danger');
+        document.getElementById('delivery-result-message').textContent = message;
+        reloadOnClose = ok;
+        resultModal.show();
+    }
+
+    document.querySelectorAll('.js-reinitiate').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const orderNumber = btn.dataset.order;
+            const token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            btn.disabled = true;
+            fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: {'X-CSRFToken': token, 'X-Requested-With': 'XMLHttpRequest'},
+                credentials: 'same-origin',
+            })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('The server answered HTTP ' + response.status + '.');
+                    return response.json();
+                })
+                .then(function(data) { showResult(orderNumber, data.ok, data.status, data.message); })
+                .catch(function(error) { showResult(orderNumber, false, 'Failed', 'Could not reach the server: ' + error.message); })
+                .finally(function() { btn.disabled = false; });
+        });
+    });
 
     if (clearBtn) {
         clearBtn.addEventListener('click', function() {

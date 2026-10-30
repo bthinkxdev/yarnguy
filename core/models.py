@@ -264,6 +264,7 @@ class SiteSettings(TimeStampedModel):
     SHIPPING_CARRIER_CHOICES = (
         ("delhivery", "Delhivery Express"),
         ("indiapost", "India Post (Speed Post / Parcel)"),
+        ("shipnext", "Ship Next (India Post via Ship Next)"),
     )
     shipping_carrier = models.CharField(
         max_length=20,

@@ -102,7 +102,7 @@ class _Collector(unittest.TextTestResult):
             TestRecord(
                 test_id=test.id(),
                 area=AREA_BY_CLASS.get(cls, cls),
-                name=description or test._testMethodName.replace("test_", "").replace("_", " "),
+                name=description or test._testMethodName.removeprefix("test_").replace("_", " "),
                 status=status,
                 seconds=time.monotonic() - self._started,
                 detail=detail,
@@ -137,11 +137,15 @@ def run_automated_tests(labels: Optional[list[str]] = None) -> list[TestRecord]:
 
     Result.records = records
     logging.disable(logging.CRITICAL)  # the code under test logs errors on purpose; keep the report readable
+    #test mode is essential, not cosmetic: it swaps the real email backend for an in-memory one, so the
+    #notification emails the tests trigger are captured instead of being sent from the live mail account
+    runner.setup_test_environment()
     old_config = runner.setup_databases()
     try:
         unittest.TextTestRunner(stream=io.StringIO(), resultclass=Result, verbosity=0).run(suite)
     finally:
         runner.teardown_databases(old_config)
+        runner.teardown_test_environment()
         logging.disable(logging.NOTSET)
     return records
 

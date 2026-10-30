@@ -141,7 +141,8 @@ def transition_order_status(
         #guard: if the order already has an active waybill or barcode, never overwrite its locked carrier
         has_waybill = hasattr(order, "delhivery_shipment") and getattr(order.delhivery_shipment, "waybill_number", None)
         has_barcode = hasattr(order, "indiapost_shipment") and getattr(order.indiapost_shipment, "barcode_number", None)
-        if not (has_waybill or has_barcode):
+        has_shipnext = hasattr(order, "shipnext_shipment") and order.shipnext_shipment.is_sent
+        if not (has_waybill or has_barcode or has_shipnext):
             from core.models import SiteSettings
             site_settings = SiteSettings.objects.first()
             carrier = getattr(site_settings, "shipping_carrier", "delhivery") or "delhivery"

@@ -458,10 +458,19 @@
         }
       });
 
-      checkoutForm.addEventListener('htmx:afterSwap', function(event) {
-        if (event.detail.elt === checkoutForm) {
+      //htmx:afterSwap fires on the swap target (#checkout-result), never on the form, so it cannot
+      //be used here. afterRequest fires on the form for every response; stay up only while the
+      //browser is being sent to the confirmation page (HX-Redirect), otherwise any error message
+      //(invalid address, out of stock, ...) stays hidden behind the overlay forever.
+      checkoutForm.addEventListener('htmx:afterRequest', function(event) {
+        if (event.detail.elt !== checkoutForm) return;
+        var redirecting = event.detail.xhr && event.detail.xhr.getResponseHeader('HX-Redirect');
+        if (!redirecting) {
           document.getElementById('order-processing-overlay').classList.add('d-none');
         }
+      });
+      checkoutForm.addEventListener('htmx:timeout', function(event) {
+        document.getElementById('order-processing-overlay').classList.add('d-none');
       });
       checkoutForm.addEventListener('htmx:responseError', function(event) {
         document.getElementById('order-processing-overlay').classList.add('d-none');

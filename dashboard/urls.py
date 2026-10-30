@@ -41,6 +41,7 @@ urlpatterns = [
     path("orders/<int:pk>/transition/", orders.order_transition, name="order-transition"),
     path("orders/<int:pk>/payment-transition/", orders.order_payment_transition, name="order-payment-transition"),
     path("orders/<int:pk>/tracking-update/", orders.order_tracking_update, name="order-tracking-update"),
+    path("orders/<int:pk>/shipnext-send/", orders.order_shipnext_send, name="order-shipnext-send"),
     path("orders/<int:pk>/address/", orders.order_address_update, name="order-address-update"),
     path("returns/", returns.return_list, name="return-list"),
     path("returns/<int:pk>/", returns.return_detail, name="return-detail"),

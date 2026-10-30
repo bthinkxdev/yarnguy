@@ -198,6 +198,49 @@
     </div>
     {% endif %}
     {% endif %}
+
+    {% if order.shipnext_shipment %}
+    <div class="card mb-3">
+      <div class="card-header bg-transparent px-4 py-3 d-flex justify-content-between align-items-center">
+        <h3 class="h5 mb-0">Ship Next Logistics</h3>
+        {% if order.shipnext_shipment.is_sent %}
+        <span class="badge bg-success-subtle text-success">{{ order.shipnext_shipment.send_status }}</span>
+        {% elif order.shipnext_shipment.send_status == 'Failed' %}
+        <span class="badge bg-danger-subtle text-danger">{{ order.shipnext_shipment.send_status }}</span>
+        {% else %}
+        <span class="badge bg-warning-subtle text-warning">{{ order.shipnext_shipment.send_status }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <span class="text-secondary small d-block mb-1">Ship Next Order ID</span>
+            <strong>{{ order.shipnext_shipment.external_order_id|default:"Not sent yet" }}</strong>
+            <small class="text-muted d-block mt-1">Attempts: {{ order.shipnext_shipment.attempts }}</small>
+          </div>
+          <div class="col-md-6 border-start">
+            <span class="text-secondary small d-block mb-1">Tracking Number</span>
+            <span class="fw-medium">{{ order.shipnext_shipment.tracking_number|default:"Add it from the Ship Next panel once booked" }}</span>
+          </div>
+          {% if order.shipnext_shipment.error_message %}
+          <div class="col-12">
+            <div class="alert alert-danger bg-danger-subtle text-danger border-danger-subtle small mb-0 mt-2" role="alert">
+              <strong><i class="ti ti-alert-circle me-1"></i>Last Logs/Error:</strong> {{ order.shipnext_shipment.error_message }}
+            </div>
+          </div>
+          {% endif %}
+          {% if not order.shipnext_shipment.is_sent %}
+          <div class="col-12">
+            <form method="post" action="{% url 'dashboard:order-shipnext-send' order.pk %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-primary"><i class="ti ti-send me-1"></i>Send to Ship Next</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <div class="col-12 col-lg-4">
@@ -210,7 +253,7 @@
         <form method="post" action="{% url 'dashboard:order-tracking-update' order.pk %}">
           {% csrf_token %}
           <div class="mb-3">
-            <label class="form-label">{% if order.get_delivery_partner == 'indiapost' %}India Post Barcode Number{% else %}Delhivery Waybill Number{% endif %}</label>
+            <label class="form-label">{% if order.get_delivery_partner == 'indiapost' %}India Post Barcode Number{% elif order.get_delivery_partner == 'shipnext' %}Ship Next Tracking Number{% else %}Delhivery Waybill Number{% endif %}</label>
             <input type="text" name="waybill_number" class="form-control" value="{{ order.tracking_number|default:'' }}" placeholder="Enter Tracking ID">
           </div>
           <button type="submit" class="btn btn-primary w-100">Save Tracking ID</button>

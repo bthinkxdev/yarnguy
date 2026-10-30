@@ -39,6 +39,7 @@ LOCAL_APPS = [
     "dashboard",
     "delhivery",
     "indiapost",
+    "shipnext",
     "returns",
 ]
 
@@ -295,4 +296,7 @@ INDIA_POST_SENDER_ADDRESS_LINE1 = env("INDIA_POST_SENDER_ADDRESS_LINE1", default
 INDIA_POST_SENDER_CITY = env("INDIA_POST_SENDER_CITY", default="Aluva")
 INDIA_POST_SENDER_STATE = env("INDIA_POST_SENDER_STATE", default="KERALA")
 INDIA_POST_WEBHOOK_TOKEN = env("INDIA_POST_WEBHOOK_TOKEN", default="")
+
+#ship next: the full order-updates URL, merchant id included. No default on purpose, like India Post.
+SHIPNEXT_WEBHOOK_URL = env("SHIPNEXT_WEBHOOK_URL", default="").strip()
 
