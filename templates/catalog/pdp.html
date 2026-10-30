@@ -301,7 +301,7 @@
     <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4" role="list">
       {% for related_product in related_products %}
       <div class="col" role="listitem">
-        {% include "catalog/partials/product_card.html" with product=related_product %}
+        {% include "catalog/partials/product_card.html" with product=related_product show_free_delivery=True %}
       </div>
       {% endfor %}
     </div>
