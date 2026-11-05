@@ -134,6 +134,12 @@
     body.dataset.drawerHydrated = 'true';
   }
 
+  var cartDrawerScroll = 0;
+  document.body.addEventListener('htmx:beforeSwap', function (e) {
+    var s = e.detail.target && e.detail.target.id === 'cart-drawer-body' && e.detail.target.querySelector('.cart-drawer-scroll');
+    if (s) cartDrawerScroll = s.scrollTop;
+  });
+
   var cartOffcanvas = document.getElementById('cartOffcanvas');
   if (cartOffcanvas) {
     cartOffcanvas.addEventListener('shown.bs.offcanvas', function () {
@@ -144,6 +150,8 @@
   document.body.addEventListener('htmx:afterSwap', function (event) {
     if (event.detail.target && event.detail.target.id === 'cart-drawer-body') {
       event.detail.target.dataset.drawerHydrated = 'true';
+      var s = event.detail.target.querySelector('.cart-drawer-scroll');
+      if (s) s.scrollTop = cartDrawerScroll;
     }
     if (event.detail.target && event.detail.target.id === 'search-suggestions') {
       initSearchSuggestionsKeyboard();

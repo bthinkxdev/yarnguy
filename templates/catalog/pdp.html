@@ -73,7 +73,7 @@
             data-currency-symbol="{{ display_currency.symbol }}">
             {% for v in product.variant_list %}
             <input type="radio" class="btn-check variant-radio" name="variant_option" id="variant_{{ v.pk }}"
-              value="{{ v.pk }}" autocomplete="off" {% if v.pk == selected_variant_id or not selected_variant_id and forloop.first %}checked{% endif %}>
+              value="{{ v.pk }}" autocomplete="off">
             <label class="btn btn-outline-dark rounded-pill px-4 position-relative overflow-hidden"
               for="variant_{{ v.pk }}" {% if v.stock_quantity <= 0 %}style="color: #adb5bd; border-color: #dee2e6;" {% endif %}>
               {{ v.name }}
