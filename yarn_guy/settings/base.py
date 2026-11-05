@@ -297,6 +297,10 @@ INDIA_POST_SENDER_CITY = env("INDIA_POST_SENDER_CITY", default="Aluva")
 INDIA_POST_SENDER_STATE = env("INDIA_POST_SENDER_STATE", default="KERALA")
 INDIA_POST_WEBHOOK_TOKEN = env("INDIA_POST_WEBHOOK_TOKEN", default="")
 
+#customer returns / replacements. Off unless RETURNS_ENABLED=true: the store does not offer them, and this is
+#stricter than the "Return window (days)" site setting (which only works while this is on).
+RETURNS_ENABLED = env.bool("RETURNS_ENABLED", default=False)
+
 #ship next: the full order-updates URL, merchant id included. No default on purpose, like India Post.
 SHIPNEXT_WEBHOOK_URL = env("SHIPNEXT_WEBHOOK_URL", default="").strip()
 

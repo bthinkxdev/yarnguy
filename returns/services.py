@@ -21,6 +21,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from typing import Iterable, Optional
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
@@ -97,12 +98,12 @@ def get_eligibility(order: Order) -> Eligibility:
     What the customer may return from ``order`` right now.
 
     Returns open once the order is delivered and stay open for ``return_window_days``
-    (Site Settings; 0 switches returns off). The last day is inclusive, counted in the
+    (Site Settings; 0 switches returns off, as does RETURNS_ENABLED=false, the default). The last day is inclusive, counted in the
     store's local time. Each product line can be returned up to the quantity bought, across
     all of its non-rejected, non-cancelled requests.
     """
     window = get_site_settings().return_window_days
-    if window <= 0:
+    if not settings.RETURNS_ENABLED or window <= 0:
         return Eligibility(False, "Returns are not accepted at the moment.", None, [])
     if order.order_status != OrderStatus.DELIVERED:
         return Eligibility(False, "Returns open once your order has been delivered.", None, [])
