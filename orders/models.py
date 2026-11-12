@@ -32,6 +32,7 @@ class OrderStatus(models.TextChoices):
     DELIVERED = "delivered", "Delivered"
     CANCELLED = "cancelled", "Cancelled"
     REFUNDED = "refunded", "Refunded"
+    PAID_UNFULFILLED = "paid_unfulfilled", "Paid (Out of Stock / Unfulfilled)"
 
 
 class Order(TimeStampedModel):

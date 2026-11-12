@@ -184,6 +184,7 @@ def delhivery_webhook(request):
             new_status=target_status,
             note=f"Delhivery update: {event['status'].title()}",
             force=True,  #Delhivery is the fulfillment source of truth
+            restock=False if target_status == OrderStatus.CANCELLED else True,
         )
         logger.info(f"Order {order.order_number} marked as {target_status} via webhook.")
     except Exception as e:

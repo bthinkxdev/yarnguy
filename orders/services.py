@@ -36,7 +36,8 @@ ADDRESS_EDITABLE_STATUSES: frozenset[str] = frozenset({
 #through the webhook, never listed here, so an admin can never select them from the
 #dashboard's transition dropdown (which is built from this same map).
 ALLOWED_STATUS_TRANSITIONS: dict[str, set[str]] = {
-    OrderStatus.CHECKOUT_PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.CHECKOUT_PENDING: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.PAID_UNFULFILLED},
+    OrderStatus.PAID_UNFULFILLED: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED, OrderStatus.REFUNDED},
     OrderStatus.PLACED_COD: {OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
     OrderStatus.CONFIRMED: {OrderStatus.READY_TO_SHIP, OrderStatus.CANCELLED},
     OrderStatus.READY_TO_SHIP: {OrderStatus.CANCELLED},
@@ -102,6 +103,7 @@ def transition_order_status(
     note: str = "",
     send_notifications: bool = True,
     force: bool = False,
+    restock: bool = True,
 ) -> Order:
     """
     Validate and apply an order status transition.
@@ -130,7 +132,7 @@ def transition_order_status(
     #one-directional per ALLOWED_STATUS_TRANSITIONS, but staying idempotent costs
     #nothing and protects against a future transition map change re-entering them.
     became_sale = False
-    if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD):
+    if new_status in (OrderStatus.CONFIRMED, OrderStatus.PLACED_COD, OrderStatus.PAID_UNFULFILLED):
         if order.success_at is None:
             order.success_at = timezone.now()
             update_fields.append("success_at")
@@ -180,7 +182,7 @@ def transition_order_status(
         #COD orders already alerted the admin at creation (PLACED_COD) — only notify
         #here the first time an order becomes real, i.e. an online payment succeeding
         #(or an admin manually confirming a still-unpaid CHECKOUT_PENDING order).
-        if old_status == OrderStatus.CHECKOUT_PENDING:
+        if old_status in (OrderStatus.CHECKOUT_PENDING, OrderStatus.PAID_UNFULFILLED):
             from catalog.services import adjust_stock
             for item in order.items.all():
                 target = item.variant if item.variant else item.product
@@ -203,17 +205,18 @@ def transition_order_status(
             tx.save(update_fields=["status", "updated_at"])
 
     #stock is decremented exactly once, either at PLACED_COD (checkout.services)
-    #or here at CONFIRMED (above, when old_status was CHECKOUT_PENDING) — so it
+    #or here at CONFIRMED (above, when old_status was CHECKOUT_PENDING or PAID_UNFULFILLED) — so it
     #must be given back exactly once too. CANCELLED is reachable from any
-    #non-pending status (nothing to give back from CHECKOUT_PENDING, since it was
+    #non-pending status (nothing to give back from CHECKOUT_PENDING or PAID_UNFULFILLED, since it was
     #never taken). REFUNDED is only restocked when reached straight from
     #DELIVERED — a REFUNDED reached via CANCELLED was already restocked there,
     #and ALLOWED_STATUS_TRANSITIONS makes both CANCELLED and REFUNDED
     #terminal/near-terminal, so neither branch can fire twice for the same order.
-    if new_status == OrderStatus.CANCELLED and old_status != OrderStatus.CHECKOUT_PENDING:
-        _restock_order_items(order, reason=f"order_cancelled:{order.order_number}")
-    elif new_status == OrderStatus.REFUNDED and old_status == OrderStatus.DELIVERED:
-        _restock_order_items(order, reason=f"order_refunded:{order.order_number}")
+    if restock:
+        if new_status == OrderStatus.CANCELLED and old_status not in (OrderStatus.CHECKOUT_PENDING, OrderStatus.PAID_UNFULFILLED):
+            _restock_order_items(order, reason=f"order_cancelled:{order.order_number}")
+        elif new_status == OrderStatus.REFUNDED and old_status == OrderStatus.DELIVERED:
+            _restock_order_items(order, reason=f"order_refunded:{order.order_number}")
 
     return order
 

@@ -707,3 +707,44 @@ class HomePageProduct(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.product.name} (Shown: {self.is_shown})"
+
+
+class ReservationStatus(models.TextChoices):
+    RESERVED = "reserved", "Reserved"
+    COMMITTED = "committed", "Committed"
+    RELEASED = "released", "Released"
+
+
+class StockReservation(TimeStampedModel):
+    """Temporary 15-minute hold on inventory during checkout."""
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.CASCADE,
+        related_name="stock_reservations",
+    )
+    product = models.ForeignKey(
+        "catalog.Product",
+        on_delete=models.CASCADE,
+        related_name="reservations",
+    )
+    variant = models.ForeignKey(
+        "catalog.ProductVariant",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="reservations",
+    )
+    quantity = models.PositiveIntegerField(default=1)
+    status = models.CharField(
+        max_length=20,
+        choices=ReservationStatus.choices,
+        default=ReservationStatus.RESERVED,
+        db_index=True,
+    )
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status", "expires_at"], name="res_status_exp_idx"),
+        ]
+

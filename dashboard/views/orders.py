@@ -55,8 +55,9 @@ def order_list(request: HttpRequest) -> HttpResponse:
         #unrelated later change (a courier scan, an address edit). See
         #orders.models.Order.Meta.ordering for the same reasoning applied as the
         #model-level default.
+        from django.db.models.functions import Coalesce
         qs = qs.exclude(order_status=OrderStatus.CHECKOUT_PENDING).order_by(
-            F("success_at").desc(nulls_last=True), "-created_at"
+            Coalesce("success_at", "created_at").desc(), "-created_at"
         )
 
     status = request.GET.get("status", "").strip()

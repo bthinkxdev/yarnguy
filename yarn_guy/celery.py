@@ -11,3 +11,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "yarn_guy.settings.dev")
 app = Celery("yarn_guy")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
+
+app.conf.beat_schedule = {
+    "release-expired-reservations-every-minute": {
+        "task": "release_expired_stock_reservations",
+        "schedule": 60.0,
+    },
+}

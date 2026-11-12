@@ -11,6 +11,7 @@ from django.utils import timezone
 from accounts.models import Address, CustomerProfile
 from cart.models import Cart, CartItem
 from cart.selectors import get_cart_summary
+from catalog.exceptions import InsufficientStockError
 from catalog.services import adjust_stock
 from checkout.exceptions import CheckoutSessionError
 from checkout.models import CheckoutSession, CheckoutSessionStatus
@@ -113,8 +114,13 @@ def _sync_checkout_pending_order(
     )
 
     if gateway_key == "cod":
+        from catalog.services import get_available_stock, adjust_stock, release_inventory_reservations
+        release_inventory_reservations(order=order)
         for item in order.items.all():
             target = item.variant if item.variant else item.product
+            if get_available_stock(target=target) < item.quantity:
+                item_name = f"{target.product.name} ({target.name})" if hasattr(target, "product") and hasattr(target, "name") else getattr(target, "name", str(target))
+                raise InsufficientStockError(f"Item '{item_name}' is currently reserved or out of stock.")
             adjust_stock(target=target, delta=-item.quantity, reason=f"order:{idempotency_key}")
             
         transition_order_status(
@@ -130,6 +136,11 @@ def _sync_checkout_pending_order(
         if order.order_status != OrderStatus.CHECKOUT_PENDING:
             order.order_status = OrderStatus.CHECKOUT_PENDING
             order.save(update_fields=["order_status", "updated_at"])
+
+        from catalog.services import reserve_inventory_for_order
+        reserved = reserve_inventory_for_order(order=order, minutes=15)
+        if not reserved:
+            raise InsufficientStockError("One or more items in your cart just went out of stock.")
 
     session.idempotency_key = idempotency_key
     session.save(update_fields=["idempotency_key", "updated_at"])
@@ -302,12 +313,21 @@ def place_order(
     )
 
     if initial_status == OrderStatus.PLACED_COD:
+        from catalog.services import get_available_stock, adjust_stock
         for line in summary.lines:
             target = line.variant if line.variant else line.product
+            if get_available_stock(target=target) < line.quantity:
+                item_name = f"{target.product.name} ({target.name})" if hasattr(target, "product") and hasattr(target, "name") else getattr(target, "name", str(target))
+                raise InsufficientStockError(f"Item '{item_name}' is currently reserved or out of stock.")
             adjust_stock(target=target, delta=-line.quantity, reason=f"order:{idempotency_key}")
 
         from notifications.tasks import dispatch_new_order_admin_notification
         transaction.on_commit(lambda: dispatch_new_order_admin_notification.delay(order_id=order.pk))
         meta_pixel.dispatch_purchase_event(order)
+    else:
+        from catalog.services import reserve_inventory_for_order
+        reserved = reserve_inventory_for_order(order=order, minutes=15)
+        if not reserved:
+            raise InsufficientStockError("One or more items in your cart just went out of stock.")
 
     return order

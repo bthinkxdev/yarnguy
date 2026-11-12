@@ -75,14 +75,39 @@ def confirm_payment_success(
         # auto confirm order once online payment succeeds (COD is confirmed manually by an admin)
         from orders.models import OrderStatus
         from orders.services import transition_order_status
-        if payment_transaction.gateway_key != "cod" and order.order_status == OrderStatus.CHECKOUT_PENDING:
-            transition_order_status(order=order, new_status=OrderStatus.CONFIRMED, note="Payment successful", force=True)
+        if payment_transaction.gateway_key != "cod" and order.order_status in (
+            OrderStatus.CHECKOUT_PENDING,
+            OrderStatus.PAID_UNFULFILLED,
+        ):
+            from catalog.exceptions import InsufficientStockError
+            from catalog.services import commit_inventory_reservations
+            from orders.services import transition_order_status
 
-        #send order placement confirmation email
-        from notifications.tasks import dispatch_order_confirmation_notification
-        transaction.on_commit(
-            lambda: dispatch_order_confirmation_notification.delay(order_id=order.pk)
-        )
+            try:
+                commit_inventory_reservations(order=order)
+                transition_order_status(
+                    order=order,
+                    new_status=OrderStatus.CONFIRMED,
+                    note="Payment successful",
+                    force=True,
+                )
+                from notifications.tasks import dispatch_order_confirmation_notification
+                transaction.on_commit(
+                    lambda: dispatch_order_confirmation_notification.delay(order_id=order.pk)
+                )
+            except (InsufficientStockError, Exception) as exc:
+                logger.error(
+                    "Late payment received for out-of-stock order #%s: %s",
+                    order.order_number,
+                    str(exc),
+                )
+                order.refresh_from_db()
+                transition_order_status(
+                    order=order,
+                    new_status=OrderStatus.PAID_UNFULFILLED,
+                    note=f"Payment captured ({external_transaction_id}) but stock unavailable. Requires manual restock or refund.",
+                    force=True,
+                )
 
     return payment_transaction
 
@@ -102,6 +127,11 @@ def confirm_payment_failed(*, payment_transaction: PaymentTransaction) -> Paymen
 
     payment_transaction.status = PaymentStatus.FAILED
     payment_transaction.save(update_fields=["status", "updated_at"])
+
+    from catalog.services import release_inventory_reservations
+    if payment_transaction.order:
+        release_inventory_reservations(order=payment_transaction.order)
+
     return payment_transaction
 
 

@@ -49,6 +49,7 @@ _STATUS_PILL = {
     "delivered": "pill-green",
     "cancelled": "pill-red",
     "refunded": "pill-red",
+    "paid_unfulfilled": "pill-red",
     "success": "pill-green",
     "pending": "pill-amber",
     "failed": "pill-red",
@@ -74,6 +75,7 @@ _ORDER_STATUS_BADGE = {
     "delivered": "bg-success-subtle text-success",
     "cancelled": "bg-danger-subtle text-danger",
     "refunded": "bg-secondary-subtle text-secondary",
+    "paid_unfulfilled": "bg-danger-subtle text-danger",
 }
 
 

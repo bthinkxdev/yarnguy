@@ -10,6 +10,19 @@
   </ul>
 </div>
 
+<div id="checkout-result-summary" hx-swap-oob="true">
+  <div class="alert alert-danger small mb-0" role="alert">
+    <strong>{% trans "Unable to place order:" %}</strong>
+    <ul class="mb-0 mt-2">
+      {% for field, messages in errors.items %}
+        {% for msg in messages %}
+        <li>{{ msg }}</li>
+        {% endfor %}
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
 <div id="error-guest_name" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.guest_name %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
 <div id="error-guest_email" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.guest_email %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
 <div id="error-guest_phone" hx-swap-oob="true" class="text-danger small mt-1">{% for msg in errors.guest_phone %}{{ msg }}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
@@ -28,6 +41,10 @@
     var overlay = document.getElementById('order-processing-overlay');
     if (overlay) {
       overlay.classList.add('d-none');
+    }
+    var res = document.getElementById('checkout-result-summary') || document.getElementById('checkout-result');
+    if (res) {
+      res.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   })();
 </script>

@@ -453,7 +453,6 @@ def checkout_place_order_view(request: HttpRequest) -> HttpResponse:
             {"errors": {"__all__": [str(exc)]}},
             status=200,
         )
-        response["HX-Trigger"] = "stockChanged"
         return response
 
     if meta_pixel.is_enabled():

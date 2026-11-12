@@ -16,6 +16,7 @@ from catalog.models import (
     ReviewPhoto,
     ProductSpecification,
     ProductDocument,
+    StockReservation,
 )
 
 
@@ -165,3 +166,23 @@ class ReviewPhotoAdmin(admin.ModelAdmin):
 
     list_display = ("review", "updated_at")
     list_select_related = ("review", "review__product")
+
+
+@admin.register(StockReservation)
+class StockReservationAdmin(admin.ModelAdmin):
+    """Admin for temporary checkout stock reservations."""
+
+    list_display = ("order", "product", "variant", "quantity", "status", "expires_at", "updated_at")
+    list_filter = ("status",)
+    search_fields = ("order__order_number", "product__name", "variant__name")
+    list_select_related = ("order", "product", "variant")
+
+    def get_queryset(self, request):
+        from django.utils import timezone
+        from catalog.models import ReservationStatus
+        now = timezone.now()
+        StockReservation.objects.filter(
+            status=ReservationStatus.RESERVED,
+            expires_at__lte=now,
+        ).update(status=ReservationStatus.RELEASED, updated_at=now)
+        return super().get_queryset(request)
